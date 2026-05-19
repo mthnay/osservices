@@ -110,7 +110,7 @@ const RepairDiagnosisModal = ({ repair, onClose, onSave }) => {
                 kbbSerial: '', 
                 kgbSerial: '', 
                 needsOrder: item.quantity <= 0, // Eğer stok yoksa sipariş gerekir
-                availableSerials: item.kbbSerials || [] 
+                availableSerials: item.kgbSerials || [] 
             }]
         });
         
@@ -175,9 +175,9 @@ const RepairDiagnosisModal = ({ repair, onClose, onSave }) => {
                 
                 // Seriyi de inventory'den düşelim
                 if (success && part.kgbSerial) {
-                    const updatedKbbSerials = (inventoryItem.kbbSerials || []).filter(s => s !== part.kgbSerial);
+                    const updatedKgbSerials = (inventoryItem.kgbSerials || []).filter(s => s !== part.kgbSerial);
                     if (updateInventoryItem) {
-                        updateInventoryItem(inventoryItem.id, { kbbSerials: updatedKbbSerials });
+                        updateInventoryItem(inventoryItem._id || inventoryItem.id, { kgbSerials: updatedKgbSerials });
                     }
                 }
                 
@@ -215,13 +215,13 @@ const RepairDiagnosisModal = ({ repair, onClose, onSave }) => {
             formData.parts.forEach(part => {
                 const invItem = inventory.find(i => i.id === part.inventoryId);
                 if (invItem) {
-                    const updatedSerials = [...(invItem.kbbSerials || [])];
+                    const updatedSerials = [...(invItem.kgbSerials || [])];
                     if (part.kgbSerial && !updatedSerials.includes(part.kgbSerial)) {
                         updatedSerials.push(part.kgbSerial);
                     }
-                    updateInventoryItem(invItem.id, {
+                    updateInventoryItem(invItem._id || invItem.id, {
                         quantity: (invItem.quantity || 0) + 1,
-                        kbbSerials: updatedSerials
+                        kgbSerials: updatedSerials
                     });
                 }
             });

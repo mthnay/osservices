@@ -704,10 +704,17 @@ export const AppProvider = ({ children }) => {
 
     const addInventoryItem = async (item) => {
         try {
+            const itemToSave = { ...item };
+            if (itemToSave.kgbSerial && (!itemToSave.kgbSerials || itemToSave.kgbSerials.length === 0)) {
+                itemToSave.kgbSerials = [itemToSave.kgbSerial];
+            }
+            if (itemToSave.kbbSerial && (!itemToSave.kbbSerials || itemToSave.kbbSerials.length === 0)) {
+                itemToSave.kbbSerials = [itemToSave.kbbSerial];
+            }
             const res = await apiFetch(`${API_URL}/inventory`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ...item, storeId: item.storeId || currentUser?.storeId || 0 })
+                body: JSON.stringify({ ...itemToSave, storeId: itemToSave.storeId || currentUser?.storeId || 0 })
             });
             if (res.ok) {
                 const saved = await res.json();
@@ -719,10 +726,17 @@ export const AppProvider = ({ children }) => {
 
     const updateInventoryItem = async (id, updates) => {
         try {
+            const updatesToSave = { ...updates };
+            if (updatesToSave.kgbSerial && (!updatesToSave.kgbSerials || updatesToSave.kgbSerials.length === 0)) {
+                updatesToSave.kgbSerials = [updatesToSave.kgbSerial];
+            }
+            if (updatesToSave.kbbSerial && (!updatesToSave.kbbSerials || updatesToSave.kbbSerials.length === 0)) {
+                updatesToSave.kbbSerials = [updatesToSave.kbbSerial];
+            }
             const res = await apiFetch(`${API_URL}/inventory/${id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updates)
+                body: JSON.stringify(updatesToSave)
             });
             if (res.ok) {
                 const updated = await res.json();

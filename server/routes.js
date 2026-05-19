@@ -597,7 +597,14 @@ router.get('/inventory', async (req, res) => {
 });
 
 router.post('/inventory', requireRole(['superadmin', 'storemanager']), async (req, res) => {
-    const item = new Inventory(req.body);
+    const data = { ...req.body };
+    if (data.kgbSerial && (!data.kgbSerials || data.kgbSerials.length === 0)) {
+        data.kgbSerials = [data.kgbSerial];
+    }
+    if (data.kbbSerial && (!data.kbbSerials || data.kbbSerials.length === 0)) {
+        data.kbbSerials = [data.kbbSerial];
+    }
+    const item = new Inventory(data);
     try {
         const newItem = await item.save();
         res.status(201).json(newItem);
@@ -612,7 +619,15 @@ router.put('/inventory/:id', requireRole(['superadmin', 'storemanager']), async 
         const filter = { $or: [{ id: id }] };
         if (mongoose.Types.ObjectId.isValid(id)) filter.$or.push({ _id: id });
         
-        const updatedItem = await Inventory.findOneAndUpdate(filter, req.body, { new: true });
+        const data = { ...req.body };
+        if (data.kgbSerial && (!data.kgbSerials || data.kgbSerials.length === 0)) {
+            data.kgbSerials = [data.kgbSerial];
+        }
+        if (data.kbbSerial && (!data.kbbSerials || data.kbbSerials.length === 0)) {
+            data.kbbSerials = [data.kbbSerial];
+        }
+        
+        const updatedItem = await Inventory.findOneAndUpdate(filter, data, { new: true });
         res.json(updatedItem);
     } catch (err) {
         res.status(400).json({ message: err.message });

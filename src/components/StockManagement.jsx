@@ -758,64 +758,96 @@ const StockManagement = () => {
                             </div>
 
                             {/* KGB Serials */}
-                            {selectedPartDetails.kgbSerials && selectedPartDetails.kgbSerials.length > 0 && (
-                                <div>
+                            {selectedPartDetails.warehouseType !== 'KBB' && (
+                                <div className="space-y-3">
                                     <p className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
                                         <Layers size={14} className="text-blue-500" />
                                         KGB Seri Numaraları
-                                        <span className="ml-auto bg-blue-100 text-blue-600 text-[10px] font-black px-2 py-0.5 rounded-full">
-                                            {selectedPartDetails.kgbSerials.length} adet
+                                        <span className="bg-blue-100 text-blue-600 text-[10px] font-black px-2 py-0.5 rounded-full">
+                                            {(selectedPartDetails.kgbSerials || []).length} adet
                                         </span>
+                                        {isManager && (
+                                            <button
+                                                onClick={async () => {
+                                                    const newSerial = await appPrompt('Yeni KGB Seri Numarası girin:');
+                                                    if (newSerial && newSerial.trim()) {
+                                                        const serial = newSerial.trim().toUpperCase();
+                                                        const currentSerials = selectedPartDetails.kgbSerials || [];
+                                                        if (currentSerials.includes(serial)) {
+                                                            showToast('Bu seri numarası zaten ekli!', 'warning');
+                                                            return;
+                                                        }
+                                                        const newSerials = [...currentSerials, serial];
+                                                        const newQty = newSerials.length;
+                                                        const success = await updateInventoryItem(selectedPartDetails._id || selectedPartDetails.id, { kgbSerials: newSerials, quantity: newQty });
+                                                        if (success) {
+                                                            setSelectedPartDetails(prev => ({ ...prev, kgbSerials: newSerials, quantity: newQty }));
+                                                            showToast('Yeni seri numarası eklendi', 'success');
+                                                        }
+                                                    }
+                                                }}
+                                                className="ml-auto p-1 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded transition-colors"
+                                                title="Seri Numarası Ekle"
+                                            >
+                                                <Plus size={14} />
+                                            </button>
+                                        )}
                                     </p>
-                                    <div className="max-h-48 overflow-y-auto custom-scrollbar space-y-1.5 pr-1">
-                                        {selectedPartDetails.kgbSerials.map((serial, idx) => (
-                                            <div key={idx} className="flex items-center gap-3 bg-blue-50/50 border border-blue-100 rounded-lg px-3 py-2 group/serial">
-                                                <span className="text-[10px] font-bold text-blue-400 w-5 text-center">{idx + 1}</span>
-                                                <span className="font-mono text-sm font-bold text-blue-800 tracking-wider flex-1">{serial}</span>
-                                                {isManager && (
-                                                    <div className="flex items-center gap-1 opacity-0 group-hover/serial:opacity-100 transition-opacity">
-                                                        <button
-                                                            onClick={async () => {
-                                                                const newSerial = await appPrompt('Yeni seri numarasını girin:', serial);
-                                                                if (newSerial && newSerial !== serial) {
-                                                                    const newSerials = [...selectedPartDetails.kgbSerials];
-                                                                    newSerials[idx] = newSerial;
-                                                                    await updateInventoryItem(selectedPartDetails._id || selectedPartDetails.id, { kgbSerials: newSerials });
-                                                                    setSelectedPartDetails(prev => ({ ...prev, kgbSerials: newSerials }));
-                                                                    showToast('Seri numarası güncellendi', 'success');
-                                                                }
-                                                            }}
-                                                            className="p-1 text-blue-400 hover:text-blue-600 hover:bg-blue-100 rounded transition-colors"
-                                                            title="Düzenle"
-                                                        >
-                                                            <Edit3 size={12} />
-                                                        </button>
-                                                        <button
-                                                            onClick={async () => {
-                                                                if (await appConfirm(`"${serial}" seri numarası silinsin mi?`)) {
-                                                                    const newSerials = selectedPartDetails.kgbSerials.filter((_, i) => i !== idx);
-                                                                    await updateInventoryItem(selectedPartDetails._id || selectedPartDetails.id, { kgbSerials: newSerials });
-                                                                    setSelectedPartDetails(prev => ({ ...prev, kgbSerials: newSerials }));
-                                                                    showToast('Seri numarası silindi', 'success');
-                                                                }
-                                                            }}
-                                                            className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                                                            title="Sil"
-                                                        >
-                                                            <Trash2 size={12} />
-                                                        </button>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
 
-                            {(!selectedPartDetails.kgbSerials || selectedPartDetails.kgbSerials.length === 0) && (
-                                <div className="flex items-center gap-3 bg-gray-50 rounded-xl p-4 border border-dashed border-gray-200 text-gray-400">
-                                    <Layers size={18} className="opacity-40" />
-                                    <p className="text-sm font-medium">Bu parçaya ait KGB seri numarası bulunmuyor.</p>
+                                    {selectedPartDetails.kgbSerials && selectedPartDetails.kgbSerials.length > 0 ? (
+                                        <div className="max-h-48 overflow-y-auto custom-scrollbar space-y-1.5 pr-1">
+                                            {selectedPartDetails.kgbSerials.map((serial, idx) => (
+                                                <div key={idx} className="flex items-center gap-3 bg-blue-50/50 border border-blue-100 rounded-lg px-3 py-2 group/serial">
+                                                    <span className="text-[10px] font-bold text-blue-400 w-5 text-center">{idx + 1}</span>
+                                                    <span className="font-mono text-sm font-bold text-blue-800 tracking-wider flex-1">{serial}</span>
+                                                    {isManager && (
+                                                        <div className="flex items-center gap-1 opacity-0 group-hover/serial:opacity-100 transition-opacity">
+                                                            <button
+                                                                onClick={async () => {
+                                                                    const newSerial = await appPrompt('Yeni seri numarasını girin:', serial);
+                                                                    if (newSerial && newSerial !== serial) {
+                                                                        const newSerials = [...selectedPartDetails.kgbSerials];
+                                                                        newSerials[idx] = newSerial;
+                                                                        const success = await updateInventoryItem(selectedPartDetails._id || selectedPartDetails.id, { kgbSerials: newSerials });
+                                                                        if (success) {
+                                                                            setSelectedPartDetails(prev => ({ ...prev, kgbSerials: newSerials }));
+                                                                            showToast('Seri numarası güncellendi', 'success');
+                                                                        }
+                                                                    }
+                                                                }}
+                                                                className="p-1 text-blue-400 hover:text-blue-600 hover:bg-blue-100 rounded transition-colors"
+                                                                title="Düzenle"
+                                                            >
+                                                                <Edit3 size={12} />
+                                                            </button>
+                                                            <button
+                                                                onClick={async () => {
+                                                                    if (await appConfirm(`"${serial}" seri numarası silinsin mi?`)) {
+                                                                        const newSerials = selectedPartDetails.kgbSerials.filter((_, i) => i !== idx);
+                                                                        const newQty = Math.max(0, (selectedPartDetails.quantity || 1) - 1);
+                                                                        const success = await updateInventoryItem(selectedPartDetails._id || selectedPartDetails.id, { kgbSerials: newSerials, quantity: newQty });
+                                                                        if (success) {
+                                                                            setSelectedPartDetails(prev => ({ ...prev, kgbSerials: newSerials, quantity: newQty }));
+                                                                            showToast('Seri numarası silindi', 'success');
+                                                                        }
+                                                                    }
+                                                                }}
+                                                                className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                                                                title="Sil"
+                                                            >
+                                                                <Trash2 size={12} />
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center gap-3 bg-gray-50 rounded-xl p-4 border border-dashed border-gray-200 text-gray-400">
+                                            <Layers size={18} className="opacity-40" />
+                                            <p className="text-sm font-medium">Bu parçaya ait KGB seri numarası bulunmuyor.</p>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
