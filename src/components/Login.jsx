@@ -52,9 +52,11 @@ const Login = ({ onTrackingClick }) => {
             const success = await login(email, password);
             if (!success) {
                 setError('Hatalı şifre.');
+                setPassword('');
             }
         } catch (err) {
             setError('Bağlantı hatası.');
+            setPassword('');
         } finally {
             setIsLoading(false);
         }

@@ -616,6 +616,24 @@ export const AppProvider = ({ children }) => {
         await updateTechnician(techId, { status: 'available', currentJob: null });
     };
 
+    const verifyTechnicianPassword = async (userId, password) => {
+        try {
+            const res = await apiFetch(`${API_URL}/users/verify-password`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId, password })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                return data.success;
+            }
+            return false;
+        } catch (error) {
+            console.error("Error verifying password:", error);
+            return false;
+        }
+    };
+
     const updateServicePoint = async (id, updates) => {
         try {
             const res = await apiFetch(`${API_URL}/service-points/${id}`, {
@@ -1059,7 +1077,7 @@ export const AppProvider = ({ children }) => {
             earnings: filterByStore(earnings),
             allEarnings: earnings,
             login, logout, addUser, updateUser, removeUser, addRepair, removeRepair, updateRepair, updateRepairStatus,
-            addTechnician, updateTechnician, removeTechnician, assignTechnician, completeJob, addServicePoint, updateServicePoint, removeServicePoint,
+            addTechnician, updateTechnician, removeTechnician, assignTechnician, completeJob, verifyTechnicianPassword, addServicePoint, updateServicePoint, removeServicePoint,
             addCustomer, updateCustomer, removeCustomer, addInventoryItem, updateInventoryItem, removeInventoryItem, usePart, processStockMovement, transferInventorySerial, addEarning,
             emailSettings, setEmailSettings: (s) => { setEmailSettings(s); saveSettings('emailSettings', s); },
             companyProfile, setCompanyProfile: (p) => { setCompanyProfile(p); saveSettings('companyProfile', p); },

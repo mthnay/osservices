@@ -469,6 +469,34 @@ router.post('/login', async (req, res) => {
     }
 });
 
+router.post('/users/verify-password', verifyToken, async (req, res) => {
+    try {
+        const { userId, password } = req.body;
+        if (!userId || !password) {
+            return res.status(400).json({ message: 'Kullanıcı ID ve şifre gereklidir.' });
+        }
+        
+        // Find user by id or _id
+        const filter = { $or: [{ id: userId }] };
+        if (mongoose.Types.ObjectId.isValid(userId)) {
+            filter.$or.push({ _id: userId });
+        }
+        const user = await User.findOne(filter);
+        if (!user) {
+            return res.status(404).json({ message: 'Kullanıcı bulunamadı.' });
+        }
+        
+        const isMatch = bcrypt.compareSync(password, user.password);
+        if (!isMatch) {
+            return res.status(401).json({ message: 'Girilen şifre hatalı.' });
+        }
+        
+        res.json({ success: true, message: 'Şifre doğrulandı.' });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
 router.post('/users', requireRole(['superadmin', 'yonetici']), upload.single('avatar'), async (req, res) => {
     try {
         const userData = req.body;

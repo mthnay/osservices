@@ -13,7 +13,7 @@ const TechnicianWorkspace = ({ repairId, onClose, setActiveTab }) => {
     const { 
         repairs, updateRepair, completeJob, currentUser, inventory, 
         updateInventoryItem, usePart, processStockMovement, showToast, 
-        technicians, sendWhatsApp, uploadMedia, API_URL 
+        technicians, sendWhatsApp, uploadMedia, API_URL, verifyTechnicianPassword
     } = useAppContext();
 
     const [repair, setRepair] = useState(null);
@@ -94,6 +94,53 @@ const TechnicianWorkspace = ({ repairId, onClose, setActiveTab }) => {
         const m = Math.floor((seconds % 3600) / 60);
         const s = seconds % 60;
         return `${h > 0 ? h + ':' : ''}${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    };
+
+    const verifyAndAssignTech = async (tech) => {
+        const { value: password } = await Swal.fire({
+            title: 'Teknisyen Doğrulaması',
+            html: `Lütfen <strong>${tech.name}</strong> şifresini giriniz:`,
+            input: 'password',
+            inputPlaceholder: 'Şifrenizi yazın',
+            inputAttributes: {
+                autocapitalize: 'off',
+                autocorrect: 'off'
+            },
+            showCancelButton: true,
+            confirmButtonText: 'Doğrula ve Başlat',
+            cancelButtonText: 'İptal',
+            confirmButtonColor: '#0071e3',
+            cancelButtonColor: '#8e8e93',
+            customClass: {
+                popup: 'rounded-[32px] shadow-2xl border border-gray-100 font-sans',
+                title: 'font-black text-xl text-gray-900',
+                htmlContainer: 'text-gray-600 font-medium',
+                input: 'rounded-xl border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-50 text-center font-mono tracking-widest text-lg',
+                confirmButton: 'rounded-xl font-bold px-6 py-3 shadow-md hover:shadow-lg transition-all',
+                cancelButton: 'rounded-xl font-bold px-6 py-3 border border-gray-200'
+            }
+        });
+
+        if (password === undefined) return;
+        
+        if (!password) {
+            showToast('Şifre boş bırakılamaz.', 'warning');
+            return;
+        }
+
+        showToast('Şifre doğrulanıyor...', 'info');
+        const isValid = await verifyTechnicianPassword(tech.id || tech._id, password);
+        
+        if (isValid) {
+            showToast('Teknisyen başarıyla doğrulandı!', 'success');
+            updateRepair(repairId, { 
+                technician: tech.name, 
+                status: 'Onarımda', 
+                historyNote: `${tech.name} şifre doğrulayarak onarımı başlattı.` 
+            });
+        } else {
+            appAlert('Girdiğiniz şifre hatalı. Lütfen tekrar deneyin.', 'error');
+        }
     };
 
     const toggleStep = (id) => {
@@ -257,7 +304,7 @@ const TechnicianWorkspace = ({ repairId, onClose, setActiveTab }) => {
                                     {technicians.map(tech => (
                                         <button 
                                             key={tech.id} 
-                                            onClick={() => updateRepair(repairId, { technician: tech.name, status: 'Onarımda', historyNote: `${tech.name} onarımı başlattı.` })}
+                                            onClick={() => verifyAndAssignTech(tech)}
                                             className="w-full p-4 bg-white border border-gray-100 rounded-2xl flex items-center justify-between hover:border-[#0071e3] hover:bg-[#0071e3]/5 transition-all group active:scale-[0.98]"
                                         >
                                             <div className="flex items-center gap-4">
