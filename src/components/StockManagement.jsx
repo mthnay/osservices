@@ -613,28 +613,41 @@ const StockManagement = () => {
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2 ml-1">KGB Seri Numarası</label>
-                                        <input 
-                                            type="text" 
-                                            className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none font-mono font-bold"
-                                            placeholder="G0XXXX..."
-                                            value={newPart.kgbSerial}
-                                            onChange={(e) => setNewPart({...newPart, kgbSerial: e.target.value})}
-                                        />
+                                        <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2 ml-1">Mağaza Ambarı</label>
+                                        <select 
+                                            className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 outline-none font-medium appearance-none"
+                                            value={newPart.storeId}
+                                            onChange={(e) => setNewPart({...newPart, storeId: e.target.value})}
+                                        >
+                                            {visibleServicePoints.map(s => (
+                                                <option key={s.id} value={s.id}>{s.name}</option>
+                                            ))}
+                                        </select>
                                     </div>
                                 </div>
 
                                 <div>
-                                    <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2 ml-1">Mağaza Ambarı</label>
-                                    <select 
-                                        className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 outline-none font-medium appearance-none"
-                                        value={newPart.storeId}
-                                        onChange={(e) => setNewPart({...newPart, storeId: e.target.value})}
-                                    >
-                                        {visibleServicePoints.map(s => (
-                                            <option key={s.id} value={s.id}>{s.name}</option>
-                                        ))}
-                                    </select>
+                                    <div className="flex justify-between items-center mb-2">
+                                        <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest ml-1">KGB Seri Numaraları</label>
+                                        <span className="text-[10px] text-blue-500 font-bold bg-blue-50 px-2 py-0.5 rounded-full">
+                                            {newPart.kgbSerial ? newPart.kgbSerial.split(/[\n,]+/).map(s => s.trim()).filter(Boolean).length : 0} adet
+                                        </span>
+                                    </div>
+                                    <textarea 
+                                        rows="2"
+                                        className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none font-mono font-bold resize-none"
+                                        placeholder="Her satıra bir adet veya virgülle ayırarak girin (Örn: KGB123, KGB456)"
+                                        value={newPart.kgbSerial}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            const count = val.split(/[\n,]+/).map(s => s.trim()).filter(Boolean).length;
+                                            setNewPart({
+                                                ...newPart,
+                                                kgbSerial: val,
+                                                quantity: Math.max(1, count)
+                                            });
+                                        }}
+                                    />
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4">
@@ -670,7 +683,19 @@ const StockManagement = () => {
                                         showToast('Lütfen Tanım ve Kod alanlarını doldurun', 'warning');
                                         return;
                                     }
-                                    const success = await addInventoryItem(newPart);
+                                    
+                                    const serials = newPart.kgbSerial
+                                        ? newPart.kgbSerial.split(/[\n,]+/).map(s => s.trim().toUpperCase()).filter(Boolean)
+                                        : [];
+                                    const qty = serials.length > 0 ? serials.length : 1;
+                                    
+                                    const partToSave = {
+                                        ...newPart,
+                                        kgbSerials: serials,
+                                        quantity: qty
+                                    };
+
+                                    const success = await addInventoryItem(partToSave);
                                     if (success) {
                                         showToast('Yeni parça başarıyla eklendi', 'success');
                                         setShowAddModal(false);
