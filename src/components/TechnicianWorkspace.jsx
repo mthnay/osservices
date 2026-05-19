@@ -53,22 +53,31 @@ const TechnicianWorkspace = ({ repairId, onClose, setActiveTab }) => {
 
     const [steps, setSteps] = useState([]);
 
+    const lastLoadedRepairId = useRef(null);
+
     useEffect(() => {
         const found = repairs.find(r => r.id === repairId || r._id === repairId);
         if (found) {
             setRepair(found);
-            if (found.steps && found.steps.length > 0) {
-                setSteps(found.steps.map(s => ({ ...s, checked: s.checked ?? s.completed ?? false })));
-            } else {
-                setSteps(DEFAULT_STEPS);
-            }
             
-            const serials = {};
-            (found.parts || []).forEach((p, idx) => {
-                serials[`${idx}_kbb`] = p.kbbSerial || '';
-                serials[`${idx}_kgb`] = p.kgbSerial || '';
-            });
-            setLocalSerials(serials);
+            // Onarım değiştiğinde veya ilk yüklemede checklist ve seri numaralarını yükle (yarışı önlemek için)
+            const currentId = found.id || found._id;
+            if (lastLoadedRepairId.current !== currentId) {
+                if (found.steps && found.steps.length > 0) {
+                    setSteps(found.steps.map(s => ({ ...s, checked: s.checked ?? s.completed ?? false })));
+                } else {
+                    setSteps(DEFAULT_STEPS);
+                }
+                
+                const serials = {};
+                (found.parts || []).forEach((p, idx) => {
+                    serials[`${idx}_kbb`] = p.kbbSerial || '';
+                    serials[`${idx}_kgb`] = p.kgbSerial || '';
+                });
+                setLocalSerials(serials);
+                
+                lastLoadedRepairId.current = currentId;
+            }
         }
     }, [repairId, repairs]);
 

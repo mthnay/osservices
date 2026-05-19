@@ -26,9 +26,15 @@ export const requireRole = (roles) => {
         }
 
         const userRole = req.user.role.toLowerCase();
+        
+        // Rol uyumluluğu eşleştirmesi
+        let mappedUserRole = userRole;
+        if (userRole === 'admin') mappedUserRole = 'superadmin';
+        if (userRole === 'yonetici') mappedUserRole = 'superadmin';
+
         const allowedRoles = roles.map(r => r.toLowerCase());
 
-        if (!allowedRoles.includes(userRole)) {
+        if (!allowedRoles.includes(mappedUserRole)) {
             return res.status(403).json({ message: 'Bu işlem için yetkiniz bulunmamaktadır.' });
         }
 
