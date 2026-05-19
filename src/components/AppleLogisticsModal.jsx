@@ -192,44 +192,40 @@ const AppleLogisticsModal = ({ repairId, onClose }) => {
     return (
         <div className="modal-overlay">
             <div className="modal-content w-full max-w-4xl flex flex-col max-h-[90vh]">
-
-                {/* Header - Premium Glassmorphism */}
-                <div className="p-8 bg-white/80 backdrop-blur-xl border-b border-gray-100 flex justify-between items-start sticky top-0 z-50">
-                    <div className="flex items-center gap-6">
-                        <div className="w-16 h-16 rounded-[22px] bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white shadow-2xl shadow-purple-500/30">
-                            <Truck size={32} />
+                {/* Header */}
+                <div className="bg-gray-50/50 px-8 py-6 border-b border-gray-100 flex items-center justify-between flex-shrink-0 backdrop-blur-lg">
+                    <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-white rounded-md flex items-center justify-center text-apple-blue shadow-lg shadow-blue-100 ring-2 ring-white">
+                            <Truck size={24} className="fill-current" />
                         </div>
                         <div>
-                            <div className="flex items-center gap-3 mb-1.5">
-                                <span className="bg-purple-50 text-purple-600 px-3 py-1 rounded-xl text-[10px] font-bold uppercase tracking-wider border border-purple-100">
-                                    Apple Onarım Merkezi
-                                </span>
-                                <span className="text-gray-400 text-xs font-bold font-mono tracking-tighter opacity-60">#{repair.id}</span>
-                            </div>
-                            <h2 className="text-3xl font-bold text-gray-900 tracking-tight">{repair.device}</h2>
-                            <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-1 opacity-70">Lojistik ve ARC Süreç Yönetimi</p>
+                            <h3 className="font-semibold text-gray-900 text-xl tracking-tight">Lojistik ve ARC Süreç Yönetimi</h3>
+                            <p className="text-sm font-medium text-gray-400 mt-1 flex items-center gap-2">
+                                <span>Kayıt:</span>
+                                <span className="text-gray-900 font-bold bg-white px-2 py-0.5 rounded border border-gray-200">#{repair.id}</span>
+                                <span className="text-gray-400">|</span>
+                                <span>Cihaz:</span>
+                                <span className="text-gray-900 font-bold bg-white px-2 py-0.5 rounded border border-gray-200">{repair.device}</span>
+                            </p>
                         </div>
                     </div>
-                    <button 
-                        onClick={onClose} 
-                        className="p-3 bg-gray-50 hover:bg-gray-100 text-gray-400 hover:text-gray-900 rounded-full transition-all active:scale-95 border border-transparent hover:border-gray-200"
-                    >
-                        <X size={24} />
+                    <button onClick={onClose} className="w-10 h-10 flex items-center justify-center bg-white rounded-full hover:bg-gray-100 border border-gray-200 transition-all shadow-sm">
+                        <X size={20} className="text-gray-400" />
                     </button>
                 </div>
-                
-                <div className="flex-1 overflow-y-auto p-8 space-y-10 custom-scrollbar">
-                    {/* Üst Bilgi Kartları - Premium Stats */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-                        <div className="group bg-blue-50/50 p-6 rounded-[32px] border border-blue-100/50 transition-all hover:bg-blue-50 hover:shadow-xl hover:shadow-blue-500/5">
-                            <div className="flex items-center justify-between mb-4">
-                                <span className="text-[10px] font-bold uppercase text-blue-500 tracking-widest">Gönderi Kodu (UPS)</span>
-                                <Truck size={16} className="text-blue-400" />
+
+                <div className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar">
+                    {/* Üst Bilgi Kartları */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="bg-white p-5 rounded-md border border-gray-200 shadow-sm">
+                            <div className="flex items-center gap-2 mb-3">
+                                <Truck size={16} className="text-blue-500" />
+                                <span className="text-xs font-bold uppercase text-gray-500 tracking-wide">Gönderi Kodu (UPS)</span>
                             </div>
-                            <div className="space-y-4">
+                            <div className="space-y-3">
                                 <input
                                     type="text"
-                                    className="w-full bg-white border border-blue-200/50 rounded-2xl px-4 py-3 text-sm font-mono font-bold outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-400 transition-all shadow-sm"
+                                    className="w-full bg-gray-50 border border-gray-200 rounded-md px-3 py-2 text-sm font-mono font-bold outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all"
                                     placeholder="UPS Takip No"
                                     value={shipmentCode}
                                     onChange={(e) => setShipmentCode(e.target.value)}
@@ -237,65 +233,65 @@ const AppleLogisticsModal = ({ repairId, onClose }) => {
                                 <div className="flex gap-2">
                                     <button
                                         onClick={handleStartTracking}
-                                        className="flex-1 bg-blue-600 text-white py-3 rounded-2xl text-[10px] font-bold uppercase tracking-wider hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 active:scale-95"
+                                        className="flex-1 bg-blue-600 text-white py-2 rounded-md text-xs font-bold hover:bg-blue-700 transition-all shadow-sm active:scale-95"
                                     >
                                         Takibi Başlat
                                     </button>
-                                    <button className="w-12 h-12 flex items-center justify-center bg-white text-blue-600 border border-blue-200 rounded-2xl hover:bg-blue-50 transition-all">
-                                        <ExternalLink size={18} />
+                                    <button className="w-9 h-9 flex items-center justify-center bg-white text-blue-600 border border-blue-200 rounded-md hover:bg-blue-50 transition-all">
+                                        <ExternalLink size={16} />
                                     </button>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="group bg-purple-50/50 p-6 rounded-[32px] border border-purple-100/50 transition-all hover:bg-purple-50 hover:shadow-xl hover:shadow-purple-500/5 flex flex-col justify-between">
+                        <div className="bg-white p-5 rounded-md border border-gray-200 shadow-sm flex flex-col justify-between">
                             <div>
-                                <div className="flex items-center justify-between mb-4">
-                                    <span className="text-[10px] font-bold uppercase text-purple-500 tracking-widest">GSX Onarım No</span>
-                                    <Wrench size={16} className="text-purple-400" />
+                                <div className="flex items-center gap-2 mb-3">
+                                    <Wrench size={16} className="text-purple-500" />
+                                    <span className="text-xs font-bold uppercase text-gray-500 tracking-wide">GSX Onarım No</span>
                                 </div>
                                 <div className="flex items-center gap-4">
                                     {isEditing ? (
-                                        <div className="flex-1 flex gap-2 animate-in slide-in-from-right-2">
+                                        <div className="flex-1 flex gap-2">
                                             <input
                                                 type="text"
-                                                className="flex-1 bg-white border border-purple-200 rounded-2xl px-4 py-2.5 text-sm font-mono font-bold outline-none focus:ring-4 focus:ring-purple-500/10 focus:border-purple-400 transition-all shadow-sm"
+                                                className="flex-1 bg-gray-50 border border-gray-200 rounded-md px-3 py-2 text-sm font-mono font-bold outline-none focus:ring-2 focus:ring-purple-100 focus:border-purple-400 transition-all"
                                                 value={gsxNo}
                                                 onChange={(e) => setGsxNo(e.target.value)}
                                                 autoFocus
                                             />
-                                            <button onClick={handleSaveGSX} className="bg-purple-600 text-white px-4 rounded-2xl text-[10px] font-bold uppercase shadow-lg shadow-purple-200">Kaydet</button>
+                                            <button onClick={handleSaveGSX} className="bg-purple-600 text-white px-3 rounded-md text-xs font-bold">Kaydet</button>
                                         </div>
                                     ) : (
                                         <div className="flex items-center gap-3 group cursor-pointer" onClick={() => setIsEditing(true)}>
-                                            <span className="text-2xl font-mono font-bold text-purple-900 tracking-tight leading-none">
+                                            <span className="text-xl font-mono font-bold text-gray-900 tracking-tight leading-none">
                                                 {gsxNo || 'Girilmedi'}
                                             </span>
-                                            <div className="w-8 h-8 rounded-xl bg-white border border-purple-100 flex items-center justify-center text-purple-400 opacity-0 group-hover:opacity-100 transition-all scale-90 group-hover:scale-100">
-                                                <Pencil size={14} />
+                                            <div className="w-6 h-6 rounded-md bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-400 opacity-0 group-hover:opacity-100 transition-all">
+                                                <Pencil size={12} />
                                             </div>
                                         </div>
                                     )}
                                 </div>
                             </div>
                             {!isEditing && gsxNo && (
-                                <div className="mt-6 flex items-center gap-2 bg-white/60 backdrop-blur-md px-3 py-1.5 rounded-xl border border-purple-100/50 w-fit">
-                                    <div className="w-2 h-2 rounded-full bg-purple-500 animate-pulse" />
+                                <div className="mt-4 flex items-center gap-2 bg-purple-50 px-2 py-1 rounded-md border border-purple-100 w-fit">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />
                                     <span className="text-[10px] font-bold text-purple-700 uppercase tracking-tight">{repair.status}</span>
                                 </div>
                             )}
                         </div>
 
-                        <div className="group bg-gray-50/50 p-6 rounded-[32px] border border-gray-100/50 transition-all hover:bg-gray-50 hover:shadow-xl hover:shadow-gray-500/5">
-                            <div className="flex items-center justify-between mb-4">
-                                <span className="text-[10px] font-bold uppercase text-gray-400 tracking-widest">Tahmini Teslim</span>
-                                <Calendar size={16} className="text-gray-300" />
+                        <div className="bg-white p-5 rounded-md border border-gray-200 shadow-sm">
+                            <div className="flex items-center gap-2 mb-3">
+                                <Calendar size={16} className="text-emerald-500" />
+                                <span className="text-xs font-bold uppercase text-gray-500 tracking-wide">Tahmini Teslim</span>
                             </div>
-                            <div className="space-y-4">
-                                <h3 className="text-2xl font-bold text-gray-900 tracking-tight leading-none">30 Ocak 2024</h3>
-                                <div className="space-y-2">
-                                    <div className="w-full bg-gray-200/50 h-2.5 rounded-full overflow-hidden shadow-inner">
-                                        <div className="bg-gradient-to-r from-green-400 to-emerald-500 h-full w-[60%] rounded-full shadow-lg shadow-emerald-500/20 transition-all duration-1000" />
+                            <div className="space-y-3">
+                                <h3 className="text-xl font-bold text-gray-900 tracking-tight leading-none">30 Ocak 2024</h3>
+                                <div className="space-y-1.5">
+                                    <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
+                                        <div className="bg-emerald-500 h-full w-[60%] rounded-full transition-all duration-1000" />
                                     </div>
                                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest text-right">Lojistik Aşaması: %60</p>
                                 </div>
@@ -303,58 +299,56 @@ const AppleLogisticsModal = ({ repairId, onClose }) => {
                         </div>
                     </div>
 
-                    {/* Kayıt ve Cihaz Detayları Paneli - Premium Info */}
-                    <div className="bg-white border border-gray-100 rounded-[32px] overflow-hidden shadow-sm mb-10 group hover:shadow-xl hover:shadow-gray-200/30 transition-all duration-500">
-                        <div className="bg-gray-50/50 px-8 py-5 border-b border-gray-100 flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-white border border-gray-100 flex items-center justify-center text-purple-600 shadow-sm">
-                                    <FileText size={18} />
-                                </div>
-                                <h3 className="font-bold text-gray-900 tracking-tight uppercase text-xs tracking-widest">Kayıt Detayları</h3>
+                    {/* Kayıt ve Cihaz Detayları Paneli */}
+                    <div className="bg-white border border-gray-200 rounded-md shadow-sm">
+                        <div className="bg-gray-50/50 px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <FileText size={16} className="text-gray-500" />
+                                <h3 className="font-bold text-gray-900 uppercase text-xs tracking-wide">Kayıt Detayları</h3>
                             </div>
-                            <div className="px-3 py-1 bg-white border border-gray-200 rounded-lg text-[10px] font-bold text-gray-400 uppercase tracking-tighter">
+                            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">
                                 Son Güncelleme: {repair.updatedAt || 'Yeni'}
                             </div>
                         </div>
-                        <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-10">
-                            <div className="space-y-8">
+                        <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div className="space-y-6">
                                 <div>
-                                    <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Müşteri Profili</span>
-                                    <div className="flex items-start gap-4 bg-gray-50/50 p-4 rounded-2xl border border-gray-100/50">
-                                        <div className="w-12 h-12 rounded-full bg-white border border-gray-100 flex items-center justify-center text-purple-500 shadow-sm shrink-0">
-                                            <span className="font-bold text-lg">{repair.customer?.charAt(0)}</span>
+                                    <span className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Müşteri Profili</span>
+                                    <div className="flex items-start gap-3 bg-gray-50 p-3 rounded-md border border-gray-200">
+                                        <div className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center text-apple-blue font-bold text-lg shrink-0">
+                                            {repair.customer?.charAt(0)}
                                         </div>
                                         <div>
-                                            <p className="text-lg font-bold text-gray-900 tracking-tight">{repair.customer}</p>
-                                            <p className="text-xs font-bold text-gray-500 flex items-center gap-2 mt-1">
-                                                <MyPhoneIcon size={14} className="text-gray-400" /> {repair.customerPhone}
+                                            <p className="text-sm font-bold text-gray-900">{repair.customer}</p>
+                                            <p className="text-xs font-medium text-gray-500 flex items-center gap-1.5 mt-0.5">
+                                                <MyPhoneIcon size={12} className="text-gray-400" /> {repair.customerPhone}
                                             </p>
                                         </div>
                                     </div>
                                 </div>
                                 <div>
-                                    <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Cihaz Bilgisi</span>
-                                    <div className="bg-gray-50/50 p-4 rounded-2xl border border-gray-100/50">
+                                    <span className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Cihaz Bilgisi</span>
+                                    <div className="bg-gray-50 p-3 rounded-md border border-gray-200">
                                         <p className="text-sm font-bold text-gray-900 mb-1">{repair.device}</p>
-                                        <p className="text-xs font-mono text-purple-600 font-bold bg-purple-50 px-3 py-1 rounded-xl border border-purple-100/50 inline-block">
+                                        <p className="text-xs font-mono text-gray-600 bg-white px-2 py-0.5 rounded border border-gray-200 inline-block">
                                             SN: {repair.serial || repair.serialNumber || 'Bilinmiyor'}
                                         </p>
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="space-y-8">
+                            <div className="space-y-6">
                                 <div>
-                                    <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Arıza Açıklaması</span>
-                                    <div className="bg-gray-50/50 p-5 rounded-2xl border border-gray-100/50 border-l-4 border-l-orange-400">
+                                    <span className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Arıza Açıklaması</span>
+                                    <div className="bg-gray-50 p-4 rounded-md border border-gray-200 border-l-4 border-l-orange-400">
                                         <p className="text-sm text-gray-700 leading-relaxed italic">
                                             "{repair.issue || repair.issueDescription || 'Belirtilmedi'}"
                                         </p>
                                     </div>
                                 </div>
                                 <div>
-                                    <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Teknik Tanı & Notlar</span>
-                                    <div className="bg-gray-50/50 p-5 rounded-2xl border border-gray-100/50 border-l-4 border-l-purple-400">
+                                    <span className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Teknik Tanı & Notlar</span>
+                                    <div className="bg-gray-50 p-4 rounded-md border border-gray-200 border-l-4 border-l-blue-400">
                                         <p className="text-sm text-gray-700 leading-relaxed font-medium">
                                             {repair.diagnosisNotes || 'Henüz bir teknik not girilmemiş.'}
                                         </p>
@@ -364,106 +358,92 @@ const AppleLogisticsModal = ({ repairId, onClose }) => {
                         </div>
                     </div>
 
-                    {/* Apple Merkezi Dönüş Bölümü - Premium Input Area */}
+                    {/* Apple Merkezi Dönüş Bölümü */}
                     {(repair.status === "Apple'a Gönderildi" || repair.status === "İade Bekleniyor" || repair.status === "Müşteri Onayı Bekliyor" || repair.status === "Cihaz Hazır" || repair.status === "İade Hazır") && (
-                        <div className="mt-12 p-8 bg-purple-50/50 rounded-[40px] border border-purple-100 animate-in slide-in-from-bottom-6 duration-700 shadow-2xl shadow-purple-200/20">
-                            <div className="flex items-center gap-3 mb-6 px-2">
-                                <div className="w-10 h-10 rounded-xl bg-purple-600 text-white flex items-center justify-center shadow-lg shadow-purple-600/20">
-                                    <CheckCircle size={20} />
-                                </div>
-                                <div>
-                                    <h4 className="text-sm font-bold text-gray-900 uppercase tracking-widest">ARC Kargo Kabul & Sonuç Girişi</h4>
-                                    <p className="text-[10px] text-purple-600 font-bold uppercase tracking-tighter opacity-70">Onarım Merkezi Geri Bildirim Verilerini İşleyin</p>
-                                </div>
+                        <div className="p-6 bg-white rounded-md border border-gray-200 shadow-sm">
+                            <div className="flex items-center gap-2 mb-4">
+                                <CheckCircle size={16} className="text-green-500" />
+                                <h4 className="text-xs font-bold text-gray-900 uppercase tracking-wide">ARC Kargo Kabul & Sonuç Girişi</h4>
                             </div>
                             
-                            <div className="relative group mb-6">
+                            <div className="mb-6">
+                                <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Onarım Merkezi Geri Bildirimi</label>
                                 <textarea
-                                    className="w-full p-6 rounded-3xl border border-purple-100 bg-white focus:ring-4 focus:ring-purple-500/10 focus:border-purple-400 outline-none text-sm font-medium min-h-[120px] transition-all shadow-inner"
+                                    className="w-full p-4 rounded-md border border-gray-200 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none text-sm font-medium min-h-[100px] transition-all"
                                     placeholder="Apple Onarım Merkezi'nden iletilen onarım sonucunu veya yapılan işlemleri buraya yazınız..."
                                     value={arcResult}
                                     onChange={e => setArcResult(e.target.value)}
                                 ></textarea>
-                                <div className="absolute top-4 right-4 opacity-10 group-focus-within:opacity-30 transition-opacity">
-                                    <MessageCircle size={24} />
-                                </div>
                             </div>
 
-                            <div className="mb-8">
-                                <div className="flex items-center justify-between mb-4 px-2">
+                            <div className="mb-2">
+                                <div className="flex items-center justify-between mb-3">
                                     <div className="flex items-center gap-2">
-                                        <Box size={14} className="text-purple-400" />
-                                        <h5 className="text-[10px] font-bold uppercase text-gray-400 tracking-widest">ARC'de Değişen Parçalar</h5>
+                                        <Box size={14} className="text-gray-400" />
+                                        <h5 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">ARC'de Değişen Parçalar</h5>
                                     </div>
                                     <button
                                         onClick={addArcPart}
-                                        className="text-[10px] bg-white text-purple-700 px-4 py-2 rounded-xl font-bold border border-purple-100 hover:bg-purple-600 hover:text-white transition-all duration-300 flex items-center gap-2 shadow-sm"
+                                        className="text-[10px] bg-white text-gray-700 px-3 py-1.5 rounded-md font-bold border border-gray-200 hover:bg-gray-50 flex items-center gap-1.5 transition-all"
                                     >
-                                        <Plus size={14} strokeWidth={3} /> PARÇA EKLE
+                                        <Plus size={14} /> Parça Ekle
                                     </button>
                                 </div>
                                 
                                 {arcParts.length === 0 ? (
-                                    <div className="text-center py-10 bg-white/40 border border-dashed border-purple-200 rounded-3xl text-purple-300 text-[10px] font-bold uppercase tracking-widest">
+                                    <div className="text-center py-6 bg-gray-50 border border-dashed border-gray-200 rounded-md text-gray-400 text-[10px] font-bold uppercase tracking-widest">
                                         Henüz parça eklenmedi
                                     </div>
                                 ) : (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-3">
                                         {arcParts.map((part, index) => (
-                                            <div key={index} className="bg-white p-5 rounded-3xl border border-purple-100 relative group shadow-sm hover:shadow-lg transition-all duration-300 animate-in zoom-in-95">
+                                            <div key={index} className="bg-white p-4 rounded-md border border-gray-200 relative group">
                                                 <button
                                                     onClick={() => removeArcPart(index)}
-                                                    className="absolute top-4 right-4 w-8 h-8 rounded-full bg-red-50 text-red-400 hover:bg-red-500 hover:text-white flex items-center justify-center transition-all opacity-0 group-hover:opacity-100"
+                                                    className="absolute top-3 right-3 text-red-400 hover:text-red-600 transition-colors"
                                                 >
-                                                    <Trash2 size={14} />
+                                                    <Trash2 size={16} />
                                                 </button>
                                                 
-                                                <div className="space-y-4">
-                                                    <div className="grid grid-cols-2 gap-3">
-                                                        <div className="space-y-1.5">
-                                                            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1">Parça No</p>
-                                                            <input
-                                                                type="text"
-                                                                className="w-full p-2.5 bg-gray-50 border border-gray-100 rounded-xl text-[11px] font-mono font-bold outline-none focus:border-purple-300 focus:bg-white transition-all"
-                                                                value={part.partNumber}
-                                                                onChange={e => updateArcPart(index, 'partNumber', e.target.value)}
-                                                            />
-                                                        </div>
-                                                        <div className="space-y-1.5">
-                                                            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1">Tanım</p>
-                                                            <input
-                                                                type="text"
-                                                                className="w-full p-2.5 bg-gray-50 border border-gray-100 rounded-xl text-[11px] font-bold outline-none focus:border-purple-300 focus:bg-white transition-all"
-                                                                value={part.description || part.name || part.itemName || ''}
-                                                                onChange={e => updateArcPart(index, 'description', e.target.value)}
-                                                            />
-                                                        </div>
+                                                <div className="grid grid-cols-2 gap-4 pr-8 mb-3">
+                                                    <div className="space-y-1">
+                                                        <p className="text-[10px] font-bold text-gray-400 uppercase">Parça No</p>
+                                                        <input
+                                                            type="text"
+                                                            className="w-full p-2 bg-gray-50 border border-gray-200 rounded-md text-xs font-mono font-bold outline-none focus:border-blue-300 focus:bg-white"
+                                                            value={part.partNumber}
+                                                            onChange={e => updateArcPart(index, 'partNumber', e.target.value)}
+                                                        />
                                                     </div>
-                                                    
-                                                    <div className="grid grid-cols-2 gap-3 relative pt-2 border-t border-gray-50">
-                                                        <div className="space-y-1.5">
-                                                            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1">KBB (Arızalı)</p>
-                                                            <input
-                                                                type="text"
-                                                                className={`w-full p-2.5 bg-gray-50 border ${part.kbbSerial ? 'border-green-100 bg-green-50/20' : 'border-gray-100'} rounded-xl text-[10px] font-mono font-bold outline-none focus:border-purple-300 transition-all`}
-                                                                value={part.kbbSerial || ''}
-                                                                onChange={e => updateArcPart(index, 'kbbSerial', e.target.value)}
-                                                            />
-                                                        </div>
-                                                        <div className="space-y-1.5">
-                                                            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1">KGB (Yeni)</p>
-                                                            <input
-                                                                type="text"
-                                                                className={`w-full p-2.5 bg-gray-50 border ${part.kgbSerial ? 'border-green-100 bg-green-50/20' : 'border-gray-100'} rounded-xl text-[10px] font-mono font-bold outline-none focus:border-purple-300 transition-all`}
-                                                                value={part.kgbSerial || ''}
-                                                                onChange={e => updateArcPart(index, 'kgbSerial', e.target.value)}
-                                                            />
-                                                        </div>
-                                                        {part.kgbSerial && part.kbbSerial && (
-                                                            <div className="absolute -top-1 right-2 bg-green-500 text-white text-[8px] font-bold px-2 py-0.5 rounded-full shadow-lg shadow-green-500/20 animate-in zoom-in">
-                                                                EŞLEŞTİ
-                                                            </div>
-                                                        )}
+                                                    <div className="space-y-1">
+                                                        <p className="text-[10px] font-bold text-gray-400 uppercase">Tanım</p>
+                                                        <input
+                                                            type="text"
+                                                            className="w-full p-2 bg-gray-50 border border-gray-200 rounded-md text-xs font-bold outline-none focus:border-blue-300 focus:bg-white"
+                                                            value={part.description || part.name || part.itemName || ''}
+                                                            onChange={e => updateArcPart(index, 'description', e.target.value)}
+                                                        />
+                                                    </div>
+                                                </div>
+                                                
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div className="space-y-1">
+                                                        <p className="text-[10px] font-bold text-gray-400 uppercase">KBB (Arızalı)</p>
+                                                        <input
+                                                            type="text"
+                                                            className="w-full p-2 bg-gray-50 border border-gray-200 rounded-md text-xs font-mono font-bold outline-none focus:border-blue-300 focus:bg-white"
+                                                            value={part.kbbSerial || ''}
+                                                            onChange={e => updateArcPart(index, 'kbbSerial', e.target.value)}
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <p className="text-[10px] font-bold text-gray-400 uppercase">KGB (Yeni)</p>
+                                                        <input
+                                                            type="text"
+                                                            className="w-full p-2 bg-gray-50 border border-gray-200 rounded-md text-xs font-mono font-bold outline-none focus:border-blue-300 focus:bg-white"
+                                                            value={part.kgbSerial || ''}
+                                                            onChange={e => updateArcPart(index, 'kgbSerial', e.target.value)}
+                                                        />
                                                     </div>
                                                 </div>
                                             </div>
@@ -471,39 +451,23 @@ const AppleLogisticsModal = ({ repairId, onClose }) => {
                                     </div>
                                 )}
                             </div>
-
-                            <button
-                                onClick={handleReceiveFromARC}
-                                className="w-full bg-gray-900 hover:bg-black text-white py-4 rounded-[24px] font-bold flex items-center justify-center gap-3 transition-all shadow-2xl shadow-gray-400/50 active:scale-95 group"
-                            >
-                                <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                                    <Package size={18} />
-                                </div>
-                                CIHAZI MAĞAZAYA TESLIM AL VE HAZIRLA
-                                <ArrowRight size={18} />
-                            </button>
                         </div>
                     )}
 
                     {/* Lojistik Görsel Belgeleme */}
-                    <div className="mt-8 p-6 bg-gray-50 rounded-[28px] border border-gray-100">
-                        <div className="flex items-center justify-between mb-6 px-1">
-                            <div className="flex items-center gap-3">
-                                <div className="p-3 bg-white rounded-md shadow-sm text-purple-600 border border-purple-50">
-                                    <Camera size={20} />
-                                </div>
-                                <div>
-                                    <h4 className="text-sm font-semibold text-gray-900 uppercase tracking-tight">Lojistik Görsel Arşivi</h4>
-                                    <p className="text-[10px] text-gray-400 font-bold text-xs uppercase tracking-wide">Gönderi ve Teslimat Kanıtları</p>
-                                </div>
+                    <div className="p-6 bg-white rounded-md border border-gray-200 shadow-sm">
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-2">
+                                <Camera size={16} className="text-gray-500" />
+                                <h4 className="text-xs font-bold text-gray-900 uppercase tracking-wide">Lojistik Görsel Arşivi</h4>
                             </div>
                             <button 
                                 onClick={handleAddPhoto}
                                 disabled={uploading}
-                                className="bg-gray-900 hover:bg-black text-white px-5 py-2.5 rounded-md text-[10px] font-semibold text-xs uppercase tracking-wide flex items-center gap-2 transition-all shadow-lg active:scale-95 disabled:bg-gray-400"
+                                className="bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wide flex items-center gap-1.5 transition-all disabled:opacity-50"
                             >
                                 {uploading ? <Clock size={14} className="animate-spin" /> : <Plus size={14} />}
-                                Fotoğraf Çek / Ekle
+                                Görsel Ekle
                             </button>
                         </div>
 
@@ -512,102 +476,97 @@ const AppleLogisticsModal = ({ repairId, onClose }) => {
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             {/* Gönderim Fotoğrafları */}
                             {repair.beforeImages?.map((url, idx) => (
-                                <div key={`before-${idx}`} className="relative group aspect-video rounded-md overflow-hidden border border-gray-200 shadow-sm bg-white animate-in zoom-in-95 duration-300">
+                                <div key={`before-${idx}`} className="relative group aspect-video rounded-md overflow-hidden border border-gray-200 bg-gray-50">
                                     <img src={url} className="w-full h-full object-cover" alt="Pre-shipment" />
-                                    <div className="absolute inset-x-0 bottom-0 bg-black/50 backdrop-blur-md p-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <p className="text-[8px] text-white font-semibold uppercase tracking-tight">Kargo Gönderme</p>
+                                    <div className="absolute inset-x-0 bottom-0 bg-black/50 p-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <p className="text-[8px] text-white font-semibold uppercase tracking-tight text-center">Kargo Gönderme</p>
                                     </div>
                                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                                        <button onClick={() => window.open(url, '_blank')} className="p-1.5 bg-white/20 backdrop-blur-md rounded-lg text-white"><ExternalLink size={12} /></button>
-                                        <button onClick={() => removePhoto(idx, 'beforeImages')} className="p-1.5 bg-red-500 text-white rounded-lg"><Trash2 size={12} /></button>
+                                        <button onClick={() => window.open(url, '_blank')} className="p-1.5 bg-white/20 backdrop-blur-sm rounded-md text-white hover:bg-white/40"><ExternalLink size={12} /></button>
+                                        <button onClick={() => removePhoto(idx, 'beforeImages')} className="p-1.5 bg-red-500/80 rounded-md text-white hover:bg-red-500"><Trash2 size={12} /></button>
                                     </div>
                                 </div>
                             ))}
                             {/* Dönüş Fotoğrafları */}
                             {repair.afterImages?.map((url, idx) => (
-                                <div key={`after-${idx}`} className="relative group aspect-video rounded-md overflow-hidden border border-emerald-100 shadow-sm bg-white animate-in zoom-in-95 duration-300">
+                                <div key={`after-${idx}`} className="relative group aspect-video rounded-md overflow-hidden border border-gray-200 bg-gray-50">
                                     <img src={url} className="w-full h-full object-cover" alt="Post-arrival" />
-                                    <div className="absolute inset-x-0 bottom-0 bg-emerald-600/70 backdrop-blur-md p-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <p className="text-[8px] text-white font-semibold uppercase tracking-tight">Apple'dan Gelen</p>
+                                    <div className="absolute inset-x-0 bottom-0 bg-black/50 p-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <p className="text-[8px] text-white font-semibold uppercase tracking-tight text-center">Apple'dan Gelen</p>
                                     </div>
                                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                                        <button onClick={() => window.open(url, '_blank')} className="p-1.5 bg-white/20 backdrop-blur-md rounded-lg text-white"><ExternalLink size={12} /></button>
-                                        <button onClick={() => removePhoto(idx, 'afterImages')} className="p-1.5 bg-red-500 text-white rounded-lg"><Trash2 size={12} /></button>
+                                        <button onClick={() => window.open(url, '_blank')} className="p-1.5 bg-white/20 backdrop-blur-sm rounded-md text-white hover:bg-white/40"><ExternalLink size={12} /></button>
+                                        <button onClick={() => removePhoto(idx, 'afterImages')} className="p-1.5 bg-red-500/80 rounded-md text-white hover:bg-red-500"><Trash2 size={12} /></button>
                                     </div>
                                 </div>
                             ))}
                             {(!repair.beforeImages?.length && !repair.afterImages?.length) && (
-                                <div className="col-span-full py-10 text-center bg-gray-100/50 rounded-md border border-dashed border-gray-200">
-                                    <Camera size={32} className="mx-auto text-gray-300 mb-3" />
-                                    <p className="text-[11px] font-bold text-gray-400">Henüz lojistik görseli eklenmemiş.</p>
-                                    <p className="text-[10px] text-gray-300 mt-1 uppercase font-semibold tracking-widest">Kargo Kanıtlarını Buraya Ekleyin</p>
+                                <div className="col-span-full py-8 text-center bg-gray-50 rounded-md border border-dashed border-gray-200">
+                                    <Camera size={24} className="mx-auto text-gray-300 mb-2" />
+                                    <p className="text-[11px] font-medium text-gray-400">Henüz lojistik görseli eklenmemiş.</p>
                                 </div>
                             )}
                         </div>
                     </div>
+                </div>
 
-                    {/* Footer Actions */}
-                    <div className="mt-8 p-6 bg-gray-50 rounded-md border border-gray-200 flex flex-col md:flex-row items-center justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                            <button
-                                onClick={() => setShowNotificationModal(true)}
-                                className="flex items-center gap-3 p-3 bg-white hover:bg-orange-50 rounded-md shadow-sm border border-gray-100 transition-colors text-left group"
-                            >
-                                <div className="p-2 bg-orange-100 text-orange-600 rounded-lg group-hover:bg-orange-200 transition-colors">
-                                    <AlertCircle size={20} />
-                                </div>
-                                <div>
-                                    <h4 className="font-bold text-gray-900 text-sm group-hover:text-orange-700">Durum Güncellemesi Bildir</h4>
-                                    <p className="text-xs text-gray-500 group-hover:text-orange-600/70">Müşteriye SMS/Email gönder</p>
-                                </div>
-                            </button>
-                        </div>
-                        <div className="flex gap-3">
-                            {repair.status === 'Müşteri Onayı Bekliyor' ? (
-                                <>
-                                    <button
-                                        onClick={() => handleQuoteResolution(true)}
-                                        className="px-4 py-2 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-lg text-sm font-bold hover:bg-emerald-100 transition-colors flex items-center gap-2"
-                                    >
-                                        <CheckCircle size={16} /> Onaylandı (Devam)
-                                    </button>
-                                    <button
-                                        onClick={() => handleQuoteResolution(false)}
-                                        className="px-4 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg text-sm font-bold hover:bg-red-100 transition-colors flex items-center gap-2"
-                                    >
-                                        <X size={16} /> Reddedildi (İade)
-                                    </button>
-                                </>
-                            ) : (
+                {/* Footer Actions */}
+                <div className="bg-gray-50/50 px-8 py-5 border-t border-gray-100 flex items-center justify-between flex-shrink-0 backdrop-blur-lg z-10">
+                    <div>
+                        <button
+                            onClick={() => setShowNotificationModal(true)}
+                            className="flex items-center gap-2 px-4 py-2 bg-white text-apple-blue border border-gray-200 hover:border-blue-200 rounded-md text-xs font-bold transition-all shadow-sm"
+                        >
+                            <Mail size={16} /> Durum Bildir
+                        </button>
+                    </div>
+                    <div className="flex gap-2">
+                        {repair.status === 'Müşteri Onayı Bekliyor' ? (
+                            <>
                                 <button
-                                    onClick={handleQuoteReceived}
-                                    className="px-4 py-2 bg-orange-50 text-orange-600 border border-orange-200 rounded-lg text-sm font-bold hover:bg-orange-100 transition-colors flex items-center gap-2"
+                                    onClick={() => handleQuoteResolution(true)}
+                                    className="px-4 py-2 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-md text-xs font-bold hover:bg-emerald-100 transition-colors flex items-center gap-2"
                                 >
-                                    <DollarSign size={16} /> Teklif Geldi (Beklet)
+                                    <CheckCircle size={14} /> Onaylandı (Devam)
                                 </button>
-                            )}
+                                <button
+                                    onClick={() => handleQuoteResolution(false)}
+                                    className="px-4 py-2 bg-red-50 text-red-600 border border-red-200 rounded-md text-xs font-bold hover:bg-red-100 transition-colors flex items-center gap-2"
+                                >
+                                    <X size={14} /> Reddedildi (İade)
+                                </button>
+                            </>
+                        ) : (
                             <button
-                                onClick={handleSaveDraft}
-                                className="px-4 py-2 bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 rounded-lg text-sm font-medium transition-colors"
+                                onClick={handleQuoteReceived}
+                                className="px-4 py-2 bg-orange-50 text-orange-600 border border-orange-200 rounded-md text-xs font-bold hover:bg-orange-100 transition-colors flex items-center gap-2"
                             >
-                                Süreci Kaydet
+                                <DollarSign size={14} /> Teklif Geldi
                             </button>
-                            <button
-                                onClick={() => setIsEditing(!isEditing)}
-                                className={`px-4 py-2 border rounded-lg text-sm font-medium transition-colors ${isEditing ? 'bg-orange-50 text-orange-600 border-orange-200' : 'bg-white hover:bg-gray-100 text-gray-700 border-gray-300'}`}
-                            >
-                                {isEditing ? 'Düzenlemeyi Kapat' : 'Kaydı Düzenle'}
-                            </button>
+                        )}
+                        <button
+                            onClick={handleSaveDraft}
+                            className="px-4 py-2 bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 rounded-md text-xs font-bold transition-colors"
+                        >
+                            Taslak Kaydet
+                        </button>
+                        <button
+                            onClick={() => setIsEditing(!isEditing)}
+                            className={`px-4 py-2 border rounded-md text-xs font-bold transition-colors ${isEditing ? 'bg-blue-50 text-blue-600 border-blue-200' : 'bg-white hover:bg-gray-50 text-gray-700 border-gray-200'}`}
+                        >
+                            {isEditing ? 'Düzenlemeyi Kapat' : 'Kayıt Düzenle'}
+                        </button>
+                        
+                        {(repair.status === "Apple'a Gönderildi" || repair.status === "İade Bekleniyor" || repair.status === "Müşteri Onayı Bekliyor" || repair.status === "Cihaz Hazır" || repair.status === "İade Hazır") && (
                             <button
                                 onClick={handleReceiveFromARC}
-                                className="px-4 py-2 bg-gray-900 hover:bg-black text-white rounded-lg text-sm font-medium transition-colors shadow-lg shadow-gray-300 flex items-center gap-2"
+                                className="px-5 py-2 bg-gray-900 hover:bg-black text-white rounded-md text-xs font-bold transition-colors shadow-sm flex items-center gap-2"
                             >
-                                <CheckCircle size={16} />
-                                Mağazaya Teslim Al
+                                <CheckCircle size={14} />
+                                Mağazaya Al
                             </button>
-                        </div>
+                        )}
                     </div>
-
                 </div>
             </div>
 
