@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Home, Wrench, Users, BarChart2, Settings, Truck, Clock, Package, LogOut, CheckCircle, Archive as ArchiveIcon, MessageCircle, Megaphone, Search, ChevronDown, X, Recycle } from 'lucide-react';
+import { Home, Wrench, Users, BarChart2, Settings, Truck, Clock, Package, LogOut, CheckCircle, Archive as ArchiveIcon, MessageCircle, Megaphone, Search, ChevronDown, X, Recycle, ClipboardList } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { hasPermission, ROLES, ROLE_DISPLAY_NAMES } from '../utils/permissions';
 import MyPhoneIcon from './LocalIcons';
@@ -50,11 +50,30 @@ const TopNav = ({ activeTab, setActiveTab }) => {
             items: [
                 { id: 'technicians', icon: Users, label: 'Teknisyenler' },
                 { id: 'store-operations', icon: Home, label: 'Operasyon Şeması' },
+                { id: 'store-management', icon: ClipboardList, label: 'Mağaza İçi Yönetim' },
                 { id: 'reports', icon: BarChart2, label: 'Raporlar' },
                 ...(hasPermission(currentUser, 'manage_settings') ? [{ id: 'settings', icon: Settings, label: 'Sistem Ayarları' }] : [])
             ]
         }
     ];
+
+    const filteredCategories = CATEGORIES.map(category => {
+        const filteredItems = category.items.filter(item => {
+            if (item.id === 'settings') {
+                return hasPermission(currentUser, 'manage_settings');
+            }
+            if (['technicians', 'store-operations', 'reports'].includes(item.id)) {
+                const role = currentUser?.role?.toLowerCase();
+                return ['superadmin', 'admin', 'yonetici', 'storemanager'].includes(role);
+            }
+            return true;
+        });
+
+        return {
+            ...category,
+            items: filteredItems
+        };
+    }).filter(category => category.items.length > 0);
 
     const [hoveredCategory, setHoveredCategory] = useState(null);
     const [searchOpen, setSearchOpen] = useState(false);
@@ -119,13 +138,7 @@ const TopNav = ({ activeTab, setActiveTab }) => {
 
                     {/* Categorized Navigation */}
                     <div className="flex items-center gap-1">
-                        {CATEGORIES.filter(category => {
-                            if (category.id === 'yonetim') {
-                                const role = currentUser?.role?.toLowerCase();
-                                return role === ROLES.SUPER_ADMIN || role === ROLES.STORE_MANAGER || role === 'admin' || role === ROLES.YONETICI;
-                            }
-                            return true;
-                        }).map(category => {
+                        {filteredCategories.map(category => {
                             const isCategoryActive = category.items.some(item => item.id === activeTab);
                             const isHovered = hoveredCategory === category.id;
 

@@ -1085,7 +1085,7 @@ export const AppProvider = ({ children }) => {
             notificationTemplates, setNotificationTemplates: (s) => { setNotificationTemplates(s); saveSettings('notificationTemplates', s); },
             serviceTerms, setServiceTerms: (s) => { setServiceTerms(s); saveSettings('serviceTerms', s); },
             roles, addRole, updateRole, deleteRole,
-            selectedStoreId, setSelectedStoreId, showToast, alerts: alerts.filter(a => !clearedAlertIds.includes(a.id)), checkSLA, API_URL, sendWhatsApp, uploadMedia, clearAllAlerts
+            selectedStoreId, setSelectedStoreId, showToast, alerts: alerts.filter(a => !clearedAlertIds.includes(a.id)), checkSLA, sendWhatsApp, uploadMedia, clearAllAlerts
         }}>
             {children}
             {toast.isVisible && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}

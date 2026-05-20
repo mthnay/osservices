@@ -10,6 +10,7 @@ import Reports from './components/Reports';
 import Technicians from './components/Technicians';
 import Settings from './components/Settings';
 import StoreOperations from './components/StoreOperations';
+import StoreManagement from './components/StoreManagement';
 import ReadyForPickup from './components/ReadyForPickup';
 import Archive from './components/Archive';
 import ApprovalPending from './components/ApprovalPending';
@@ -96,8 +97,9 @@ function App() {
           {activeTab === 'reports' && <Reports />}
           {activeTab === 'technicians' && <Technicians />}
           {activeTab === 'store-operations' && <StoreOperations />}
+          {activeTab === 'store-management' && <StoreManagement />}
           {activeTab === 'settings' && hasPermission(currentUser, 'manage_settings') && <Settings />}
-          {activeTab !== 'dashboard' && activeTab !== 'service' && activeTab !== 'in-store' && activeTab !== 'ready-pickup' && activeTab !== 'archive' && activeTab !== 'apple-center' && activeTab !== 'pending-repairs' && activeTab !== 'approval-pending' && activeTab !== 'stock' && activeTab !== 'reports' && activeTab !== 'technicians' && activeTab !== 'store-operations' && activeTab !== 'settings' && activeTab !== 'customers' && activeTab !== 'marketing' && (
+          {activeTab !== 'dashboard' && activeTab !== 'service' && activeTab !== 'in-store' && activeTab !== 'ready-pickup' && activeTab !== 'archive' && activeTab !== 'apple-center' && activeTab !== 'pending-repairs' && activeTab !== 'approval-pending' && activeTab !== 'stock' && activeTab !== 'reports' && activeTab !== 'technicians' && activeTab !== 'store-operations' && activeTab !== 'store-management' && activeTab !== 'settings' && activeTab !== 'customers' && activeTab !== 'marketing' && (
             <div className="flex flex-col items-center justify-center h-[70vh] text-center">
               <h2 className="text-2xl font-bold text-gray-400 mb-2">Sayfa Yapım Aşamasında</h2>
               <p className="text-gray-500">Bu modül henüz aktifleştirilmedi.</p>

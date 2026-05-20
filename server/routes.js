@@ -13,6 +13,8 @@ import Earning from './models/Earning.js';
 import Notification from './models/Notification.js';
 import Role from './models/Role.js';
 import AuditLog from './models/AuditLog.js';
+import StoreAnnouncement from './models/StoreAnnouncement.js';
+import StoreTask from './models/StoreTask.js';
 import multer from 'multer';
 import bcrypt from 'bcryptjs';
 import { sendAutomatedEmail } from './emailService.js';
@@ -1185,6 +1187,90 @@ router.post('/ai/enhance-message', async (req, res) => {
     } catch (error) {
         console.error('AI Enhance Error:', error);
         res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// --- Store Management: Announcements ---
+router.get('/store-announcements', async (req, res) => {
+    try {
+        const filter = {};
+        if (req.query.storeId) {
+            filter.storeId = Number(req.query.storeId);
+        }
+        const announcements = await StoreAnnouncement.find(filter).sort({ createdAt: -1 });
+        res.json(announcements);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+router.post('/store-announcements', requireRole(['superadmin', 'storemanager']), async (req, res) => {
+    try {
+        const announcement = new StoreAnnouncement(req.body);
+        const saved = await announcement.save();
+        await createLog(req, 'CREATE_ANNOUNCEMENT', 'STORE_MANAGEMENT', `Yeni duyuru oluşturuldu: ${saved.title}`);
+        res.status(201).json(saved);
+    } catch (err) {
+        res.status(400).json({ message: err.message });
+    }
+});
+
+router.delete('/store-announcements/:id', requireRole(['superadmin', 'storemanager']), async (req, res) => {
+    try {
+        const deleted = await StoreAnnouncement.findByIdAndDelete(req.params.id);
+        if (deleted) {
+            await createLog(req, 'DELETE_ANNOUNCEMENT', 'STORE_MANAGEMENT', `Duyuru silindi: ${deleted.title}`);
+        }
+        res.json({ success: true, message: 'Duyuru silindi.' });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// --- Store Management: Tasks ---
+router.get('/store-tasks', async (req, res) => {
+    try {
+        const filter = {};
+        if (req.query.storeId) {
+            filter.storeId = Number(req.query.storeId);
+        }
+        const tasks = await StoreTask.find(filter).sort({ createdAt: -1 });
+        res.json(tasks);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+router.post('/store-tasks', requireRole(['superadmin', 'storemanager']), async (req, res) => {
+    try {
+        const task = new StoreTask(req.body);
+        const saved = await task.save();
+        await createLog(req, 'CREATE_TASK', 'STORE_MANAGEMENT', `Yeni görev oluşturuldu: ${saved.title}`);
+        res.status(201).json(saved);
+    } catch (err) {
+        res.status(400).json({ message: err.message });
+    }
+});
+
+router.put('/store-tasks/:id', requireRole(['superadmin', 'storemanager']), async (req, res) => {
+    try {
+        const updated = await StoreTask.findByIdAndUpdate(req.params.id, req.body, { new: true });
+        await createLog(req, 'UPDATE_TASK', 'STORE_MANAGEMENT', `Görev güncellendi: ${updated?.title} (Durum: ${updated?.status})`);
+        res.json(updated);
+    } catch (err) {
+        res.status(400).json({ message: err.message });
+    }
+});
+
+router.delete('/store-tasks/:id', requireRole(['superadmin', 'storemanager']), async (req, res) => {
+    try {
+        const deleted = await StoreTask.findByIdAndDelete(req.params.id);
+        if (deleted) {
+            await createLog(req, 'DELETE_TASK', 'STORE_MANAGEMENT', `Görev silindi: ${deleted.title}`);
+        }
+        res.json({ success: true, message: 'Görev silindi.' });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
     }
 });
 
