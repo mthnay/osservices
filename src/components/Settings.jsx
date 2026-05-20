@@ -1688,17 +1688,23 @@ const Settings = () => {
                                     </div>
 
                                     <div className="flex gap-2 pt-4 border-t border-gray-50">
-                                        <button
-                                            onClick={() => {
-                                                setEditingRole(role);
-                                                setRoleForm({ ...role });
-                                                setShowRoleModal(true);
-                                            }}
-                                            className="flex-1 bg-gray-50 hover:bg-indigo-50 text-gray-500 hover:text-indigo-600 py-3 rounded-md font-semibold text-[10px] text-xs uppercase tracking-wide transition-all"
-                                        >
-                                            DÜZENLE
-                                        </button>
-                                        {!role.isSystem && (
+                                        {!(isYonetici(currentUser) && (role.name?.toLowerCase() === 'superadmin' || role.name?.toLowerCase() === 'admin')) ? (
+                                            <button
+                                                onClick={() => {
+                                                    setEditingRole(role);
+                                                    setRoleForm({ ...role });
+                                                    setShowRoleModal(true);
+                                                }}
+                                                className="flex-1 bg-gray-50 hover:bg-indigo-50 text-gray-500 hover:text-indigo-600 py-3 rounded-md font-semibold text-[10px] text-xs uppercase tracking-wide transition-all"
+                                            >
+                                                DÜZENLE
+                                            </button>
+                                        ) : (
+                                            <span className="flex-1 text-center py-3 bg-gray-50 text-orange-400 font-bold text-[10px] text-xs uppercase rounded-md border border-orange-100/50">
+                                                KİLİTLİ
+                                            </span>
+                                        )}
+                                        {!role.isSystem && !(isYonetici(currentUser) && (role.name?.toLowerCase() === 'superadmin' || role.name?.toLowerCase() === 'admin')) && (
                                             <button
                                                 onClick={() => handleDeleteRole(role)}
                                                 className="w-12 h-12 flex items-center justify-center bg-gray-50 hover:bg-red-50 text-gray-300 hover:text-red-600 rounded-md transition-all"

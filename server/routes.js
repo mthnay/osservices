@@ -143,6 +143,13 @@ router.get('/roles', async (req, res) => {
 router.post('/roles', requireRole(['superadmin', 'yonetici']), async (req, res) => {
     try {
         const { name, displayName, permissions } = req.body;
+        const requestorRole = req.user?.role?.toLowerCase();
+        
+        // Güvenlik Önlemi: Yönetici (yonetici) rolü, SuperAdmin veya Admin rollerini oluşturamaz
+        if (requestorRole === 'yonetici' && (name?.toLowerCase() === 'superadmin' || name?.toLowerCase() === 'admin')) {
+            return res.status(403).json({ message: 'Yönetici rolü, SuperAdmin veya Admin rollerini oluşturamaz.' });
+        }
+
         const roleExists = await Role.findOne({ name });
         if (roleExists) {
             return res.status(400).json({ message: 'Bu rol adı zaten mevcut' });
@@ -160,6 +167,12 @@ router.put('/roles/:id', requireRole(['superadmin', 'yonetici']), async (req, re
         const role = await Role.findById(req.params.id);
         if (!role) return res.status(404).json({ message: 'Rol bulunamadı' });
         
+        // Güvenlik Önlemi: Yönetici (yonetici) rolü, SuperAdmin veya Admin rollerini düzenleyemez
+        const requestorRole = req.user?.role?.toLowerCase();
+        if (requestorRole === 'yonetici' && (role.name?.toLowerCase() === 'superadmin' || role.name?.toLowerCase() === 'admin')) {
+            return res.status(403).json({ message: 'Yönetici rolü, SuperAdmin veya Admin rollerini düzenleyemez.' });
+        }
+
         role.displayName = displayName || role.displayName;
         role.permissions = permissions || role.permissions;
         
@@ -176,6 +189,12 @@ router.delete('/roles/:id', requireRole(['superadmin', 'yonetici']), async (req,
         if (!role) return res.status(404).json({ message: 'Rol bulunamadı' });
         if (role.isSystem) return res.status(400).json({ message: 'Sistem rolleri silinemez' });
         
+        // Güvenlik Önlemi: Yönetici (yonetici) rolü, SuperAdmin veya Admin rollerini silemez
+        const requestorRole = req.user?.role?.toLowerCase();
+        if (requestorRole === 'yonetici' && (role.name?.toLowerCase() === 'superadmin' || role.name?.toLowerCase() === 'admin')) {
+            return res.status(403).json({ message: 'Yönetici rolü, SuperAdmin veya Admin rollerini silemez.' });
+        }
+
         await role.deleteOne();
         res.json({ message: 'Rol başarıyla silindi' });
     } catch (error) {
