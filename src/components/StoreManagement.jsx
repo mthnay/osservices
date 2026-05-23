@@ -1,11 +1,12 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
     Plus, Trash2, ClipboardList, CheckSquare, Bell, User, 
     Calendar, Check, Clock, ChevronRight, AlertCircle, MapPin, 
-    Briefcase, ShieldAlert, Award
+    Briefcase, ShieldAlert, Award, ChevronDown
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import Swal from 'sweetalert2';
+import html2pdf from 'html2pdf.js';
 
 const StoreManagement = () => {
     const { 
@@ -22,14 +23,42 @@ const StoreManagement = () => {
         const isGlobalAdmin = ['superadmin', 'admin', 'yonetici'].includes(role);
         return isGlobalAdmin ? 0 : (currentUser?.storeId || 1);
     });
+    const [storeDropdownOpen, setStoreDropdownOpen] = useState(false);
+    const [assigneeDropdownOpen, setAssigneeDropdownOpen] = useState(false);
+    const storeDropdownRef = useRef(null);
+    const assigneeDropdownRef = useRef(null);
+
+    // Dışarı tıklanınca dropdownları kapat
+    useEffect(() => {
+        const handler = (e) => {
+            if (storeDropdownRef.current && !storeDropdownRef.current.contains(e.target)) {
+                setStoreDropdownOpen(false);
+            }
+            if (assigneeDropdownRef.current && !assigneeDropdownRef.current.contains(e.target)) {
+                setAssigneeDropdownOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
 
     const [announcements, setAnnouncements] = useState([]);
     const [tasks, setTasks] = useState([]);
+    const [shifts, setShifts] = useState([]);
     const [loading, setLoading] = useState(true);
 
     // Form states
     const [announcementForm, setAnnouncementForm] = useState({ title: '', content: '' });
     const [taskForm, setTaskForm] = useState({ title: '', description: '', assignedTo: '', dueDate: '' });
+    const [shiftForm, setShiftForm] = useState({
+        userId: '',
+        userName: '',
+        date: '',
+        startTime: '09:00',
+        endTime: '18:00',
+        shiftType: 'Tam Gün',
+        notes: ''
+    });
 
     const role = currentUser?.role?.toLowerCase();
     const isManagerOrAdmin = ['superadmin', 'admin', 'yonetici', 'storemanager'].includes(role);
@@ -57,6 +86,13 @@ const StoreManagement = () => {
             if (taskRes.ok) {
                 const taskData = await taskRes.json();
                 setTasks(taskData);
+            }
+
+            // Fetch Shifts
+            const shiftRes = await fetch(`${API_URL}/store-shifts${storeQuery}`, { headers });
+            if (shiftRes.ok) {
+                const shiftData = await shiftRes.json();
+                setShifts(shiftData);
             }
         } catch (error) {
             console.error('Veri çekme hatası:', error);
@@ -312,13 +348,181 @@ const StoreManagement = () => {
         }
     };
 
+    // Handle Shift Type change to set default hours
+    const handleShiftTypeChange = (type) => {
+        let startTime = '09:00';
+        let endTime = '18:00';
+        if (type === 'Sabah') {
+            startTime = '09:00';
+            endTime = '15:00';
+        } else if (type === 'Akşam') {
+            startTime = '15:00';
+            endTime = '22:00';
+        } else if (type === 'Tam Gün') {
+            startTime = '09:00';
+            endTime = '18:00';
+        } else if (type === 'İzin') {
+            startTime = '00:00';
+            endTime = '00:00';
+        }
+        setShiftForm(prev => ({ ...prev, shiftType: type, startTime, endTime }));
+    };
+
+    // Handle Shift Create
+    const handleAddShift = async (e) => {
+        e.preventDefault();
+        if (!shiftForm.userName || !shiftForm.date || !shiftForm.startTime || !shiftForm.endTime) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Eksik Bilgi',
+                text: 'Lütfen zorunlu alanları doldurun.',
+                confirmButtonColor: '#0071e3'
+            });
+            return;
+        }
+
+        if (selectedStore === 0) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Mağaza Seçin',
+                text: 'Lütfen vardiya eklemek için önce belirli bir mağaza seçin.',
+                confirmButtonColor: '#0071e3'
+            });
+            return;
+        }
+
+        const matchedUser = storeEmployees.find(emp => emp.name === shiftForm.userName);
+        const userId = matchedUser ? (matchedUser.id || matchedUser._id) : '';
+
+        try {
+            const token = sessionStorage.getItem('token');
+            const res = await fetch(`${API_URL}/store-shifts`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    storeId: selectedStore,
+                    userId,
+                    userName: shiftForm.userName,
+                    date: shiftForm.date,
+                    startTime: shiftForm.startTime,
+                    endTime: shiftForm.endTime,
+                    shiftType: shiftForm.shiftType,
+                    notes: shiftForm.notes
+                })
+            });
+
+            if (res.ok) {
+                const newShift = await res.json();
+                setShifts(prev => [newShift, ...prev]);
+                setShiftForm({
+                    userId: '',
+                    userName: '',
+                    date: '',
+                    startTime: '09:00',
+                    endTime: '18:00',
+                    shiftType: 'Tam Gün',
+                    notes: ''
+                });
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Vardiya Eklendi',
+                    timer: 1500,
+                    showConfirmButton: false
+                });
+            } else {
+                throw new Error('Vardiya eklenemedi');
+            }
+        } catch (error) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Hata',
+                text: error.message
+            });
+        }
+    };
+
+    // Handle Shift Delete
+    const handleDeleteShift = async (id) => {
+        const result = await Swal.fire({
+            title: 'Emin misiniz?',
+            text: "Bu vardiya kaydı kalıcı olarak silinecektir!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Evet, Sil',
+            cancelButtonText: 'İptal'
+        });
+
+        if (!result.isConfirmed) return;
+
+        try {
+            const token = sessionStorage.getItem('token');
+            const res = await fetch(`${API_URL}/store-shifts/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (res.ok) {
+                setShifts(prev => prev.filter(s => s._id !== id));
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Silindi',
+                    text: 'Vardiya başarıyla silindi.',
+                    timer: 1500,
+                    showConfirmButton: false
+                });
+            } else {
+                throw new Error('Vardiya silinemedi');
+            }
+        } catch (error) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Hata',
+                text: error.message
+            });
+        }
+    };
+
+    // Handle PDF Download
+    const handleDownloadPDF = () => {
+        const actions = document.querySelectorAll('.pdf-action-btn');
+        actions.forEach(el => el.style.display = 'none');
+
+        const element = document.getElementById('shift-schedule-print-area');
+        if (!element) return;
+
+        const storeName = selectedStore === 0 
+            ? 'Tum_Magazalar' 
+            : allServicePoints.find(sp => Number(sp.id) === Number(selectedStore))?.name || 'Magaza';
+
+        const opt = {
+            margin: 10,
+            filename: `Vardiya_Programi_${storeName.replace(/\s+/g, '_')}_${new Date().toLocaleDateString('tr-TR')}.pdf`,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+        };
+
+        html2pdf().set(opt).from(element).save().then(() => {
+            actions.forEach(el => el.style.display = '');
+        }).catch(err => {
+            console.error('PDF generation error', err);
+            actions.forEach(el => el.style.display = '');
+        });
+    };
+
     // Stats calculations
     const stats = useMemo(() => {
         const totalAnn = announcements.length;
         const pendingT = tasks.filter(t => t.status === 'pending').length;
         const completedT = tasks.filter(t => t.status === 'completed').length;
-        return { totalAnn, pendingT, completedT };
-    }, [announcements, tasks]);
+        const totalShifts = shifts.length;
+        return { totalAnn, pendingT, completedT, totalShifts };
+    }, [announcements, tasks, shifts]);
 
     return (
         <div className="space-y-8 animate-fade-in pb-20">
@@ -337,18 +541,52 @@ const StoreManagement = () => {
                 {/* Store Selection Dropdown for Global Admins */}
                 <div className="flex items-center gap-3">
                     {isGlobalAdmin ? (
-                        <div className="flex items-center gap-2 bg-white px-4 py-2 border border-gray-200 rounded-2xl shadow-sm">
-                            <MapPin size={16} className="text-[#0071e3]" />
-                            <select 
-                                value={selectedStore} 
-                                onChange={(e) => setSelectedStore(Number(e.target.value))}
-                                className="text-sm font-semibold text-[#1d1d1f] bg-transparent border-none outline-none cursor-pointer"
+                        <div className="relative" ref={storeDropdownRef}>
+                            <button
+                                onClick={() => setStoreDropdownOpen(prev => !prev)}
+                                className="flex items-center gap-2 bg-white px-4 py-2.5 border border-gray-200 rounded-2xl shadow-sm hover:border-[#0071e3] transition-all min-w-[180px] justify-between"
                             >
-                                <option value={0}>Tüm Mağazalar</option>
-                                {allServicePoints.map(sp => (
-                                    <option key={sp.id} value={sp.id}>{sp.name}</option>
-                                ))}
-                            </select>
+                                <div className="flex items-center gap-2">
+                                    <MapPin size={16} className="text-[#0071e3] flex-shrink-0" />
+                                    <span className="text-sm font-semibold text-[#1d1d1f]">
+                                        {selectedStore === 0
+                                            ? 'Tüm Mağazalar'
+                                            : allServicePoints.find(sp => Number(sp.id) === Number(selectedStore))?.name || 'Mağaza'}
+                                    </span>
+                                </div>
+                                <ChevronDown
+                                    size={14}
+                                    className={`text-gray-400 transition-transform duration-200 ml-2 ${storeDropdownOpen ? 'rotate-180' : ''}`}
+                                />
+                            </button>
+
+                            {storeDropdownOpen && (
+                                <div className="absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-2xl shadow-xl z-50 overflow-hidden min-w-[200px] py-1">
+                                    <button
+                                        onClick={() => { setSelectedStore(0); setStoreDropdownOpen(false); }}
+                                        className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold transition-all text-left hover:bg-[#f5f5f7] ${
+                                            selectedStore === 0 ? 'text-[#0071e3] bg-blue-50/60' : 'text-[#1d1d1f]'
+                                        }`}
+                                    >
+                                        {selectedStore === 0 && <Check size={14} className="text-[#0071e3] flex-shrink-0" />}
+                                        {selectedStore !== 0 && <span className="w-[14px] flex-shrink-0" />}
+                                        Tüm Mağazalar
+                                    </button>
+                                    {allServicePoints.map(sp => (
+                                        <button
+                                            key={sp.id}
+                                            onClick={() => { setSelectedStore(Number(sp.id)); setStoreDropdownOpen(false); }}
+                                            className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold transition-all text-left hover:bg-[#f5f5f7] ${
+                                                Number(selectedStore) === Number(sp.id) ? 'text-[#0071e3] bg-blue-50/60' : 'text-[#1d1d1f]'
+                                            }`}
+                                        >
+                                            {Number(selectedStore) === Number(sp.id) && <Check size={14} className="text-[#0071e3] flex-shrink-0" />}
+                                            {Number(selectedStore) !== Number(sp.id) && <span className="w-[14px] flex-shrink-0" />}
+                                            {sp.name}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     ) : (
                         <div className="flex items-center gap-2 bg-[#f5f5f7] px-4 py-2 rounded-2xl">
@@ -362,7 +600,7 @@ const StoreManagement = () => {
             </div>
 
             {/* Quick Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <div className="bg-white rounded-[24px] border border-gray-100 p-6 shadow-sm flex items-center justify-between relative overflow-hidden group">
                     <div className="space-y-1">
                         <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Aktif Duyurular</p>
@@ -390,6 +628,16 @@ const StoreManagement = () => {
                     </div>
                     <div className="w-12 h-12 rounded-2xl bg-green-50 text-green-500 flex items-center justify-center">
                         <CheckSquare size={24} />
+                    </div>
+                </div>
+
+                <div className="bg-white rounded-[24px] border border-gray-100 p-6 shadow-sm flex items-center justify-between relative overflow-hidden group">
+                    <div className="space-y-1">
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Planlı Vardiyalar</p>
+                        <p className="text-3xl font-black text-indigo-600">{stats.totalShifts}</p>
+                    </div>
+                    <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-500 flex items-center justify-center">
+                        <Calendar size={24} />
                     </div>
                 </div>
             </div>
@@ -420,6 +668,17 @@ const StoreManagement = () => {
                         >
                             <ClipboardList size={18} />
                             Günlük Görevler
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('shifts')}
+                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold transition-all ${
+                                activeTab === 'shifts' 
+                                    ? 'bg-[#0071e3] text-white' 
+                                    : 'text-gray-600 hover:bg-[#f5f5f7]'
+                            }`}
+                        >
+                            <Calendar size={18} />
+                            Vardiya Programı
                         </button>
                     </div>
 
@@ -594,18 +853,53 @@ const StoreManagement = () => {
                                                         className="w-full px-4 py-3 bg-[#f5f5f7] border border-transparent rounded-xl text-sm outline-none focus:border-[#0071e3] focus:bg-white transition-all text-[#1d1d1f]"
                                                     ></textarea>
                                                 </div>
-                                                <div>
+                                                <div className="relative" ref={assigneeDropdownRef}>
                                                     <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Görevli Kişi (Opsiyonel)</label>
-                                                    <select 
-                                                        value={taskForm.assignedTo}
-                                                        onChange={(e) => setTaskForm(prev => ({ ...prev, assignedTo: e.target.value }))}
-                                                        className="w-full px-4 py-3 bg-[#f5f5f7] border border-transparent rounded-xl text-sm outline-none focus:border-[#0071e3] focus:bg-white transition-all text-[#1d1d1f]"
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setAssigneeDropdownOpen(prev => !prev)}
+                                                        className="w-full flex items-center justify-between px-4 py-3 bg-[#f5f5f7] border border-transparent rounded-xl text-sm outline-none hover:border-[#0071e3] hover:bg-white transition-all text-[#1d1d1f]"
                                                     >
-                                                        <option value="">Herkes / Atanmadı</option>
-                                                        {storeEmployees.map(emp => (
-                                                            <option key={emp.id || emp._id} value={emp.name}>{emp.name} ({emp.role})</option>
-                                                        ))}
-                                                    </select>
+                                                        <span className={taskForm.assignedTo ? 'text-[#1d1d1f] font-semibold' : 'text-gray-400'}>
+                                                            {taskForm.assignedTo
+                                                                ? `${storeEmployees.find(e => e.name === taskForm.assignedTo)?.name || taskForm.assignedTo} (${storeEmployees.find(e => e.name === taskForm.assignedTo)?.role || ''})`
+                                                                : 'Herkes / Atanmadı'}
+                                                        </span>
+                                                        <ChevronDown size={14} className={`text-gray-400 transition-transform duration-200 ${assigneeDropdownOpen ? 'rotate-180' : ''}`} />
+                                                    </button>
+
+                                                    {assigneeDropdownOpen && (
+                                                        <div className="absolute left-0 top-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl z-50 overflow-hidden w-full py-1">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => { setTaskForm(prev => ({ ...prev, assignedTo: '' })); setAssigneeDropdownOpen(false); }}
+                                                                className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold transition-all text-left hover:bg-[#f5f5f7] ${
+                                                                    taskForm.assignedTo === '' ? 'text-[#0071e3] bg-blue-50/60' : 'text-gray-500'
+                                                                }`}
+                                                            >
+                                                                {taskForm.assignedTo === '' && <Check size={14} className="text-[#0071e3] flex-shrink-0" />}
+                                                                {taskForm.assignedTo !== '' && <span className="w-[14px] flex-shrink-0" />}
+                                                                Herkes / Atanmadı
+                                                            </button>
+                                                            {storeEmployees.map(emp => (
+                                                                <button
+                                                                    type="button"
+                                                                    key={emp.id || emp._id}
+                                                                    onClick={() => { setTaskForm(prev => ({ ...prev, assignedTo: emp.name })); setAssigneeDropdownOpen(false); }}
+                                                                    className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold transition-all text-left hover:bg-[#f5f5f7] ${
+                                                                        taskForm.assignedTo === emp.name ? 'text-[#0071e3] bg-blue-50/60' : 'text-[#1d1d1f]'
+                                                                    }`}
+                                                                >
+                                                                    {taskForm.assignedTo === emp.name && <Check size={14} className="text-[#0071e3] flex-shrink-0" />}
+                                                                    {taskForm.assignedTo !== emp.name && <span className="w-[14px] flex-shrink-0" />}
+                                                                    <div className="flex flex-col">
+                                                                        <span>{emp.name}</span>
+                                                                        <span className="text-[10px] text-gray-400 font-normal">{emp.role}</span>
+                                                                    </div>
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    )}
                                                 </div>
                                                 <div>
                                                     <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Termin Tarihi (DueDate)</label>
@@ -719,6 +1013,197 @@ const StoreManagement = () => {
                                                 })}
                                             </div>
                                         )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* SHIFTS TAB */}
+                            {activeTab === 'shifts' && (
+                                <div className="space-y-6">
+                                    {/* Create Shift Form */}
+                                    {isManagerOrAdmin && selectedStore !== 0 && (
+                                        <div className="bg-white rounded-[32px] border border-gray-200 p-8 shadow-sm">
+                                            <h3 className="font-bold text-lg text-[#1d1d1f] mb-4 flex items-center gap-2">
+                                                <Calendar size={20} className="text-[#0071e3]" />
+                                                Yeni Vardiya / Shift Ekle
+                                            </h3>
+                                            <form onSubmit={handleAddShift} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                <div>
+                                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Personel Seçin</label>
+                                                    <select
+                                                        value={shiftForm.userName}
+                                                        onChange={(e) => setShiftForm(prev => ({ ...prev, userName: e.target.value }))}
+                                                        className="w-full px-4 py-3 bg-[#f5f5f7] border border-transparent rounded-xl text-sm outline-none focus:border-[#0071e3] focus:bg-white transition-all text-[#1d1d1f]"
+                                                        required
+                                                    >
+                                                        <option value="">Seçiniz...</option>
+                                                        {storeEmployees.map(emp => (
+                                                            <option key={emp.id || emp._id} value={emp.name}>{emp.name} ({emp.role})</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Tarih</label>
+                                                    <input 
+                                                        type="date" 
+                                                        value={shiftForm.date}
+                                                        onChange={(e) => setShiftForm(prev => ({ ...prev, date: e.target.value }))}
+                                                        className="w-full px-4 py-3 bg-[#f5f5f7] border border-transparent rounded-xl text-sm outline-none focus:border-[#0071e3] focus:bg-white transition-all text-[#1d1d1f]"
+                                                        required
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Vardiya Türü</label>
+                                                    <select
+                                                        value={shiftForm.shiftType}
+                                                        onChange={(e) => handleShiftTypeChange(e.target.value)}
+                                                        className="w-full px-4 py-3 bg-[#f5f5f7] border border-transparent rounded-xl text-sm outline-none focus:border-[#0071e3] focus:bg-white transition-all text-[#1d1d1f]"
+                                                        required
+                                                    >
+                                                        <option value="Tam Gün">Tam Gün (09:00 - 18:00)</option>
+                                                        <option value="Sabah">Sabah (09:00 - 15:00)</option>
+                                                        <option value="Akşam">Akşam (15:00 - 22:00)</option>
+                                                        <option value="İzin">İzinli (Tüm Gün)</option>
+                                                        <option value="Diğer">Diğer (Manuel Saat)</option>
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Başlangıç Saati</label>
+                                                    <input 
+                                                        type="time" 
+                                                        value={shiftForm.startTime}
+                                                        onChange={(e) => setShiftForm(prev => ({ ...prev, startTime: e.target.value }))}
+                                                        className="w-full px-4 py-3 bg-[#f5f5f7] border border-transparent rounded-xl text-sm outline-none focus:border-[#0071e3] focus:bg-white transition-all text-[#1d1d1f]"
+                                                        disabled={shiftForm.shiftType === 'İzin'}
+                                                        required
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Bitiş Saati</label>
+                                                    <input 
+                                                        type="time" 
+                                                        value={shiftForm.endTime}
+                                                        onChange={(e) => setShiftForm(prev => ({ ...prev, endTime: e.target.value }))}
+                                                        className="w-full px-4 py-3 bg-[#f5f5f7] border border-transparent rounded-xl text-sm outline-none focus:border-[#0071e3] focus:bg-white transition-all text-[#1d1d1f]"
+                                                        disabled={shiftForm.shiftType === 'İzin'}
+                                                        required
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Not / Açıklama</label>
+                                                    <input 
+                                                        type="text" 
+                                                        placeholder="Özel not veya açıklama..."
+                                                        value={shiftForm.notes}
+                                                        onChange={(e) => setShiftForm(prev => ({ ...prev, notes: e.target.value }))}
+                                                        className="w-full px-4 py-3 bg-[#f5f5f7] border border-transparent rounded-xl text-sm outline-none focus:border-[#0071e3] focus:bg-white transition-all text-[#1d1d1f]"
+                                                    />
+                                                </div>
+                                                <div className="md:col-span-3 flex justify-end">
+                                                    <button type="submit" className="px-6 py-2.5 bg-[#0071e3] text-white rounded-xl text-xs font-semibold hover:bg-blue-600 transition-all flex items-center gap-2 shadow-sm">
+                                                        <Plus size={16} />
+                                                        Vardiya Ekle
+                                                    </button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    )}
+
+                                    {/* Shifts Schedule & Print Area */}
+                                    <div className="bg-white rounded-[32px] border border-gray-200 p-8 shadow-sm">
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                                            <div>
+                                                <h3 className="font-bold text-lg text-[#1d1d1f]">Vardiya Planı</h3>
+                                                <p className="text-xs text-gray-500 mt-0.5">Personellerin aktif çalışma günleri ve saatleri</p>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <button
+                                                    onClick={handleDownloadPDF}
+                                                    className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold hover:bg-indigo-700 transition-all flex items-center gap-2 shadow-sm cursor-pointer"
+                                                >
+                                                    <Calendar size={14} />
+                                                    PDF Olarak İndir
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <div id="shift-schedule-print-area" className="p-4 bg-white rounded-2xl">
+                                            {/* PDF Header - hidden on screen, visible only when generating PDF */}
+                                            <div className="pdf-only-header mb-6 border-b border-gray-200 pb-4" style={{ display: 'none' }}>
+                                                <h2 className="text-2xl font-bold text-gray-900">TROY YETKİLİ SERVİS</h2>
+                                                <p className="text-sm font-semibold text-gray-500">
+                                                    Vardiya Programı - {selectedStore === 0 ? 'Tüm Mağazalar' : allServicePoints.find(sp => Number(sp.id) === Number(selectedStore))?.name || 'Mağaza'}
+                                                </p>
+                                                <p className="text-[10px] text-gray-400 mt-1">Oluşturulma Tarihi: {new Date().toLocaleDateString('tr-TR')}</p>
+                                            </div>
+
+                                            {shifts.length === 0 ? (
+                                                <div className="text-center py-12 text-gray-400">
+                                                    <Calendar size={48} className="mx-auto mb-4 opacity-30 text-[#0071e3]" />
+                                                    <p className="font-bold text-sm">Planlanmış Vardiya Bulunmuyor</p>
+                                                    <p className="text-xs mt-1 text-gray-400">Bu mağaza için henüz girilmiş vardiya bulunmuyor.</p>
+                                                </div>
+                                            ) : (
+                                                <div className="overflow-x-auto">
+                                                    <table className="w-full text-left border-collapse">
+                                                        <thead>
+                                                            <tr className="border-b border-gray-100">
+                                                                <th className="py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Tarih</th>
+                                                                <th className="py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Personel</th>
+                                                                <th className="py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Vardiya Tipi</th>
+                                                                <th className="py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Saatler</th>
+                                                                <th className="py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Notlar</th>
+                                                                <th className="py-4 text-xs font-bold text-gray-400 uppercase tracking-widest pdf-action-btn">İşlemler</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {shifts.map(shift => (
+                                                                <tr key={shift._id} className="border-b border-gray-50 hover:bg-[#f5f5f7]/30 transition-colors group">
+                                                                    <td className="py-4 text-sm font-semibold text-[#1d1d1f]">
+                                                                        {new Date(shift.date).toLocaleDateString('tr-TR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                                                                    </td>
+                                                                    <td className="py-4">
+                                                                        <div className="flex items-center gap-3">
+                                                                            <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-indigo-500 to-blue-500 flex items-center justify-center text-white font-bold text-[10px]">
+                                                                                {shift.userName.substring(0, 2).toUpperCase()}
+                                                                            </div>
+                                                                            <span className="text-sm font-bold text-[#1d1d1f]">{shift.userName}</span>
+                                                                        </div>
+                                                                    </td>
+                                                                    <td className="py-4">
+                                                                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                                                                            shift.shiftType === 'Sabah' ? 'bg-amber-50 text-amber-700 border border-amber-100' :
+                                                                            shift.shiftType === 'Akşam' ? 'bg-blue-50 text-blue-700 border border-blue-100' :
+                                                                            shift.shiftType === 'İzin' ? 'bg-red-50 text-red-700 border border-red-100' :
+                                                                            'bg-green-50 text-green-700 border border-green-100'
+                                                                        }`}>
+                                                                            {shift.shiftType}
+                                                                        </span>
+                                                                    </td>
+                                                                    <td className="py-4 text-sm font-mono font-semibold text-gray-600">
+                                                                        {shift.shiftType === 'İzin' ? '-' : `${shift.startTime} - ${shift.endTime}`}
+                                                                    </td>
+                                                                    <td className="py-4 text-xs text-gray-500 font-medium max-w-xs truncate" title={shift.notes}>
+                                                                        {shift.notes || '-'}
+                                                                    </td>
+                                                                    <td className="py-4 pdf-action-btn">
+                                                                        {isManagerOrAdmin && (
+                                                                            <button
+                                                                                onClick={() => handleDeleteShift(shift._id)}
+                                                                                className="w-7 h-7 rounded-full bg-red-50 hover:bg-red-100 text-red-500 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 cursor-pointer"
+                                                                                title="Vardiyayı Sil"
+                                                                            >
+                                                                                <Trash2 size={12} />
+                                                                            </button>
+                                                                        )}
+                                                                    </td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             )}

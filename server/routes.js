@@ -15,6 +15,7 @@ import Role from './models/Role.js';
 import AuditLog from './models/AuditLog.js';
 import StoreAnnouncement from './models/StoreAnnouncement.js';
 import StoreTask from './models/StoreTask.js';
+import StoreShift from './models/StoreShift.js';
 import multer from 'multer';
 import bcrypt from 'bcryptjs';
 import { sendAutomatedEmail } from './emailService.js';
@@ -1288,6 +1289,59 @@ router.delete('/store-tasks/:id', requireRole(['superadmin', 'storemanager']), a
             await createLog(req, 'DELETE_TASK', 'STORE_MANAGEMENT', `Görev silindi: ${deleted.title}`);
         }
         res.json({ success: true, message: 'Görev silindi.' });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// --- Store Shifts ---
+router.get('/store-shifts', async (req, res) => {
+    try {
+        const filter = {};
+        if (req.query.storeId) {
+            filter.storeId = Number(req.query.storeId);
+        }
+        if (req.query.startDate && req.query.endDate) {
+            filter.date = {
+                $gte: new Date(req.query.startDate),
+                $lte: new Date(req.query.endDate)
+            };
+        }
+        const shifts = await StoreShift.find(filter).sort({ date: 1, startTime: 1 });
+        res.json(shifts);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+router.post('/store-shifts', requireRole(['superadmin', 'storemanager']), async (req, res) => {
+    try {
+        const shift = new StoreShift(req.body);
+        const saved = await shift.save();
+        await createLog(req, 'CREATE_SHIFT', 'STORE_MANAGEMENT', `Yeni vardiya oluşturuldu: ${saved.userName} - ${saved.shiftType} (${new Date(saved.date).toLocaleDateString('tr-TR')})`);
+        res.status(201).json(saved);
+    } catch (err) {
+        res.status(400).json({ message: err.message });
+    }
+});
+
+router.put('/store-shifts/:id', requireRole(['superadmin', 'storemanager']), async (req, res) => {
+    try {
+        const updated = await StoreShift.findByIdAndUpdate(req.params.id, req.body, { new: true });
+        await createLog(req, 'UPDATE_SHIFT', 'STORE_MANAGEMENT', `Vardiya güncellendi: ${updated?.userName} - ${updated?.shiftType}`);
+        res.json(updated);
+    } catch (err) {
+        res.status(400).json({ message: err.message });
+    }
+});
+
+router.delete('/store-shifts/:id', requireRole(['superadmin', 'storemanager']), async (req, res) => {
+    try {
+        const deleted = await StoreShift.findByIdAndDelete(req.params.id);
+        if (deleted) {
+            await createLog(req, 'DELETE_SHIFT', 'STORE_MANAGEMENT', `Vardiya silindi: ${deleted.userName} - ${deleted.shiftType}`);
+        }
+        res.json({ success: true, message: 'Vardiya silindi.' });
     } catch (err) {
         res.status(500).json({ message: err.message });
     }
