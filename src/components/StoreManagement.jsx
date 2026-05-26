@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import Swal from 'sweetalert2';
-import html2pdf from 'html2pdf.js';
+import { useReactToPrint } from 'react-to-print';
 
 const StoreManagement = () => {
     const { 
@@ -27,6 +27,7 @@ const StoreManagement = () => {
     const [assigneeDropdownOpen, setAssigneeDropdownOpen] = useState(false);
     const storeDropdownRef = useRef(null);
     const assigneeDropdownRef = useRef(null);
+    const printAreaRef = useRef(null);
 
     // Dışarı tıklanınca dropdownları kapat
     useEffect(() => {
@@ -571,33 +572,17 @@ const StoreManagement = () => {
         }
     };
 
-    // Handle PDF Download
-    const handleDownloadPDF = () => {
-        const actions = document.querySelectorAll('.pdf-action-btn');
-        actions.forEach(el => el.style.display = 'none');
+    // Handle PDF / Print
+    const storeNameForPrint = selectedStore === 0 
+        ? 'Tum_Magazalar' 
+        : allServicePoints.find(sp => Number(sp.id) === Number(selectedStore))?.name?.replace(/\s+/g, '_') || 'Magaza';
 
-        const element = document.getElementById('shift-schedule-print-area');
-        if (!element) return;
+    const documentTitleForPrint = `Vardiya_Programi_${storeNameForPrint}_${new Date().toLocaleDateString('tr-TR')}`;
 
-        const storeName = selectedStore === 0 
-            ? 'Tum_Magazalar' 
-            : allServicePoints.find(sp => Number(sp.id) === Number(selectedStore))?.name || 'Magaza';
-
-        const opt = {
-            margin: 10,
-            filename: `Vardiya_Programi_${storeName.replace(/\s+/g, '_')}_${new Date().toLocaleDateString('tr-TR')}.pdf`,
-            image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2, useCORS: true },
-            jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
-        };
-
-        html2pdf().set(opt).from(element).save().then(() => {
-            actions.forEach(el => el.style.display = '');
-        }).catch(err => {
-            console.error('PDF generation error', err);
-            actions.forEach(el => el.style.display = '');
-        });
-    };
+    const handleDownloadPDF = useReactToPrint({
+        contentRef: printAreaRef,
+        documentTitle: documentTitleForPrint,
+    });
 
     // Stats calculations
     const stats = useMemo(() => {
@@ -610,6 +595,36 @@ const StoreManagement = () => {
 
     return (
         <div className="space-y-8 animate-fade-in pb-20">
+            <style>{`
+                @media print {
+                    @page {
+                        size: A4 landscape;
+                        margin: 10mm;
+                    }
+                    body {
+                        background: white !important;
+                        color: black !important;
+                    }
+                    #shift-schedule-print-area {
+                        padding: 0 !important;
+                        margin: 0 !important;
+                        box-shadow: none !important;
+                        border: none !important;
+                        width: 100% !important;
+                    }
+                    .pdf-action-btn {
+                        display: none !important;
+                    }
+                    .pdf-only-header {
+                        display: block !important;
+                    }
+                    /* Ensure colors and background-colors print correctly */
+                    * {
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                    }
+                }
+            `}</style>
             {/* Header */}
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                 <div>
@@ -1146,7 +1161,7 @@ const StoreManagement = () => {
                                                         className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-semibold hover:bg-indigo-700 transition-all flex items-center gap-2 shadow-sm cursor-pointer"
                                                     >
                                                         <Calendar size={14} />
-                                                        Haftalık PDF İndir
+                                                        Haftalık PDF / Yazdır
                                                     </button>
                                                 </div>
                                             </div>
@@ -1158,9 +1173,9 @@ const StoreManagement = () => {
                                                     <p className="text-xs text-gray-500 mt-0.5">Personellerin günlere göre çalışma planı. Boş hücrelerdeki "+" butonuna basarak hızlıca vardiya atayabilirsiniz.</p>
                                                 </div>
 
-                                                <div id="shift-schedule-print-area" className="p-4 bg-white rounded-2xl">
+                                                <div ref={printAreaRef} id="shift-schedule-print-area" className="p-4 bg-white rounded-2xl">
                                                     {/* PDF Header - visible only during PDF printing */}
-                                                    <div className="pdf-only-header mb-6 border-b border-gray-200 pb-4" style={{ display: 'none' }}>
+                                                    <div className="pdf-only-header mb-6 border-b border-gray-200 pb-4 hidden print:block">
                                                         <h2 className="text-2xl font-bold text-gray-900">TROY YETKİLİ SERVİS</h2>
                                                         <p className="text-sm font-semibold text-gray-500">
                                                             Haftalık Vardiya Programı ({weekDates[0].toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' })} - {weekDates[6].toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', year: 'numeric' })})
