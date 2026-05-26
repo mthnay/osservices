@@ -117,6 +117,7 @@ router.post('/system/seed-roles', async (req, res) => {
             const defaultRoles = [
                 { name: 'superadmin', displayName: 'Super Admin', permissions: ['view_all_stores', 'manage_users', 'manage_settings', 'manage_stock'], isSystem: true },
                 { name: 'storemanager', displayName: 'Mağaza Müdürü', permissions: ['manage_stock', 'delete_repair'], isSystem: true },
+                { name: 'servis_sorumlusu', displayName: 'Servis Sorumlusu', permissions: ['manage_stock', 'delete_repair'], isSystem: true },
                 { name: 'reception', displayName: 'Resepsiyon', permissions: ['manage_stock'], isSystem: true },
                 { name: 'technician', displayName: 'Teknisyen', permissions: [], isSystem: true },
                 { name: 'accountant', displayName: 'Muhasebe', permissions: ['view_all_stores'], isSystem: true },
@@ -124,7 +125,17 @@ router.post('/system/seed-roles', async (req, res) => {
             await Role.insertMany(defaultRoles);
             res.json({ success: true, message: 'Default roles seeded successfully' });
         } else {
-            res.json({ success: true, message: 'Roles already exist' });
+            // Ensure servis_sorumlusu exists even if roles were already seeded
+            const exist = await Role.findOne({ name: 'servis_sorumlusu' });
+            if (!exist) {
+                await Role.create({
+                    name: 'servis_sorumlusu',
+                    displayName: 'Servis Sorumlusu',
+                    permissions: ['manage_stock', 'delete_repair'],
+                    isSystem: true
+                });
+            }
+            res.json({ success: true, message: 'Roles already exist (servis_sorumlusu checked/added)' });
         }
     } catch (error) {
         res.status(500).json({ message: error.message });

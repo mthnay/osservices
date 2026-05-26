@@ -11,12 +11,25 @@ const seedDefaultRoles = async () => {
             const defaultRoles = [
                 { name: 'SuperAdmin', displayName: 'Super Admin', permissions: ['view_all_stores', 'manage_users', 'manage_settings', 'manage_stock'], isSystem: true },
                 { name: 'StoreManager', displayName: 'Mağaza Müdürü', permissions: ['manage_stock', 'delete_repair'], isSystem: true },
+                { name: 'servis_sorumlusu', displayName: 'Servis Sorumlusu', permissions: ['manage_stock', 'delete_repair'], isSystem: true },
                 { name: 'Reception', displayName: 'Resepsiyon', permissions: ['manage_stock'], isSystem: true },
                 { name: 'Technician', displayName: 'Teknisyen', permissions: [], isSystem: true },
                 { name: 'Accountant', displayName: 'Muhasebe', permissions: ['view_all_stores'], isSystem: true },
             ];
             await Role.insertMany(defaultRoles);
             console.log('Default roles seeded successfully');
+        } else {
+            // Ensure servis_sorumlusu exists even if roles were already seeded
+            const exist = await Role.findOne({ name: 'servis_sorumlusu' });
+            if (!exist) {
+                await Role.create({
+                    name: 'servis_sorumlusu',
+                    displayName: 'Servis Sorumlusu',
+                    permissions: ['manage_stock', 'delete_repair'],
+                    isSystem: true
+                });
+                console.log('Seeded servis_sorumlusu role');
+            }
         }
     } catch (error) {
         console.error('Error seeding roles:', error);

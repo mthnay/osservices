@@ -113,7 +113,7 @@ function App() {
         <div className="flex items-center gap-3">
           <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Aktif Mağaza:</span>
           
-          {hasPermission(currentUser, 'view_all_stores') && !['technician', 'reception', 'teknisyen', 'storemanager'].includes(currentUser?.role?.toLowerCase()) ? (
+          {hasPermission(currentUser, 'view_all_stores') && !['technician', 'reception', 'teknisyen', 'storemanager', 'servis_sorumlusu', 'servissorumlusu'].includes(currentUser?.role?.toLowerCase()) ? (
             <div className="relative" ref={storeSelectRef}>
               <button
                 onClick={() => setShowStoreSelect(!showStoreSelect)}

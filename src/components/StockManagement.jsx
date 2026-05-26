@@ -20,7 +20,7 @@ const StockManagement = () => {
     // Role-based access
     const isManager = (() => {
         const role = currentUser?.role?.toLowerCase();
-        return role === ROLES.SUPER_ADMIN || role === ROLES.STORE_MANAGER || role === 'admin';
+        return role === ROLES.SUPER_ADMIN || role === ROLES.STORE_MANAGER || role === ROLES.SERVICE_SUPERVISOR || role === 'admin' || role === 'servis_sorumlusu' || role === 'servissorumlusu';
     })();
 
     // Unified Tab State: 'inventory' or 'kbb'
@@ -194,7 +194,7 @@ const StockManagement = () => {
                                 <>
                                     <div className="fixed inset-0 z-40" onClick={() => setShowStoreDropdown(false)}></div>
                                     <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-xl shadow-xl z-50 py-2">
-                                        {hasPermission(currentUser, 'view_all_stores') && !['technician', 'reception', 'teknisyen', 'storemanager'].includes(currentUser?.role?.toLowerCase()) && (
+                                        {hasPermission(currentUser, 'view_all_stores') && !['technician', 'reception', 'teknisyen', 'storemanager', 'servis_sorumlusu', 'servissorumlusu'].includes(currentUser?.role?.toLowerCase()) && (
                                             <>
                                                 <button 
                                                     onClick={() => { setSelectedStoreId(0); setShowStoreDropdown(false); }}

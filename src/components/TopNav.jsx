@@ -64,7 +64,7 @@ const TopNav = ({ activeTab, setActiveTab }) => {
             }
             if (['technicians', 'store-operations', 'reports'].includes(item.id)) {
                 const role = currentUser?.role?.toLowerCase();
-                return ['superadmin', 'admin', 'yonetici', 'storemanager'].includes(role);
+                return ['superadmin', 'admin', 'yonetici', 'storemanager', 'servis_sorumlusu', 'servissorumlusu'].includes(role);
             }
             return true;
         });

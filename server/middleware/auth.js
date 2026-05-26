@@ -31,6 +31,7 @@ export const requireRole = (roles) => {
         let mappedUserRole = userRole;
         if (userRole === 'admin') mappedUserRole = 'superadmin';
         if (userRole === 'yonetici') mappedUserRole = 'superadmin';
+        if (userRole === 'servis_sorumlusu' || userRole === 'servissorumlusu') mappedUserRole = 'storemanager';
 
         const allowedRoles = roles.map(r => r.toLowerCase());
 

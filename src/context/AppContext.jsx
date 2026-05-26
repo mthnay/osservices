@@ -1005,7 +1005,7 @@ export const AppProvider = ({ children }) => {
         const normalized = role.replace(/ı/g, 'i').replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's').replace(/ö/g, 'o').replace(/ç/g, 'c');
         return {
             isAdmin: normalized === 'admin' || normalized === 'superadmin' || normalized === 'yonetici',
-            isStaff: ['technician', 'reception', 'logistic', 'accountant', 'teknisyen', 'storemanager', 'muhasebe'].includes(normalized)
+            isStaff: ['technician', 'reception', 'logistic', 'accountant', 'teknisyen', 'storemanager', 'muhasebe', 'servis_sorumlusu', 'servissorumlusu'].includes(normalized)
         };
     }, [currentUser]);
 

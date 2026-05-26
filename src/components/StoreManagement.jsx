@@ -89,7 +89,7 @@ const StoreManagement = () => {
     }, [weekOffset]);
 
     const role = currentUser?.role?.toLowerCase();
-    const isManagerOrAdmin = ['superadmin', 'admin', 'yonetici', 'storemanager'].includes(role);
+    const isManagerOrAdmin = ['superadmin', 'admin', 'yonetici', 'storemanager', 'servis_sorumlusu', 'servissorumlusu'].includes(role);
     const isGlobalAdmin = ['superadmin', 'admin', 'yonetici'].includes(role);
 
     // Fetch data
@@ -800,7 +800,7 @@ const StoreManagement = () => {
                                         <p className="text-xs font-bold text-[#1d1d1f] truncate">{emp.name}</p>
                                         <p className="text-[10px] text-gray-400 font-medium truncate">{emp.role}</p>
                                     </div>
-                                    {emp.role?.toLowerCase()?.includes('müdür') || emp.role?.toLowerCase() === 'storemanager' ? (
+                                    {emp.role?.toLowerCase()?.includes('müdür') || emp.role?.toLowerCase() === 'storemanager' || emp.role?.toLowerCase() === 'servis_sorumlusu' || emp.role?.toLowerCase()?.includes('sorumlu') ? (
                                         <Award size={14} className="text-amber-500 flex-shrink-0" />
                                     ) : null}
                                 </div>
