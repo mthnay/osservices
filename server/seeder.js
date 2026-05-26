@@ -4,6 +4,7 @@ import Inventory from './models/Inventory.js';
 import Technician from './models/Technician.js';
 import ServicePoint from './models/ServicePoint.js';
 import SystemSetting from './models/SystemSetting.js';
+import Role from './models/Role.js';
 import bcrypt from 'bcryptjs';
 
 const initialServicePoints = [
@@ -122,6 +123,33 @@ export const seedData = async () => {
         if (await SystemSetting.countDocuments() === 0) {
             await SystemSetting.insertMany(initialSystemSettings);
             console.log('[SEEDER] SystemSettings seeded');
+        }
+
+        // Seed default roles if none exist
+        const roleCount = await Role.countDocuments();
+        if (roleCount === 0) {
+            const defaultRoles = [
+                { name: 'superadmin', displayName: 'Super Admin', permissions: ['view_all_stores', 'manage_users', 'manage_settings', 'manage_stock'], isSystem: true },
+                { name: 'storemanager', displayName: 'Mağaza Müdürü', permissions: ['manage_stock', 'delete_repair'], isSystem: true },
+                { name: 'servis_sorumlusu', displayName: 'Servis Sorumlusu', permissions: ['manage_stock', 'delete_repair'], isSystem: true },
+                { name: 'reception', displayName: 'Resepsiyon', permissions: ['manage_stock'], isSystem: true },
+                { name: 'technician', displayName: 'Teknisyen', permissions: [], isSystem: true },
+                { name: 'accountant', displayName: 'Muhasebe', permissions: ['view_all_stores'], isSystem: true }
+            ];
+            await Role.insertMany(defaultRoles);
+            console.log('[SEEDER] Default roles seeded successfully');
+        } else {
+            // Ensure servis_sorumlusu exists even if roles were already seeded
+            const exist = await Role.findOne({ name: 'servis_sorumlusu' });
+            if (!exist) {
+                await Role.create({
+                    name: 'servis_sorumlusu',
+                    displayName: 'Servis Sorumlusu',
+                    permissions: ['manage_stock', 'delete_repair'],
+                    isSystem: true
+                });
+                console.log('[SEEDER] Seeded servis_sorumlusu role');
+            }
         }
     } catch (error) {
         console.error('[SEEDER] ERROR:', error);
