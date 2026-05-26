@@ -1,6 +1,6 @@
 import { useAppContext } from '../context/AppContext';
 import html2pdf from 'html2pdf.js';
-import { Mail, Loader2, AlertTriangle, Printer, CheckCircle } from 'lucide-react';
+import { Mail, Loader2, Printer, CheckCircle } from 'lucide-react';
 import { useState, useRef } from 'react';
 import { useReactToPrint } from 'react-to-print';
 import Swal from 'sweetalert2';
@@ -20,7 +20,7 @@ const ServiceFormPrint = ({ formData, repairId, onClose }) => {
     const handleSendEmail = async () => {
         if (!emailSettings?.user || !emailSettings?.pass) {
             Swal.fire({
-                title: 'E-posta Settingsı Eksik!',
+                title: 'E-posta Ayarları Eksik!',
                 text: 'E-posta ayarları yapılmamış. Lütfen ayarlardan e-posta bilgilerinizi giriniz.',
                 icon: 'warning',
                 confirmButtonColor: '#007aff',
@@ -33,6 +33,7 @@ const ServiceFormPrint = ({ formData, repairId, onClose }) => {
         const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 saniye sonra iptal et
 
         try {
+            setSendingEmail(true);
             // 1. PDF Oluştur
             const element = componentRef.current;
             const opt = {
@@ -115,174 +116,144 @@ const ServiceFormPrint = ({ formData, repairId, onClose }) => {
                 
                 {/* Ön İzleme Alanı */}
                 <div ref={componentRef} className="print-container bg-white text-gray-900 font-sans">
+                    
                     {/* SAYFA 1: SERVİS KABUL FORMU */}
-                    <div className="p-12 min-h-[1100px] flex flex-col page-break bg-white">
+                    <div className="print-page bg-white">
                         {/* Header */}
-                        <div className="flex justify-between items-center border-b border-gray-100 pb-10 mb-10">
-                            <div className="flex items-center gap-6">
-                                <div className="w-20 h-20 bg-[#f5f5f7] text-black flex items-center justify-center rounded-lg font-semibold text-4xl border border-gray-100 shadow-sm">
+                        <div className="flex justify-between items-start border-b-[0.5px] border-gray-300 pb-3 mb-3">
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 bg-black text-white flex items-center justify-center rounded font-semibold text-2xl">
                                     {companyProfile?.name?.[0] || 'T'}
                                 </div>
-                                <div className="space-y-1">
-                                    <h1 className="text-4xl font-semibold tracking-tight text-black">{companyProfile?.name || 'TROY'}</h1>
-                                    <div className="flex items-center gap-2">
-                                        <span className="h-1.5 w-1.5 bg-blue-500 rounded-full"></span>
-                                        <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-gray-400">Yetkili Servis Sağlayıcısı</p>
-                                    </div>
-                                    <div className="pt-2 text-[10px] text-gray-400 font-medium leading-relaxed max-w-[300px]">
-                                        <p className="uppercase opacity-80">{companyProfile?.title || 'ARTIBİLGİ TEKNOLOJİ BİLİŞİM VE DIŞ TİC. A.Ş.'}</p>
-                                        <p>{companyProfile?.address || 'Bağdat Caddesi No:123, 34728 Kadıköy / İstanbul'}</p>
-                                    </div>
+                                <div>
+                                    <h1 className="text-xl font-bold tracking-tight text-black leading-none">{companyProfile?.name || 'TROY'}</h1>
+                                    <p className="text-[8px] font-bold uppercase tracking-wider text-gray-400 mt-1">Yetkili Servis Sağlayıcısı</p>
+                                    <p className="text-[8px] text-gray-500 max-w-[320px] leading-tight mt-0.5">
+                                        {companyProfile?.title || 'ARTIBİLGİ TEKNOLOJİ BİLİŞİM VE DIŞ TİC. A.Ş.'} | {companyProfile?.address || 'Bağdat Caddesi No:123, 34728 Kadıköy / İstanbul'}
+                                    </p>
                                 </div>
                             </div>
-                            <div className="text-right flex flex-col items-end gap-2">
-                                <div className="flex items-start gap-4">
-                                    <div className="flex flex-col items-end bg-white p-1 rounded-lg border border-gray-100 shadow-sm">
-                                        <img 
-                                            src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(window.location.origin + '?track=' + repairId)}&bgcolor=ffffff&color=000000&margin=1`} 
-                                            alt="Sorgulama QR" 
-                                            className="w-20 h-20"
-                                        />
-                                        <span className="text-[7px] font-bold text-gray-400 mt-1 uppercase tracking-tight text-center w-full">Sorgulama QR</span>
-                                    </div>
-                                    <div className="flex flex-col items-end gap-1">
-                                        <div className="bg-black text-white px-4 py-1.5 rounded-full text-[10px] font-semibold text-xs uppercase tracking-wide shadow-lg">Servis Kabul Formu</div>
-                                        <div className="flex flex-col items-end mt-2">
-                                            <h2 className="text-5xl font-mono font-semibold text-black tracking-tighter">#{repairId}</h2>
-                                            <div className="h-1 w-full bg-blue-500 mt-1 rounded-full opacity-20"></div>
-                                        </div>
-                                        <p className="text-[10px] font-bold text-gray-400 mt-1 uppercase tracking-wider">Kabul: <span className="text-black">{currentDate}</span></p>
-                                    </div>
+                            <div className="flex items-start gap-4">
+                                <div className="border-[0.5px] border-gray-300 p-0.5 bg-white">
+                                    <img 
+                                        src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(window.location.origin + '?track=' + repairId)}&bgcolor=ffffff&color=000000&margin=1`} 
+                                        alt="Sorgulama QR" 
+                                        className="w-12 h-12"
+                                    />
+                                </div>
+                                <div className="text-right">
+                                    <span className="inline-block bg-black text-white px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider leading-none">Servis Kabul Formu</span>
+                                    <h2 className="text-2xl font-mono font-bold text-black tracking-tight mt-0.5">#{repairId}</h2>
+                                    <p className="text-[8px] text-gray-500 uppercase mt-0.5">Kabul Tarihi: <span className="font-bold text-black">{currentDate}</span></p>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Bilgi Kutuları */}
-                        <div className="grid grid-cols-2 gap-8 mb-10">
-                            <div className="bg-white p-8 rounded-lg border border-gray-100 shadow-sm relative overflow-hidden">
-                                <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-full -mr-12 -mt-12 opacity-50"></div>
-                                <h3 className="text-[10px] font-semibold uppercase tracking-[0.2em] text-blue-500 mb-6 flex items-center gap-2">
-                                    <div className="h-1.5 w-1.5 bg-blue-500 rounded-full"></div>
-                                    Müşteri Bilgileri
-                                </h3>
-                                <div className="space-y-4 pt-2 relative z-10">
-                                    <div className="flex justify-between items-end border-b border-gray-50 pb-2">
-                                        <span className="text-[10px] font-semibold text-gray-300 text-xs uppercase tracking-wide">Ad Soyad</span>
-                                        <span className="text-base font-semibold text-gray-900">{formData.customerName}</span>
-                                    </div>
-                                    <div className="flex justify-between items-end border-b border-gray-50 pb-2">
-                                        <span className="text-[10px] font-semibold text-gray-300 text-xs uppercase tracking-wide">TC / VKN</span>
-                                        <span className="text-sm font-bold text-gray-700">{formData.customerTC || '-'}</span>
-                                    </div>
-                                    <div className="flex justify-between items-end border-b border-gray-50 pb-2">
-                                        <span className="text-[10px] font-semibold text-gray-300 text-xs uppercase tracking-wide">Telefon</span>
-                                        <span className="text-sm font-semibold text-gray-900">{formData.customerPhone}</span>
-                                    </div>
-                                    <div className="flex justify-between items-end border-b border-gray-50 pb-2">
-                                        <span className="text-[10px] font-semibold text-gray-300 text-xs uppercase tracking-wide">E-Posta</span>
-                                        <span className="text-sm font-semibold text-gray-900 lowercase">{formData.customerEmail || '-'}</span>
-                                    </div>
-                                    <div className="flex flex-col gap-2 pt-2">
-                                        <span className="text-[10px] font-semibold text-gray-300 text-xs uppercase tracking-wide">Adres</span>
-                                        <span className="text-[12px] leading-relaxed text-gray-600 font-medium">{formData.customerAddress || 'Belirtilmedi'}</span>
-                                    </div>
-                                </div>
+                        {/* Bilgi Grid */}
+                        <div className="border-[0.5px] border-gray-300 rounded overflow-hidden mb-3">
+                            <div className="bg-[#f5f5f7] border-b-[0.5px] border-gray-300 px-3 py-1 text-[8.5px] font-bold uppercase tracking-wider text-gray-700">
+                                Müşteri ve Ürün Bilgileri
                             </div>
+                            <div className="grid grid-cols-4 text-[10px]">
+                                {/* Satır 1 */}
+                                <div className="col-span-2 border-r-[0.5px] border-b-[0.5px] border-gray-300 p-2">
+                                    <span className="block text-[7px] font-bold text-gray-400 uppercase tracking-wider">MÜŞTERİ ADI SOYADI</span>
+                                    <span className="font-semibold text-gray-900">{formData.customerName}</span>
+                                </div>
+                                <div className="border-r-[0.5px] border-b-[0.5px] border-gray-300 p-2">
+                                    <span className="block text-[7px] font-bold text-gray-400 uppercase tracking-wider">TELEFON NUMARASI</span>
+                                    <span className="font-semibold text-gray-900">{formData.customerPhone}</span>
+                                </div>
+                                <div className="border-b-[0.5px] border-gray-300 p-2">
+                                    <span className="block text-[7px] font-bold text-gray-400 uppercase tracking-wider">E-POSTA ADRESİ</span>
+                                    <span className="font-semibold text-gray-900 truncate block lowercase">{formData.customerEmail || '-'}</span>
+                                </div>
 
-                            <div className="bg-white p-8 rounded-lg border border-gray-100 shadow-sm relative overflow-hidden">
-                                <div className="absolute top-0 right-0 w-24 h-24 bg-orange-50 rounded-full -mr-12 -mt-12 opacity-50"></div>
-                                <h3 className="text-[10px] font-semibold uppercase tracking-[0.2em] text-orange-500 mb-6 flex items-center gap-2">
-                                    <div className="h-1.5 w-1.5 bg-orange-500 rounded-full"></div>
-                                    Cihaz Detayları
-                                </h3>
-                                <div className="space-y-4 pt-2 relative z-10">
-                                    <div className="flex justify-between items-end border-b border-gray-50 pb-2">
-                                        <span className="text-[10px] font-semibold text-gray-300 text-xs uppercase tracking-wide">Model</span>
-                                        <span className="text-base font-semibold text-blue-600">{formData.deviceModel}</span>
-                                    </div>
-                                    <div className="flex justify-between items-end border-b border-gray-50 pb-2">
-                                        <span className="text-[10px] font-semibold text-gray-300 text-xs uppercase tracking-wide">Cihaz Türü</span>
-                                        <span className="text-sm font-semibold text-gray-900 uppercase">{formData.productGroup || '-'}</span>
-                                    </div>
-                                    <div className="flex justify-between items-end border-b border-gray-50 pb-2">
-                                        <span className="text-[10px] font-semibold text-gray-300 text-xs uppercase tracking-wide">Seri No</span>
-                                        <span className="text-sm font-mono font-semibold tracking-tight text-gray-900 uppercase">{formData.serialNumber}</span>
-                                    </div>
-                                    {formData.imei1 && (
-                                        <div className="flex justify-between items-end border-b border-gray-50 pb-2 animate-in fade-in">
-                                            <span className="text-[10px] font-semibold text-gray-300 text-xs uppercase tracking-wide">IMEI 1</span>
-                                            <span className="text-sm font-mono font-semibold tracking-tight text-gray-900 uppercase">{formData.imei1}</span>
-                                        </div>
-                                    )}
-                                    {formData.imei2 && (
-                                        <div className="flex justify-between items-end border-b border-gray-50 pb-2 animate-in fade-in">
-                                            <span className="text-[10px] font-semibold text-gray-300 text-xs uppercase tracking-wide">IMEI 2</span>
-                                            <span className="text-sm font-mono font-semibold tracking-tight text-gray-900 uppercase">{formData.imei2}</span>
-                                        </div>
-                                    )}
-                                    <div className="flex justify-between items-end border-b border-gray-50 pb-2">
-                                        <span className="text-[10px] font-semibold text-gray-300 text-xs uppercase tracking-wide">Garanti</span>
-                                        <span className="text-sm font-semibold text-gray-700 uppercase">{formData.warrantyStatus}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center border-b border-gray-50 pb-2">
-                                        <span className="text-[10px] font-semibold text-gray-300 text-xs uppercase tracking-wide">Bul / FMI</span>
-                                        <span className={`text-[10px] font-semibold px-3 py-1 rounded-full ${formData.findMyOff ? 'bg-green-500 text-white shadow-sm' : 'bg-red-500 text-white shadow-sm'}`}>
-                                            {formData.findMyOff ? 'KAPALI' : 'AÇIK'}
-                                        </span>
-                                    </div>
-                                    <div className="flex justify-between items-end border-b border-gray-50 pb-2">
-                                        <span className="text-[10px] font-semibold text-gray-300 text-xs uppercase tracking-wide">Servis Türü</span>
-                                        <span className="text-sm font-semibold text-blue-600 uppercase">
-                                            {REPAIR_TYPE_LABELS[formData.repairType] || '-'}
-                                        </span>
-                                    </div>
+                                {/* Satır 2 */}
+                                <div className="col-span-1 border-r-[0.5px] border-b-[0.5px] border-gray-300 p-2">
+                                    <span className="block text-[7px] font-bold text-gray-400 uppercase tracking-wider">T.C. KİMLİK / V.K.N.</span>
+                                    <span className="font-semibold text-gray-900">{formData.customerTC || '-'}</span>
+                                </div>
+                                <div className="col-span-3 border-b-[0.5px] border-gray-300 p-2">
+                                    <span className="block text-[7px] font-bold text-gray-400 uppercase tracking-wider">ADRES</span>
+                                    <span className="text-gray-700 leading-tight block truncate">{formData.customerAddress || 'Belirtilmedi'}</span>
+                                </div>
+
+                                {/* Satır 3 */}
+                                <div className="col-span-1 border-r-[0.5px] border-b-[0.5px] border-gray-300 p-2">
+                                    <span className="block text-[7px] font-bold text-gray-400 uppercase tracking-wider">CİHAZ MODELİ</span>
+                                    <span className="font-semibold text-blue-600">{formData.deviceModel}</span>
+                                </div>
+                                <div className="col-span-1 border-r-[0.5px] border-b-[0.5px] border-gray-300 p-2">
+                                    <span className="block text-[7px] font-bold text-gray-400 uppercase tracking-wider">CİHAZ TÜBÜ</span>
+                                    <span className="font-semibold text-gray-900 uppercase">{formData.productGroup || '-'}</span>
+                                </div>
+                                <div className="col-span-1 border-r-[0.5px] border-b-[0.5px] border-gray-300 p-2">
+                                    <span className="block text-[7px] font-bold text-gray-400 uppercase tracking-wider">SERİ NUMARASI</span>
+                                    <span className="font-mono font-semibold text-gray-900 uppercase">{formData.serialNumber}</span>
+                                </div>
+                                <div className="col-span-1 border-b-[0.5px] border-gray-300 p-2">
+                                    <span className="block text-[7px] font-bold text-gray-400 uppercase tracking-wider">GARANTİ DURUMU</span>
+                                    <span className="font-semibold text-gray-900 uppercase">{formData.warrantyStatus}</span>
+                                </div>
+
+                                {/* Satır 4 */}
+                                <div className="col-span-1 border-r-[0.5px] border-gray-300 p-2">
+                                    <span className="block text-[7px] font-bold text-gray-400 uppercase tracking-wider">IMEI 1</span>
+                                    <span className="font-mono text-gray-900">{formData.imei1 || '-'}</span>
+                                </div>
+                                <div className="col-span-1 border-r-[0.5px] border-gray-300 p-2">
+                                    <span className="block text-[7px] font-bold text-gray-400 uppercase tracking-wider">IMEI 2</span>
+                                    <span className="font-mono text-gray-900">{formData.imei2 || '-'}</span>
+                                </div>
+                                <div className="col-span-1 border-r-[0.5px] border-gray-300 p-2">
+                                    <span className="block text-[7px] font-bold text-gray-400 uppercase tracking-wider">BUL (FMI) DURUMU</span>
+                                    <span className={`inline-block px-1.5 py-0.5 rounded text-[8px] font-bold text-white ${formData.findMyOff ? 'bg-green-600' : 'bg-red-600'}`}>
+                                        {formData.findMyOff ? 'KAPALI' : 'AÇIK'}
+                                    </span>
+                                </div>
+                                <div className="col-span-1 p-2">
+                                    <span className="block text-[7px] font-bold text-gray-400 uppercase tracking-wider">SERVİS YÖNTEMİ</span>
+                                    <span className="font-semibold text-blue-600 truncate block">
+                                        {REPAIR_TYPE_LABELS[formData.repairType] || '-'}
+                                    </span>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Arıza ve Fiziksel Durum */}
-                        <div className="mb-10 bg-white border border-gray-100 rounded-lg overflow-hidden shadow-sm">
-                            <div className="px-8 py-5 bg-gray-50/50 border-b border-gray-100 flex items-center justify-between">
-                                <h3 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-500 flex items-center gap-3">
-                                    <AlertTriangle size={16} className="text-orange-500" /> Şikayet ve Fiziksel Analiz
-                                </h3>
+                        {/* Arıza ve Gözlemler */}
+                        <div className="border-[0.5px] border-gray-300 rounded overflow-hidden mb-3">
+                            <div className="bg-[#f5f5f7] border-b-[0.5px] border-gray-300 px-3 py-1 text-[8.5px] font-bold uppercase tracking-wider text-gray-700">
+                                Şikayet ve Fiziksel Durum Analizi
                             </div>
-                            <div className="p-8">
-                                <div className="text-base text-gray-800 leading-relaxed min-h-[120px] mb-8 p-6 bg-[#fbfbfd] rounded-md border border-gray-100 italic relative">
-                                    <div className="absolute top-4 left-4 text-4xl text-gray-200 font-serif">"</div>
-                                    <div className="pl-6">{formData.issueDescription || "Cihazın bildirilen bir arızası bulunmamaktadır."}</div>
-                                    <div className="absolute bottom-4 right-4 text-4xl text-gray-200 font-serif rotate-180">"</div>
+                            <div className="p-3 text-[10px] space-y-2">
+                                <div>
+                                    <span className="block text-[7px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">MÜŞTERİ BEYANI / BİLDİRİLEN ARIZA</span>
+                                    <p className="text-gray-800 leading-relaxed bg-[#fbfbfd] p-2 border-[0.5px] border-gray-200 rounded italic text-[9.5px]">
+                                        "{formData.issueDescription || 'Cihazın bildirilen bir arızası bulunmamaktadır.'}"
+                                    </p>
                                 </div>
 
                                 {formData.notes && formData.notes.toUpperCase().includes('DOA RAPORU:') && (
-                                    <div className="mb-8 p-6 bg-red-50 border-2 border-red-200 rounded-xl relative overflow-hidden">
-                                        <div className="absolute top-0 right-0 p-2 bg-red-600 text-white text-[8px] font-black uppercase tracking-tighter rounded-bl-lg shadow-sm">RESMİ DOA RAPORU</div>
-                                        <h4 className="text-xs font-black text-red-700 uppercase tracking-widest mb-3 flex items-center gap-2">
-                                            <div className="w-2 h-2 rounded-full bg-red-600 animate-pulse"></div>
-                                            Teknik İnceleme ve DOA Onayı
-                                        </h4>
-                                        <p className="text-sm font-bold text-red-900 leading-relaxed italic">
+                                    <div className="p-2 bg-red-50 border-[0.5px] border-red-200 rounded">
+                                        <span className="block text-[7px] font-black text-red-700 uppercase tracking-wider mb-0.5">YETKİLİ SERVİS DOA RAPORU</span>
+                                        <p className="text-red-900 leading-relaxed font-bold italic text-[9.5px]">
                                             "{formData.notes.replace(/DOA RAPORU:/i, '').trim()}"
                                         </p>
-                                        <div className="mt-4 pt-4 border-t border-red-100 flex justify-between items-center text-[9px] font-bold text-red-400 uppercase tracking-widest">
-                                            <span>Yetkili Servis Teknik Onayı</span>
-                                            <span>Troy Servis Merkezi</span>
-                                        </div>
                                     </div>
                                 )}
 
                                 <div>
-                                    <h4 className="text-[10px] font-semibold text-gray-300 text-xs uppercase tracking-wide mb-4 pl-1">Teknik Gözlemler</h4>
-                                    <div className="flex flex-wrap gap-2.5">
+                                    <span className="block text-[7px] font-bold text-gray-400 uppercase tracking-wider mb-1">FİZİKSEL DURUM VE YANINDA GELEN AKSESUARLAR</span>
+                                    <div className="flex flex-wrap gap-1">
                                         {formData.visualCondition && formData.visualCondition.length > 0 ? (
                                             formData.visualCondition.map(item => (
-                                                <span key={item} className="px-5 py-2.5 bg-white border border-gray-100 rounded-md text-[10px] font-semibold text-gray-600 uppercase shadow-sm tracking-wider flex items-center gap-2">
-                                                    <div className="w-1.5 h-1.5 bg-red-400 rounded-full"></div>
+                                                <span key={item} className="px-2 py-0.5 bg-gray-100 border border-gray-200 rounded text-[7.5px] font-semibold text-gray-700 uppercase">
                                                     {item}
                                                 </span>
                                             ))
                                         ) : (
-                                            <span className="text-xs text-gray-400 italic font-medium p-2">Kusurlu fiziksel durum veya aksesuar bildirilmedi.</span>
+                                            <span className="text-[9px] text-gray-400 italic">Kusurlu fiziksel durum veya aksesuar bildirilmedi.</span>
                                         )}
                                     </div>
                                 </div>
@@ -290,153 +261,151 @@ const ServiceFormPrint = ({ formData, repairId, onClose }) => {
                         </div>
 
                         {/* Finansal Bilgiler */}
-                        <div className="mb-12">
-                            {formData.estimatedCost > 0 ? (
-                                <div className="p-8 bg-gray-900 rounded-lg text-white shadow-2xl relative overflow-hidden">
-                                    <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500 rounded-full -mr-32 -mt-32 opacity-10"></div>
-                                    <div className="flex items-center justify-between relative z-10">
-                                        <div className="max-w-md">
-                                            <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-400 mb-4 flex items-center gap-2">
-                                                Onaylanan Tahmini Maliyet
-                                            </h3>
-                                            <p className="text-[11px] text-gray-400 leading-relaxed">
-                                                Müşteri, yukarıda belirtilen arızanın giderilmesi için öngörülen <span className="text-white font-bold">{parseFloat(formData.estimatedCost).toLocaleString('tr-TR')} ₺</span> tutarındaki bedeli kabul eder. Bu tutar %20 KDV dahil son fiyattır.
+                        <div className="border-[0.5px] border-gray-300 rounded overflow-hidden mb-3">
+                            <div className="bg-[#f5f5f7] border-b-[0.5px] border-gray-300 px-3 py-1 text-[8.5px] font-bold uppercase tracking-wider text-gray-700">
+                                Mali Durum ve Tahmini Onarım Bedeli
+                            </div>
+                            <div className="p-3">
+                                {formData.estimatedCost > 0 ? (
+                                    <div className="flex justify-between items-center bg-gray-50 p-2 border-[0.5px] border-gray-200 rounded">
+                                        <div className="max-w-[70%]">
+                                            <span className="block text-[7px] font-bold text-gray-400 uppercase tracking-wider">TAHMİNİ HİZMET VE ONARIM BEDELİ (KDV DAHİL)</span>
+                                            <p className="text-[8px] text-gray-500 leading-tight">
+                                                Müşteri, yukarıda belirtilen arızanın giderilmesi için öngörülen tutarı onaylamıştır. Bu tutar %20 KDV dahil son fiyattır.
                                             </p>
                                         </div>
                                         <div className="text-right">
-                                            <div className="text-[10px] font-semibold text-gray-500 text-xs uppercase tracking-wide mb-1">Toplam Tutar</div>
-                                            <div className="text-5xl font-semibold tracking-tighter text-white">{parseFloat(formData.estimatedCost).toLocaleString('tr-TR')} <span className="text-2xl font-medium text-gray-500 ml-1">₺</span></div>
+                                            <span className="block text-[7px] font-bold text-gray-400 uppercase tracking-wider">TOPLAM ONAYLANAN TUTAR</span>
+                                            <span className="text-lg font-bold text-black">{parseFloat(formData.estimatedCost).toLocaleString('tr-TR')} ₺</span>
                                         </div>
                                     </div>
-                                </div>
-                            ) : (
-                                <div className="p-8 bg-[#f5f5f7] border border-gray-100 rounded-lg flex items-center justify-between">
-                                    <div className="flex items-center gap-6">
-                                        <div className="w-16 h-16 rounded-[20px] bg-green-500 flex items-center justify-center text-white shadow-lg">
-                                            <CheckCircle size={32} strokeWidth={2.5} />
-                                        </div>
+                                ) : (
+                                    <div className="flex justify-between items-center bg-green-50/50 p-2 border-[0.5px] border-green-200 rounded text-green-800">
                                         <div>
-                                            <h4 className="text-base font-semibold text-gray-900 uppercase tracking-tight">Ücretsiz İşlem (Garanti Kapsamı)</h4>
-                                            <p className="text-[11px] text-gray-500 font-medium">Bu işlem için herhangi bir teknik servis ücreti tahsil edilmeyecektir.</p>
+                                            <span className="block text-[7px] font-bold text-green-600 uppercase tracking-wider">GARANTİ KAPSAMI İŞLEM</span>
+                                            <p className="text-[8px] text-green-700/80 leading-tight">
+                                                Cihazınız garanti kapsamında veya Apple kalite programları kapsamında incelenecektir. Ön değerlendirmede servis ücreti çıkmamıştır.
+                                            </p>
                                         </div>
+                                        <span className="text-xs font-bold uppercase bg-green-600 text-white px-2 py-0.5 rounded shadow-sm">ÜCRETSİZ İŞLEM</span>
                                     </div>
-                                    <span className="text-4xl font-semibold text-gray-400 tracking-tighter">0,00 ₺</span>
-                                </div>
-                            )}
+                                )}
+                            </div>
                         </div>
 
                         {/* İmza Alanı */}
-                        <div className="mt-auto grid grid-cols-2 gap-16 border-t border-gray-100 pt-10">
-                            <div>
-                                <p className="text-[10px] font-semibold text-gray-300 uppercase tracking-[0.2em] mb-6">Teslim Alan Uzman</p>
-                                <div className="flex items-center gap-4">
-                                    <div className="w-14 h-14 rounded-md bg-gray-50 border border-gray-100 flex items-center justify-center font-semibold text-gray-300 text-xl">MT</div>
-                                    <div>
-                                        <p className="text-sm font-semibold text-gray-900 uppercase tracking-tight">M. Taha Nay</p>
-                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Kıdemli Servis Yetkilisi</p>
-                                    </div>
+                        <div className="mt-auto grid grid-cols-2 gap-4 border-t-[0.5px] border-gray-300 pt-3">
+                            <div className="border-[0.5px] border-gray-300 rounded p-2 bg-gray-50 flex flex-col justify-between h-[75px]">
+                                <div>
+                                    <span className="block text-[7px] font-bold text-gray-400 uppercase tracking-wider">TESLİM ALAN UZMAN</span>
+                                    <span className="text-[9.5px] font-semibold text-gray-900 block mt-0.5">M. Taha Nay</span>
+                                    <span className="text-[7.5px] text-gray-400 block leading-tight">Kıdemli Servis Yetkilisi</span>
                                 </div>
+                                <span className="text-[7px] text-gray-400 font-mono self-end">Troy Servis Yetkilisi</span>
                             </div>
-                            <div>
-                                <p className="text-[10px] font-semibold text-gray-300 uppercase tracking-[0.2em] mb-6">Müşteri Onayı</p>
-                                <div className="relative h-24 bg-[#fbfbfd] rounded-md border border-gray-100 p-4 flex items-center justify-between group">
-                                    <div className="flex-1 h-full overflow-hidden">
-                                        {formData.customerSignature ? (
-                                            <img src={formData.customerSignature} alt="İmza" className="h-full object-contain mix-blend-multiply opacity-80" />
-                                        ) : (
-                                            <div className="h-full flex items-center text-gray-300 text-[10px] italic font-medium">Dijital imza kaydı sistemde saklanmaktadır.</div>
-                                        )}
+
+                            <div className="border-[0.5px] border-gray-300 rounded p-2 bg-gray-50 flex justify-between items-center h-[75px]">
+                                <div className="flex-1 flex flex-col justify-between h-full">
+                                    <div>
+                                        <span className="block text-[7px] font-bold text-gray-400 uppercase tracking-wider">MÜŞTERİ ONAYI / DİJİTAL İMZA</span>
+                                        <span className="text-[9.5px] font-semibold text-gray-900 block mt-0.5 truncate max-w-[150px]">{formData.customerName}</span>
                                     </div>
-                                    <div className="text-right border-l border-gray-200 pl-6 ml-4">
-                                        <p className="text-sm font-semibold text-gray-900 uppercase tracking-tight truncate max-w-[120px]">{formData.customerName}</p>
-                                        <p className="text-[9px] font-bold text-gray-400 uppercase">Müşteri Beyanı</p>
-                                    </div>
+                                    <span className="text-[7px] text-gray-400 leading-none">Dijital onay sistemde saklanmaktadır.</span>
+                                </div>
+                                <div className="w-[75px] h-full flex items-center justify-center bg-white border border-gray-200 rounded overflow-hidden">
+                                    {formData.customerSignature ? (
+                                        <img src={formData.customerSignature} alt="Müşteri İmzası" className="max-h-full max-w-full object-contain mix-blend-multiply" />
+                                    ) : (
+                                        <span className="text-[7px] text-gray-300 italic text-center p-1">İmza Yok</span>
+                                    )}
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    {/* SAYFA 2: SÖZLEŞME */}
-                    <div className="p-16 min-h-[1100px] flex flex-col page-break-before bg-white text-gray-900">
-                        <div className="flex items-center justify-between gap-4 mb-10 pb-6 border-b border-gray-100">
-                            <div className="flex items-center gap-4">
-                                <div className="h-10 w-2 bg-blue-500 rounded-full"></div>
+                    {/* SAYFA 2: SÖZLEŞME VE ŞARTLAR */}
+                    <div className="print-page bg-white">
+                        {/* Header */}
+                        <div className="flex items-center justify-between border-b-[0.5px] border-gray-300 pb-2 mb-3">
+                            <div className="flex items-center gap-2">
+                                <div className="h-4 w-1 bg-black rounded-full"></div>
                                 <div>
-                                    <h2 className="text-2xl font-semibold text-black uppercase tracking-tight">Teknik Servis Genel Hizmet Sözleşmesi</h2>
-                                    <p className="text-[10px] text-gray-400 font-bold text-xs uppercase tracking-wide mt-1">Lütfen bu metni dikkatlice okuyunuz ve imza öncesi onaylayınız.</p>
+                                    <h2 className="text-sm font-bold text-black uppercase tracking-tight">Teknik Servis Genel Hizmet Sözleşmesi</h2>
+                                    <p className="text-[7px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">Cihaz teslimi öncesi lütfen tüm koşulları dikkatlice okuyunuz.</p>
                                 </div>
                             </div>
                             <div className="text-right">
-                                <div className="text-3xl font-mono font-semibold text-black tracking-tighter">#{repairId}</div>
-                                <div className="text-[9px] font-semibold text-gray-300 text-xs uppercase tracking-wide mt-1">Sözleşme No</div>
+                                <div className="text-lg font-mono font-bold text-black">#{repairId}</div>
+                                <div className="text-[7px] font-bold text-gray-400 uppercase tracking-wider">SÖZLEŞME NO</div>
                             </div>
                         </div>
 
-                        <div className="text-[10px] text-gray-600 space-y-3 text-justify leading-relaxed font-medium">
-                            <h3 className="font-semibold text-black mb-2 uppercase flex items-center gap-2">
-                                <div className="w-1.5 h-1.5 bg-gray-900 rounded-full"></div> {serviceTerms?.termsTitle || '1. GENEL ŞARTLAR VE KOŞULLAR'}
-                            </h3>
-                            <div className="whitespace-pre-line opacity-80">
-                                {serviceTerms?.termsContent || "İşbu sözleşme, Troy Teknik Servis ile müşteri arasında servis girişi yapılan cihazın onarım ve hizmet şartlarını belirler. Cihaz içindeki verilerin yedeklenmesi tamamen müşterinin sorumluluğundadır. Sökülen koruyucu aksesuarların iadesi mümkün değildir. Sıvı temaslı veya darbeli cihazlarda onarım sırasında oluşabilecek riskler müşteriye aittir."}
-                            </div>
-                        </div>
-
-                        {/* İmza Alanı (Sayfa 2 - Sözleşme Onayı) */}
-                        <div className="mt-auto pt-10 border-t border-gray-100">
-                            <div className="bg-[#f5f5f7] p-6 rounded-lg mb-10 flex items-center gap-6">
-                                <div className="h-12 w-12 rounded-full bg-white flex items-center justify-center text-blue-500 shadow-sm border border-gray-100">
-                                    <CheckCircle size={24} />
+                        {/* Sözleşme Metni */}
+                        <div className="columns-2 gap-4 text-[7px] text-gray-600 text-justify leading-relaxed font-medium mb-3">
+                            <div className="break-inside-avoid">
+                                <h3 className="font-bold text-black mb-1 uppercase text-[8px] flex items-center gap-1">
+                                    <div className="w-1 h-1 bg-black rounded-full"></div> 
+                                    {serviceTerms?.termsTitle || '1. GENEL ŞARTLAR VE KOŞULLAR'}
+                                </h3>
+                                <div className="whitespace-pre-line opacity-95">
+                                    {serviceTerms?.termsContent || "İşbu sözleşme, Troy Teknik Servis ile müşteri arasında servis girişi yapılan cihazın onarım ve hizmet şartlarını belirler. Cihaz içindeki verilerin yedeklenmesi tamamen müşterinin sorumluluğundadır. Sökülen koruyucu aksesuarların iadesi mümkün değildir. Sıvı temaslı veya darbeli cihazlarda onarım sırasında oluşabilecek riskler müşteriye aittir."}
                                 </div>
-                                <p className="text-[12px] font-bold text-gray-900 leading-tight">
-                                    {serviceTerms?.approvalText || "Müşteri olarak, yukarıdaki sözleşme metnini ve teknik riskleri okudum, anladım ve cihazımı bu şartlar altında teslim ediyorum."}
-                                    <br />
-                                    <span className="text-[10px] font-medium text-gray-400 mt-1 block">
-                                        {serviceTerms?.kvkkText}
-                                    </span>
+                            </div>
+                        </div>
+
+                        {/* KVKK / Onay Metni */}
+                        <div className="bg-[#f5f5f7] p-2.5 border-[0.5px] border-gray-300 rounded mb-4 text-[8px] text-gray-800 leading-tight">
+                            <p className="font-bold flex items-center gap-1 text-[8.5px]">
+                                <CheckCircle size={10} className="text-green-600 flex-shrink-0" />
+                                {serviceTerms?.approvalText || "Müşteri olarak, yukarıdaki sözleşme metnini ve teknik riskleri okudum, anladım ve cihazımı bu şartlar altında teslim ediyorum."}
+                            </p>
+                            {serviceTerms?.kvkkText && (
+                                <p className="text-gray-400 mt-1 text-[7px] leading-tight">
+                                    {serviceTerms?.kvkkText}
                                 </p>
+                            )}
+                        </div>
+
+                        {/* İmza Alanı Sayfa 2 */}
+                        <div className="mt-auto grid grid-cols-2 gap-6 pt-3 border-t-[0.5px] border-gray-300 px-4">
+                            <div className="text-center">
+                                <span className="block text-[7.5px] font-bold text-gray-400 uppercase tracking-wider mb-2">İŞLETME KAŞE / SERVİS ONAYI</span>
+                                <div className="w-14 h-14 bg-gray-50 border border-gray-200 flex items-center justify-center rounded font-bold mx-auto mb-1 text-xl text-gray-300 opacity-60">
+                                    {companyProfile?.name?.[0] || 'T'}
+                                </div>
+                                <span className="text-[8.5px] font-bold text-gray-700 tracking-tight block">{companyProfile?.name || 'TROY'} YETKİLİ SERVİS</span>
                             </div>
-                            
-                            <div className="grid grid-cols-2 gap-20 px-10">
-                                <div className="text-center group">
-                                    <p className="text-[10px] font-semibold text-gray-300 uppercase tracking-[0.2em] mb-10 group-hover:text-gray-400 transition-colors">İşletme Kaşe / Onay</p>
-                                    <div className="w-20 h-20 bg-gray-50 text-gray-200 border border-gray-100 flex items-center justify-center rounded-lg font-semibold mx-auto mb-4 text-3xl opacity-40 grayscale">
-                                        {companyProfile?.name?.[0] || 'T'}
-                                    </div>
-                                    <p className="text-[11px] font-semibold text-gray-800 tracking-tight">{companyProfile?.name || 'TROY'} YETKİLİ SERVİS</p>
+                            <div className="text-center flex flex-col items-center">
+                                <span className="block text-[7.5px] font-bold text-gray-400 uppercase tracking-wider mb-2">MÜŞTERİ ISLAK İMZA</span>
+                                <div className="h-14 w-full flex items-center justify-center relative bg-gray-50 border border-dashed border-gray-200 rounded">
+                                    {formData.customerSignature ? (
+                                        <img src={formData.customerSignature} alt="Müşteri İmzası" className="h-[120%] object-contain mix-blend-multiply scale-110 transform -rotate-1" />
+                                    ) : (
+                                        <div className="h-px w-[60%] bg-gray-300 mt-6"></div>
+                                    )}
                                 </div>
-                                <div className="text-center group">
-                                    <p className="text-[10px] font-semibold text-gray-300 uppercase tracking-[0.2em] mb-10 group-hover:text-gray-400 transition-colors">Müşteri Islak İmza</p>
-                                    <div className="h-24 flex items-center justify-center mb-4 relative">
-                                        {formData.customerSignature ? (
-                                            <img src={formData.customerSignature} alt="İmza" className="h-[140%] object-contain mix-blend-multiply opacity-90 scale-125 transform -rotate-3" />
-                                        ) : (
-                                            <div className="h-px w-full bg-gray-200 mt-12"></div>
-                                        )}
-                                        <div className="absolute inset-0 bg-blue-500/5 opacity-0 group-hover:opacity-100 rounded-lg transition-opacity"></div>
-                                    </div>
-                                    <p className="text-sm font-semibold text-gray-900 uppercase tracking-tight">{formData.customerName}</p>
-                                </div>
+                                <span className="text-[9.5px] font-bold text-gray-900 uppercase mt-1 block">{formData.customerName}</span>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 {/* Footer Eylemleri */}
-                <div className="p-6 bg-[#1d1d1f] flex justify-between items-center no-print rounded-b-xl border-t border-white/5">
+                <div className="p-4 bg-[#1d1d1f] flex justify-between items-center no-print rounded-b-xl border-t border-white/5">
                     <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-md bg-white/5 border border-white/10 flex items-center justify-center text-white/40">
-                            <span className="font-mono text-xs">A4</span>
+                        <div className="w-8 h-8 rounded bg-white/5 border border-white/10 flex items-center justify-center text-white/40">
+                            <span className="font-mono text-[10px]">A4</span>
                         </div>
-                        <div className="text-white/40 text-[10px] font-mono uppercase tracking-[0.2em] leading-tight opacity-50">
-                            PREMIUM SERVICE FORM<br />
-                            ID: {repairId}
+                        <div className="text-white/40 text-[8px] font-mono uppercase tracking-wider leading-tight opacity-50">
+                            APPLECARE INSPIRED FORM<br />
+                            WO-ID: {repairId}
                         </div>
                     </div>
                     
-                    <div className="flex gap-4">
+                    <div className="flex gap-2">
                         <button
                             onClick={onClose}
-                            className="px-6 py-3 text-white/40 hover:text-white rounded-md text-sm font-bold transition-all hover:bg-white/5"
+                            className="px-4 py-2 text-white/40 hover:text-white rounded text-xs font-bold transition-all hover:bg-white/5"
                         >
                             İptal
                         </button>
@@ -444,17 +413,17 @@ const ServiceFormPrint = ({ formData, repairId, onClose }) => {
                         <button
                             onClick={handleSendEmail}
                             disabled={sendingEmail}
-                            className="px-6 py-3 bg-blue-600/10 text-blue-400 hover:bg-blue-600 hover:text-white rounded-md text-sm font-semibold transition-all flex items-center gap-2 border border-blue-500/20 shadow-lg shadow-blue-900/10 disabled:opacity-50"
+                            className="px-4 py-2 bg-blue-600/10 text-blue-400 hover:bg-blue-600 hover:text-white rounded text-xs font-semibold transition-all flex items-center gap-1.5 border border-blue-500/20 disabled:opacity-50"
                         >
-                            {sendingEmail ? <Loader2 size={18} className="animate-spin" /> : <Mail size={18} />}
+                            {sendingEmail ? <Loader2 size={14} className="animate-spin" /> : <Mail size={14} />}
                             {sendingEmail ? 'GÖNDERİLİYOR...' : 'E-POSTA GÖNDER'}
                         </button>
 
                         <button
                             onClick={handlePrint}
-                            className="px-8 py-3 bg-white text-black hover:scale-105 active:scale-95 rounded-md text-sm font-semibold shadow-[0_0_20px_rgba(255,255,255,0.15)] transition-all flex items-center gap-2"
+                            className="px-6 py-2 bg-white text-black hover:bg-gray-100 rounded text-xs font-semibold shadow-[0_0_15px_rgba(255,255,255,0.1)] transition-all flex items-center gap-1.5"
                         >
-                            <Printer size={18} />
+                            <Printer size={14} />
                             FORMU YAZDIR
                         </button>
                     </div>
@@ -462,13 +431,60 @@ const ServiceFormPrint = ({ formData, repairId, onClose }) => {
             </div>
 
             <style>{`
+                .print-page {
+                    width: 100%;
+                    max-width: 210mm;
+                    margin: 0 auto;
+                    background: white;
+                    padding: 12mm;
+                    box-sizing: border-box;
+                    display: flex;
+                    flex-direction: column;
+                }
+                
+                @media screen {
+                    .print-container {
+                        padding: 20px;
+                        background-color: #f5f5f7;
+                    }
+                    .print-page {
+                        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+                        border-radius: 4px;
+                        margin-bottom: 20px;
+                        min-height: 296mm;
+                    }
+                }
+
                 @media print {
-                    @page { margin: 0; size: A4; }
-                    body { background: white; -webkit-print-color-adjust: exact !important; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
-                    .print-container { width: 100% !important; margin: 0 !important; border: none !important; box-shadow: none !important; }
-                    .no-print { display: none !important; }
-                    .page-break { page-break-after: always; }
-                    .page-break-before { page-break-before: always; }
+                    @page { 
+                        margin: 0; 
+                        size: A4; 
+                    }
+                    body { 
+                        background: white; 
+                        -webkit-print-color-adjust: exact !important; 
+                        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+                    }
+                    .print-container { 
+                        width: 100% !important; 
+                        margin: 0 !important; 
+                        padding: 0 !important; 
+                        border: none !important; 
+                        box-shadow: none !important; 
+                    }
+                    .print-page {
+                        width: 210mm !important;
+                        height: 296mm !important;
+                        padding: 12mm !important;
+                        page-break-after: always !important;
+                        page-break-inside: avoid !important;
+                        margin: 0 !important;
+                        border: none !important;
+                        box-shadow: none !important;
+                    }
+                    .no-print { 
+                        display: none !important; 
+                    }
                 }
 
                 .print-container {

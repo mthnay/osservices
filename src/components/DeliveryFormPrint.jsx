@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { useReactToPrint } from 'react-to-print';
-import { Printer, X, MapPin, CheckCircle, Tag, Calendar, User } from 'lucide-react';
+import { Printer, CheckCircle, User } from 'lucide-react';
 import MyPhoneIcon from './LocalIcons';
 
 const DeliveryFormPrint = ({ repair, signature, onClose }) => {
@@ -24,401 +24,417 @@ const DeliveryFormPrint = ({ repair, signature, onClose }) => {
     };
 
     const isReturned = repair.status?.includes('İade') || repair.repairClosingNote?.includes('İŞLEMSİZ İADE');
+    const currentDate = new Date().toLocaleDateString('tr-TR');
 
     return (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
             <div className="bg-white rounded-md shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto flex flex-col">
 
-                {/* Preview Area */}
+                {/* Ön İzleme Alanı */}
                 <div ref={componentRef} className="print-container bg-white text-gray-900 font-sans">
 
                     {/* SAYFA 1: TESLİMAT VE İŞLEM DETAYLARI */}
-                    <div className="p-12 min-h-[1100px] flex flex-col page-break">
+                    <div className="print-page bg-white">
                         {/* Header */}
-                        <div className="flex justify-between items-center border-b-[1px] border-gray-100 pb-10 mb-12">
-                            <div className="flex items-center gap-6">
-                                <div className="w-20 h-20 bg-[#f5f5f7] text-black flex items-center justify-center rounded-lg font-semibold text-4xl border border-gray-100 shadow-sm">T</div>
-                                <div className="space-y-1">
-                                    <h1 className="text-4xl font-semibold tracking-tight text-black">TROY SERVİS</h1>
-                                    <div className="flex items-center gap-2">
-                                        <span className={`h-2 w-2 rounded-full animate-pulse ${isReturned ? 'bg-orange-500' : 'bg-green-500'}`}></span>
-                                        <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-gray-400">
-                                            {isReturned ? 'Cihaz İade ve Teslimat Formu' : 'Onarım Tamamlama ve Teslimat Formu'}
-                                        </p>
-                                    </div>
-                                    <div className="pt-2 text-[10px] text-gray-400 font-medium leading-relaxed max-w-[300px]">
-                                        <p className="uppercase">ARTIBİLGİ TEKNOLOJİ BİLİŞİM VE DIŞ TİC. A.Ş.</p>
-                                        <p>Bağdat Caddesi No:123, 34728 Kadıköy / İstanbul</p>
-                                    </div>
+                        <div className="flex justify-between items-start border-b-[0.5px] border-gray-300 pb-3 mb-3">
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 bg-black text-white flex items-center justify-center rounded font-semibold text-2xl">T</div>
+                                <div>
+                                    <h1 className="text-xl font-bold tracking-tight text-black leading-none">TROY SERVİS</h1>
+                                    <p className="text-[8px] font-bold uppercase tracking-wider text-gray-400 mt-1">
+                                        {isReturned ? 'Cihaz İade ve Teslimat Formu' : 'Onarım Tamamlama ve Teslimat Formu'}
+                                    </p>
+                                    <p className="text-[8px] text-gray-500 max-w-[320px] leading-tight mt-0.5">
+                                        ARTIBİLGİ TEKNOLOJİ BİLİŞİM VE DIŞ TİC. A.Ş. | Bağdat Caddesi No:123, 34728 Kadıköy / İstanbul
+                                    </p>
                                 </div>
                             </div>
-                            <div className="text-right flex flex-col items-end gap-2">
-                                <div className={`${isReturned ? 'bg-orange-600' : 'bg-green-600'} text-white px-4 py-1.5 rounded-full text-[10px] font-semibold text-xs uppercase tracking-wide shadow-lg shadow-black/10`}>
+                            <div className="text-right">
+                                <span className={`inline-block ${isReturned ? 'bg-orange-600' : 'bg-green-600'} text-white px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider leading-none shadow-sm`}>
                                     {isReturned ? 'İşlemsiz İade' : 'Onarım Tamamlandı'}
-                                </div>
-                                <div className="flex flex-col items-end">
-                                    <h2 className="text-5xl font-mono font-semibold text-black tracking-tighter">#{repair.id}-OUT</h2>
-                                    <div className="h-1.5 w-full bg-green-500 mt-1 rounded-full opacity-20"></div>
-                                </div>
-                                <p className="text-[10px] font-bold text-gray-400 mt-1 uppercase tracking-wider">Teslim: <span className="text-black">{new Date().toLocaleDateString('tr-TR')}</span></p>
+                                </span>
+                                <h2 className="text-2xl font-mono font-bold text-black tracking-tight mt-0.5">#{repair.id}-OUT</h2>
+                                <p className="text-[8px] text-gray-500 uppercase mt-0.5">Teslim Tarihi: <span className="font-bold text-black">{currentDate}</span></p>
                             </div>
                         </div>
 
                         {/* Bilgi Grid */}
-                        <div className="grid grid-cols-2 gap-10 mb-10">
-                            <div className="bg-white p-8 rounded-lg border border-gray-100 shadow-sm relative overflow-hidden group">
-                                <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-full -mr-12 -mt-12 opacity-50"></div>
-                                <h3 className="text-[10px] font-semibold uppercase tracking-[0.2em] text-blue-500 mb-6 flex items-center gap-2">
-                                    <User size={14} /> Müşteri ve İletişim
-                                </h3>
-                                <div className="space-y-4 pt-2 relative z-10">
-                                    <div className="flex justify-between items-end border-b border-gray-50 pb-2">
-                                        <span className="text-[10px] font-semibold text-gray-300 text-xs uppercase tracking-wide">Ad Soyad</span>
-                                        <span className="text-base font-semibold text-gray-900">{repair.customer}</span>
-                                    </div>
-                                    <div className="flex justify-between items-end border-b border-gray-50 pb-2">
-                                        <span className="text-[10px] font-semibold text-gray-300 text-xs uppercase tracking-wide">Telefon</span>
-                                        <span className="text-sm font-semibold text-gray-900">{repair.customerPhone}</span>
-                                    </div>
-                                    <div className="flex justify-between items-end border-b border-gray-50 pb-2">
-                                        <span className="text-[10px] font-semibold text-gray-300 text-xs uppercase tracking-wide">E-Posta</span>
-                                        <span className="text-sm font-bold text-gray-700">{repair.customerEmail || '-'}</span>
-                                    </div>
-                                    <div className="flex justify-between items-end border-b border-gray-50 pb-2">
-                                        <span className="text-[10px] font-semibold text-gray-300 text-xs uppercase tracking-wide">TC / VKN</span>
-                                        <span className="text-sm font-bold text-gray-700">{repair.tcNo || '-'}</span>
-                                    </div>
-                                    <div className="flex flex-col gap-1 pt-1">
-                                        <span className="text-[10px] font-semibold text-gray-300 text-xs uppercase tracking-wide">Adres</span>
-                                        <span className="text-[11px] font-medium text-gray-600 leading-tight">{repair.customerAddress || '-'}</span>
-                                    </div>
-                                </div>
+                        <div className="border-[0.5px] border-gray-300 rounded overflow-hidden mb-3">
+                            <div className="bg-[#f5f5f7] border-b-[0.5px] border-gray-300 px-3 py-1 text-[8.5px] font-bold uppercase tracking-wider text-gray-700">
+                                Müşteri ve Ürün Bilgileri
                             </div>
-
-                            <div className="bg-white p-8 rounded-lg border border-gray-100 shadow-sm relative overflow-hidden group">
-                                <div className="absolute top-0 right-0 w-24 h-24 bg-green-50 rounded-full -mr-12 -mt-12 opacity-50"></div>
-                                <h3 className="text-[10px] font-semibold uppercase tracking-[0.2em] text-green-500 mb-6 flex items-center gap-2">
-                                    <MyPhoneIcon size={14} /> Cihaz Bilgileri
-                                </h3>
-                                <div className="space-y-4 pt-2 relative z-10">
-                                    <div className="flex justify-between items-end border-b border-gray-50 pb-2">
-                                        <span className="text-[10px] font-semibold text-gray-300 text-xs uppercase tracking-wide">Model</span>
-                                        <span className="text-base font-semibold text-blue-600">{repair.device}</span>
-                                    </div>
-                                    <div className="flex justify-between items-end border-b border-gray-50 pb-2">
-                                        <span className="text-[10px] font-semibold text-gray-300 text-xs uppercase tracking-wide">Seri No</span>
-                                        <span className="text-sm font-mono font-semibold tracking-tight text-gray-900 uppercase">{repair.serialNumber || repair.serial || 'Belirtilmedi'}</span>
-                                    </div>
-                                    {repair.imei1 && (
-                                        <div className="flex justify-between items-end border-b border-gray-50 pb-2">
-                                            <span className="text-[10px] font-semibold text-gray-300 text-xs uppercase tracking-wide">IMEI 1</span>
-                                            <span className="text-sm font-mono font-semibold tracking-tight text-gray-900 uppercase">{repair.imei1}</span>
-                                        </div>
-                                    )}
-                                    {repair.imei2 && (
-                                        <div className="flex justify-between items-end border-b border-gray-50 pb-2">
-                                            <span className="text-[10px] font-semibold text-gray-300 text-xs uppercase tracking-wide">IMEI 2</span>
-                                            <span className="text-sm font-mono font-semibold tracking-tight text-gray-900 uppercase">{repair.imei2}</span>
-                                        </div>
-                                    )}
-                                    <div className="flex justify-between items-end border-b border-gray-50 pb-2">
-                                        <span className="text-[10px] font-semibold text-gray-300 text-xs uppercase tracking-wide">Garanti</span>
-                                        <span className="text-sm font-semibold text-gray-700 uppercase tracking-wide">{repair.warrantyStatus || 'Standart'}</span>
-                                    </div>
-                                    <div className="flex justify-between items-end border-b border-gray-50 pb-2">
-                                        <span className="text-[10px] font-semibold text-gray-300 text-xs uppercase tracking-wide">Servis Türü</span>
-                                        <span className="text-sm font-semibold text-blue-600 uppercase tracking-wide">{REPAIR_TYPE_LABELS[repair.repairType] || '-'}</span>
-                                    </div>
+                            <div className="grid grid-cols-4 text-[10px]">
+                                {/* Satır 1 */}
+                                <div className="col-span-2 border-r-[0.5px] border-b-[0.5px] border-gray-300 p-2">
+                                    <span className="block text-[7px] font-bold text-gray-400 uppercase tracking-wider">MÜŞTERİ ADI SOYADI</span>
+                                    <span className="font-semibold text-gray-900">{repair.customer}</span>
                                 </div>
+                                <div className="border-r-[0.5px] border-b-[0.5px] border-gray-300 p-2">
+                                    <span className="block text-[7px] font-bold text-gray-400 uppercase tracking-wider">TELEFON NUMARASI</span>
+                                    <span className="font-semibold text-gray-900">{repair.customerPhone}</span>
+                                </div>
+                                <div className="border-b-[0.5px] border-gray-300 p-2">
+                                    <span className="block text-[7px] font-bold text-gray-400 uppercase tracking-wider">E-POSTA ADRESİ</span>
+                                    <span className="font-semibold text-gray-900 truncate block lowercase">{repair.customerEmail || '-'}</span>
+                                </div>
+
+                                {/* Satır 2 */}
+                                <div className="col-span-1 border-r-[0.5px] border-b-[0.5px] border-gray-300 p-2">
+                                    <span className="block text-[7px] font-bold text-gray-400 uppercase tracking-wider">T.C. KİMLİK / V.K.N.</span>
+                                    <span className="font-semibold text-gray-900">{repair.tcNo || '-'}</span>
+                                </div>
+                                <div className="col-span-3 border-b-[0.5px] border-gray-300 p-2">
+                                    <span className="block text-[7px] font-bold text-gray-400 uppercase tracking-wider">ADRES</span>
+                                    <span className="text-gray-700 leading-tight block truncate">{repair.customerAddress || '-'}</span>
+                                </div>
+
+                                {/* Satır 3 */}
+                                <div className="col-span-1 border-r-[0.5px] border-gray-300 p-2">
+                                    <span className="block text-[7px] font-bold text-gray-400 uppercase tracking-wider">CİHAZ MODELİ</span>
+                                    <span className="font-semibold text-blue-600">{repair.device}</span>
+                                </div>
+                                <div className="col-span-1 border-r-[0.5px] border-gray-300 p-2">
+                                    <span className="block text-[7px] font-bold text-gray-400 uppercase tracking-wider">SERİ NUMARASI</span>
+                                    <span className="font-mono font-semibold text-gray-900 uppercase truncate block">{repair.serialNumber || repair.serial || 'Belirtilmedi'}</span>
+                                </div>
+                                <div className="col-span-1 border-r-[0.5px] border-gray-300 p-2">
+                                    <span className="block text-[7px] font-bold text-gray-400 uppercase tracking-wider">GARANTİ DURUMU</span>
+                                    <span className="font-semibold text-gray-700 uppercase">{repair.warrantyStatus || 'Standart'}</span>
+                                </div>
+                                <div className="col-span-1 p-2">
+                                    <span className="block text-[7px] font-bold text-gray-400 uppercase tracking-wider">SERVİS YÖNTEMİ</span>
+                                    <span className="font-semibold text-blue-600 truncate block">
+                                        {REPAIR_TYPE_LABELS[repair.repairType] || '-'}
+                                    </span>
+                                </div>
+
+                                {/* Satır 4 (IMEI ve Ekstra Bilgiler) */}
+                                {(repair.imei1 || repair.imei2) && (
+                                    <>
+                                        <div className="col-span-2 border-r-[0.5px] border-t-[0.5px] border-gray-300 p-2">
+                                            <span className="block text-[7px] font-bold text-gray-400 uppercase tracking-wider">IMEI 1</span>
+                                            <span className="font-mono text-gray-900">{repair.imei1 || '-'}</span>
+                                        </div>
+                                        <div className="col-span-2 border-t-[0.5px] border-gray-300 p-2">
+                                            <span className="block text-[7px] font-bold text-gray-400 uppercase tracking-wider">IMEI 2</span>
+                                            <span className="font-mono text-gray-900">{repair.imei2 || '-'}</span>
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         </div>
 
-                        {/* Yapılan İşlemler Paneli */}
-                        <div className="bg-white border border-gray-100 rounded-lg overflow-hidden shadow-sm flex-1 flex flex-col">
-                            <div className="px-8 py-5 bg-[#fbfbfd] border-b border-gray-100 flex items-center justify-between">
-                                <h3 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-500 flex items-center gap-3">
-                                    <CheckCircle size={16} className="text-green-500" /> Uygulanan Teknik İşlemler ve Notlar
-                                </h3>
-                                <div className="h-px flex-1 mx-6 bg-gray-200 opacity-50"></div>
+                        {/* Yapılan Teknik İşlemler Paneli */}
+                        <div className="border-[0.5px] border-gray-300 rounded overflow-hidden mb-3">
+                            <div className="bg-[#f5f5f7] border-b-[0.5px] border-gray-300 px-3 py-1 text-[8.5px] font-bold uppercase tracking-wider text-gray-700">
+                                Uygulanan Teknik İşlemler ve Notlar
                             </div>
-                            
-                            <div className="p-8 space-y-6">
-                                <div className="grid grid-cols-1 gap-4">
-                                    {repair.tests && (
-                                        <div className="group">
-                                            <p className="text-[10px] font-semibold text-gray-300 text-xs uppercase tracking-wide mb-2 pl-2 group-hover:text-blue-500 transition-colors">Tanı Testleri & Gözlemler</p>
-                                            <div className="p-4 bg-[#f5f5f7] rounded-24 text-xs leading-relaxed text-gray-800 border border-gray-100 italic relative overflow-hidden">
-                                                <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500/30"></div>
-                                                "{repair.tests}"
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {repair.diagnosisNotes && (
-                                        <div className="group">
-                                            <p className="text-[10px] font-semibold text-gray-300 text-xs uppercase tracking-wide mb-2 pl-2 group-hover:text-amber-500 transition-colors">
-                                                {repair.diagnosisNotes.startsWith('DOA RAPORU:') ? 'Resmi Arıza Raporu (DOA)' : 'Tanı ve İnceleme Notu'}
-                                            </p>
-                                            <div className={`p-4 rounded-24 text-xs leading-relaxed border italic relative overflow-hidden ${repair.diagnosisNotes.startsWith('DOA RAPORU:') ? 'bg-red-50 text-red-900 border-red-200' : 'bg-[#f5f5f7] text-gray-800 border-gray-100'}`}>
-                                                <div className={`absolute left-0 top-0 bottom-0 w-1 ${repair.diagnosisNotes.startsWith('DOA RAPORU:') ? 'bg-red-500' : 'bg-amber-500/30'}`}></div>
-                                                "{repair.diagnosisNotes.replace('DOA RAPORU: ', '')}"
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {repair.repairClosingNote && (
-                                        <div className="group">
-                                            <p className="text-[10px] font-semibold text-gray-300 text-xs uppercase tracking-wide mb-2 pl-2 group-hover:text-green-500 transition-colors">Onarım Tamamlama Notu</p>
-                                            <div className="p-5 bg-green-50/50 rounded-24 text-sm leading-relaxed text-gray-900 border border-green-100/50 font-bold whitespace-pre-wrap italic shadow-sm relative overflow-hidden">
-                                                <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-green-500"></div>
-                                                "{repair.repairClosingNote.replace(/\n\n\[İşlem Süresi: .*\]$/, '')}"
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {!repair.tests && !repair.diagnosisNotes && !repair.repairClosingNote && (
-                                        <div className="p-8 bg-gray-50/50 rounded-lg border border-gray-100 border-dashed text-center">
-                                            <p className="text-sm font-bold text-gray-400 italic">
-                                                Cihazın bildirilen arızası giderilmiş, gerekli testler yapılarak standartlara uygun şekilde teslim edilmiştir.
-                                            </p>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {repair.parts && repair.parts.length > 0 && !isReturned && (
-                                    <div className="pt-4">
-                                        <h4 className="text-[10px] font-semibold text-gray-300 text-xs uppercase tracking-wide mb-4 pl-2">Değişimi Yapılan Orijinal Parçalar</h4>
-                                        <div className="grid grid-cols-1 gap-3">
-                                            {repair.parts.map((part, index) => (
-                                                <div key={index} className="flex items-center justify-between p-4 border border-gray-100 rounded-md bg-white shadow-sm hover:shadow-md transition-shadow">
-                                                    <div className="flex items-center gap-4">
-                                                        <div className="w-10 h-10 bg-[#f5f5f7] rounded-md flex items-center justify-center font-semibold text-gray-400 text-sm">{index + 1}</div>
-                                                        <div>
-                                                            <p className="text-sm font-semibold text-gray-900 uppercase tracking-tight">{part.description}</p>
-                                                            <p className="text-[10px] font-mono font-bold text-gray-400 uppercase tracking-tighter">P/N: {part.partNumber || 'N/A'}</p>
-                                                        </div>
-                                                    </div>
-                                                    <div className="text-right flex flex-col gap-1">
-                                                        <div className="flex items-center gap-2 justify-end">
-                                                            <span className="text-[9px] font-semibold text-blue-500 text-xs uppercase tracking-wide">YENİ SERİ</span>
-                                                            <p className="text-xs font-mono font-semibold text-gray-900">{part.kgbSerial || '-'}</p>
-                                                        </div>
-                                                        <div className="flex items-center gap-2 justify-end opacity-40">
-                                                            <span className="text-[9px] font-semibold text-gray-400 text-xs uppercase tracking-wide">ESKİ SERİ</span>
-                                                            <p className="text-xs font-mono font-bold text-gray-400">{part.kbbSerial || '-'}</p>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
+                            <div className="p-3 text-[10px] space-y-2">
+                                {repair.tests && (
+                                    <div>
+                                        <span className="block text-[7px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">TANI TESTLERİ & GÖZLEMLER</span>
+                                        <p className="text-gray-800 leading-normal bg-[#fbfbfd] p-2 border-[0.5px] border-gray-200 rounded italic text-[9px]">
+                                            "{repair.tests}"
+                                        </p>
                                     </div>
                                 )}
-                            </div>
 
-                            {/* Ödeme ve Fatura Detayları */}
-                            <div className="mt-auto p-8 pt-0">
+                                {repair.diagnosisNotes && (
+                                    <div>
+                                        <span className="block text-[7px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">
+                                            {repair.diagnosisNotes.startsWith('DOA RAPORU:') ? 'RESMİ ARIZA RAPORU (DOA)' : 'TANI VE İNCELEME NOTU'}
+                                        </span>
+                                        <p className={`p-2 rounded border italic text-[9px] leading-normal ${repair.diagnosisNotes.startsWith('DOA RAPORU:') ? 'bg-red-50 text-red-900 border-red-200 font-bold' : 'bg-[#fbfbfd] text-gray-800 border-gray-200'}`}>
+                                            "{repair.diagnosisNotes.replace('DOA RAPORU: ', '')}"
+                                        </p>
+                                    </div>
+                                )}
+
+                                {repair.repairClosingNote && (
+                                    <div>
+                                        <span className="block text-[7px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">ONARIM TAMAMLAMA NOTU</span>
+                                        <p className="p-2 bg-green-50/50 rounded border border-green-200 text-gray-900 font-semibold text-[9.5px] leading-normal italic">
+                                            "{repair.repairClosingNote.replace(/\n\n\[İşlem Süresi: .*\]$/, '')}"
+                                        </p>
+                                    </div>
+                                )}
+
+                                {!repair.tests && !repair.diagnosisNotes && !repair.repairClosingNote && (
+                                    <p className="text-[9px] text-gray-400 italic p-1">
+                                        Cihazın bildirilen arızası giderilmiş, gerekli testler yapılarak standartlara uygun şekilde teslim edilmiştir.
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Orijinal Parça Değişim Tablosu */}
+                        {repair.parts && repair.parts.length > 0 && !isReturned && (
+                            <div className="border-[0.5px] border-gray-300 rounded overflow-hidden mb-3">
+                                <div className="bg-[#f5f5f7] border-b-[0.5px] border-gray-300 px-3 py-1 text-[8.5px] font-bold uppercase tracking-wider text-gray-700">
+                                    Değişimi Yapılan Orijinal Parçalar
+                                </div>
+                                <div className="p-2">
+                                    <table className="w-full text-left border-collapse text-[9px]">
+                                        <thead>
+                                            <tr className="border-b border-gray-200 text-gray-400 text-[7.5px] uppercase tracking-wider font-bold">
+                                                <th className="pb-1 w-8">#</th>
+                                                <th className="pb-1">PARÇA TANIMI</th>
+                                                <th className="pb-1">PARÇA NO (P/N)</th>
+                                                <th className="pb-1">YENİ SERİ NUMARASI</th>
+                                                <th className="pb-1">ESKİ SERİ NUMARASI</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100">
+                                            {repair.parts.map((part, index) => (
+                                                <tr key={index} className="text-gray-800">
+                                                    <td className="py-1.5 font-bold">{index + 1}</td>
+                                                    <td className="py-1.5 uppercase font-semibold">{part.description}</td>
+                                                    <td className="py-1.5 font-mono text-[8.5px] text-gray-500">{part.partNumber || 'N/A'}</td>
+                                                    <td className="py-1.5 font-mono text-[8.5px] text-blue-600 font-semibold">{part.kgbSerial || '-'}</td>
+                                                    <td className="py-1.5 font-mono text-[8.5px] text-gray-400">{part.kbbSerial || '-'}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Finansal Detaylar */}
+                        <div className="border-[0.5px] border-gray-300 rounded overflow-hidden mb-3">
+                            <div className="bg-[#f5f5f7] border-b-[0.5px] border-gray-300 px-3 py-1 text-[8.5px] font-bold uppercase tracking-wider text-gray-700">
+                                Finansal Özet
+                            </div>
+                            <div className="p-3">
                                 {(repair.quoteAmount || repair.cost) > 0 ? (
-                                    <div className="bg-gray-900 rounded-lg p-8 text-white shadow-2xl relative overflow-hidden">
-                                        <div className="absolute top-0 right-0 w-64 h-64 bg-green-500 rounded-full -mr-32 -mt-32 opacity-10"></div>
-                                        <div className="flex items-center justify-between relative z-10">
-                                            <div>
-                                                <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-green-400 mb-2">Finansal Özet</h3>
-                                                <p className="text-[11px] text-gray-400 font-medium">Bu işlem için müşteri tarafından toplam ödeme tahsil edilmiştir.</p>
-                                            </div>
-                                            <div className="text-right">
-                                                <div className="text-[10px] font-semibold text-gray-500 text-xs uppercase tracking-wide mb-1">Tahsil Edilen Toplam</div>
-                                                <div className="text-4xl font-semibold tracking-tighter text-white">{parseFloat(repair.quoteAmount || repair.cost).toLocaleString('tr-TR')} <span className="text-xl font-medium text-gray-500 ml-1">₺</span></div>
-                                                <div className="mt-2 text-[9px] font-semibold text-green-400 uppercase bg-green-400/10 px-4 py-1 rounded-full inline-block">Ödeme Alındı</div>
-                                            </div>
+                                    <div className="flex justify-between items-center bg-gray-50 p-2 border-[0.5px] border-gray-200 rounded">
+                                        <div>
+                                            <span className="block text-[7px] font-bold text-gray-400 uppercase tracking-wider">TAHSİL EDİLEN TOPLAM TUTAR</span>
+                                            <p className="text-[8px] text-gray-500 leading-tight">
+                                                Onarım bedeli müşteri tarafından ödenmiş ve tahsilat kaydı yapılmıştır.
+                                            </p>
+                                        </div>
+                                        <div className="text-right">
+                                            <span className="inline-block text-[8px] font-bold bg-green-600 text-white px-2 py-0.5 rounded leading-none mr-2">ÖDEME ALINDI</span>
+                                            <span className="text-lg font-bold text-black">{parseFloat(repair.quoteAmount || repair.cost).toLocaleString('tr-TR')} ₺</span>
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className="p-8 bg-green-500/5 border border-green-500/10 rounded-lg flex items-center justify-between">
-                                        <div className="flex items-center gap-6">
-                                            <div className="w-16 h-16 rounded-[22px] bg-green-500 flex items-center justify-center text-white shadow-lg shadow-green-500/20">
-                                                <CheckCircle size={32} strokeWidth={2.5} />
-                                            </div>
-                                            <div>
-                                                <h4 className="text-base font-semibold text-gray-900 uppercase tracking-tight">Ücretsiz Servis İşlemi</h4>
-                                                <p className="text-[11px] text-gray-500 font-medium">Garanti kapsamı veya Apple kalite programı dahilinde işlem yapılmıştır.</p>
-                                            </div>
+                                    <div className="flex justify-between items-center bg-green-50/50 p-2 border-[0.5px] border-green-200 rounded text-green-800">
+                                        <div>
+                                            <span className="block text-[7px] font-bold text-green-600 uppercase tracking-wider">ÜCRETSİZ SERVİS İŞLEMİ</span>
+                                            <p className="text-[8px] text-green-700/80 leading-tight">
+                                                Garanti kapsamı veya Apple kalite programı dahilinde işlem yapıldığı için herhangi bir servis ücreti tahsil edilmemiştir.
+                                            </p>
                                         </div>
-                                        <span className="text-4xl font-semibold text-green-600 tracking-tighter opacity-20">₺ 0,00</span>
+                                        <span className="text-xs font-bold uppercase bg-green-600 text-white px-2 py-0.5 rounded shadow-sm">₺ 0,00</span>
                                     </div>
                                 )}
                             </div>
                         </div>
 
-                        {/* İmza Alanı (Sayfa 1) */}
-                        <div className="mt-10 grid grid-cols-2 gap-16 border-t border-gray-100 pt-10">
-                            <div>
-                                <p className="text-[10px] font-semibold text-gray-300 uppercase tracking-[0.2em] mb-6">Teslim Eden Servis Yetkilisi</p>
-                                <div className="flex items-center gap-4">
-                                    <div className="w-14 h-14 rounded-md bg-gray-50 border border-gray-100 flex items-center justify-center font-semibold text-gray-300 text-xl">T</div>
-                                    <div>
-                                        <p className="text-sm font-semibold text-gray-900 uppercase tracking-tight">TROY TEKNİK SERVİS</p>
-                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Mersis: 06123456789</p>
-                                    </div>
+                        {/* İmza Alanı */}
+                        <div className="mt-auto grid grid-cols-2 gap-4 border-t-[0.5px] border-gray-300 pt-3">
+                            <div className="border-[0.5px] border-gray-300 rounded p-2 bg-gray-50 flex flex-col justify-between h-[75px]">
+                                <div>
+                                    <span className="block text-[7px] font-bold text-gray-400 uppercase tracking-wider">TESLİM EDEN SERVİS YETKİLİSİ</span>
+                                    <span className="text-[9.5px] font-semibold text-gray-900 block mt-0.5">TROY TEKNİK SERVİS</span>
+                                    <span className="text-[7.5px] text-gray-400 block leading-tight">Mersis No: 06123456789</span>
                                 </div>
+                                <span className="text-[7px] text-gray-400 font-mono self-end">Troy Teknik Servis</span>
                             </div>
-                            <div>
-                                <p className="text-[10px] font-semibold text-gray-300 uppercase tracking-[0.2em] mb-6">Teslim Alan Müşteri</p>
-                                <div className="relative h-24 bg-[#fbfbfd] rounded-24 border border-gray-100 p-4 flex items-center justify-between group">
-                                    <div className="flex-1 h-full overflow-hidden">
-                                        {signature ? (
-                                            <img src={signature} alt="İmza" className="h-full object-contain mix-blend-multiply opacity-80" />
-                                        ) : (
-                                            <div className="h-full flex items-center text-gray-300 text-[10px] italic font-medium">Sistem üzerinden dijital onay alınmıştır.</div>
-                                        )}
+
+                            <div className="border-[0.5px] border-gray-300 rounded p-2 bg-gray-50 flex justify-between items-center h-[75px]">
+                                <div className="flex-1 flex flex-col justify-between h-full">
+                                    <div>
+                                        <span className="block text-[7px] font-bold text-gray-400 uppercase tracking-wider">TESLİM ALAN MÜŞTERİ / İMZA</span>
+                                        <span className="text-[9.5px] font-semibold text-gray-900 block mt-0.5 truncate max-w-[150px]">{repair.customer}</span>
                                     </div>
-                                    <div className="text-right border-l border-gray-200 pl-6 ml-4">
-                                        <p className="text-sm font-semibold text-gray-900 uppercase tracking-tight truncate max-w-[120px]">{repair.customer}</p>
-                                        <p className="text-[9px] font-bold text-gray-400 uppercase">Müşteri Beyanı</p>
-                                    </div>
+                                    <span className="text-[7px] text-gray-400 leading-none">Cihazını çalışır durumda teslim almıştır.</span>
+                                </div>
+                                <div className="w-[75px] h-full flex items-center justify-center bg-white border border-gray-200 rounded overflow-hidden">
+                                    {signature ? (
+                                        <img src={signature} alt="Müşteri İmzası" className="max-h-full max-w-full object-contain mix-blend-multiply" />
+                                    ) : (
+                                        <span className="text-[7px] text-gray-300 italic text-center p-1">Onaylandı</span>
+                                    )}
                                 </div>
                             </div>
                         </div>
                     </div>
 
                     {/* SAYFA 2: GARANTİ VE BİLGİLENDİRME */}
-                    <div className="p-16 min-h-[1100px] flex flex-col page-break-before bg-white text-gray-900">
-                        <div className="flex items-center gap-4 mb-10 pb-6 border-b border-gray-100">
-                            <div className="h-10 w-2 bg-green-500 rounded-full"></div>
+                    <div className="print-page bg-white text-gray-900">
+                        {/* Header */}
+                        <div className="flex items-center gap-2 mb-3 pb-2 border-b-[0.5px] border-gray-300">
+                            <div className="h-4 w-1 bg-green-500 rounded-full"></div>
                             <div>
-                                <h2 className="text-2xl font-semibold text-black uppercase tracking-tight">Onarım Sonrası Garanti ve Bilgilendirme</h2>
-                                <p className="text-[10px] text-gray-400 font-bold text-xs uppercase tracking-wide mt-1">Lütfen bu belgeyi garanti süresince saklayınız.</p>
+                                <h2 className="text-sm font-bold text-black uppercase tracking-tight">Onarım Sonrası Garanti ve Bilgilendirme</h2>
+                                <p className="text-[7px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">Lütfen bu belgeyi garanti süresince özenle saklayınız.</p>
                             </div>
                         </div>
 
-                        <div className="columns-2 gap-10 text-[10px] text-gray-600 space-y-4 text-justify leading-relaxed font-medium">
-                            <section className="break-inside-avoid">
-                                <h3 className="font-semibold text-black mb-2 uppercase flex items-center gap-2">
-                                    <div className="w-1.5 h-1.5 bg-gray-900 rounded-full"></div> 1. İŞLEM VE PARÇA GARANTİSİ
+                        {/* Garanti Şartları Sütunları */}
+                        <div className="columns-2 gap-4 text-[7px] text-gray-600 text-justify leading-relaxed font-medium mb-3">
+                            <section className="break-inside-avoid mb-2">
+                                <h3 className="font-bold text-black mb-0.5 uppercase text-[8px] flex items-center gap-1">
+                                    <div className="w-1 h-1 bg-green-500 rounded-full"></div> 1. İŞLEM VE PARÇA GARANTİSİ
                                 </h3>
-                                <p className="opacity-80">Cihazınıza uygulanan bu onarım işlemi ve değişen tüm yedek parçalar, teslim tarihinden itibaren 90 (doksan) gün boyunca Troy Teknik Servis garantisi altındadır. Garanti kapsamında işlem yapılabilmesi için cihazın darbe almamış, sıvı temasına maruz kalmamış ve Troy dışındaki bir birim/şahıs tarafından açılmamış olması şarttır.</p>
+                                <p className="opacity-95">Cihazınıza uygulanan bu onarım işlemi ve değişen tüm orijinal yedek parçalar, teslim tarihinden itibaren 90 (doksan) gün boyunca Troy Teknik Servis garantisi altındadır. Garanti kapsamında işlem yapılabilmesi için cihazın darbe almamış, sıvı temasına maruz kalmamış ve Troy dışındaki bir birim/şahıs tarafından açılmamış olması şarttır.</p>
                             </section>
 
-                            <section className="break-inside-avoid">
-                                <h3 className="font-semibold text-black mb-2 uppercase flex items-center gap-2">
-                                    <div className="w-1.5 h-1.5 bg-gray-900 rounded-full"></div> 2. ARIZA TEKRARI DURUMU
+                            <section className="break-inside-avoid mb-2">
+                                <h3 className="font-bold text-black mb-0.5 uppercase text-[8px] flex items-center gap-1">
+                                    <div className="w-1 h-1 bg-green-500 rounded-full"></div> 2. ARIZA TEKRARI DURUMU
                                 </h3>
-                                <p className="opacity-80">Onarılan arızanın garanti süresi içinde tekrarlaması durumunda, cihazın öncelikli olarak kontrol edilmesi için servis formunuzla birlikte merkezimize başvurmanız gerekmektedir. Kontrollerde arızanın farklı bir parçadan kaynaklandığı tespit edilirse ek ücret çıkarılabilir.</p>
+                                <p className="opacity-95">Onarılan arızanın garanti süresi içinde tekrarlaması durumunda, cihazın öncelikli olarak kontrol edilmesi için servis formunuzla birlikte merkezimize başvurmanız gerekmektedir. Kontrollerde arızanın farklı bir parçadan kaynaklandığı tespit edilirse ek ücret çıkarılabilir.</p>
                             </section>
 
-                            <section className="break-inside-avoid">
-                                <h3 className="font-semibold text-black mb-2 uppercase flex items-center gap-2">
-                                    <div className="w-1.5 h-1.5 bg-gray-900 rounded-full"></div> 3. IP SERTİFİKASI
+                            <section className="break-inside-avoid mb-2">
+                                <h3 className="font-bold text-black mb-0.5 uppercase text-[8px] flex items-center gap-1">
+                                    <div className="w-1 h-1 bg-green-500 rounded-full"></div> 3. IP SERTİFİKASI
                                 </h3>
-                                <p className="opacity-80">Ekranda veya kasada yapılan donanım müdahaleleri sonrası cihazın fabrika çıkışındaki su ve toz direnci (IP67/IP68) garanti edilemez. Onarım sırasında sızdırmazlık bantları yenilense dahi cihazın sıvıya maruz bırakılmaması önerilir.</p>
+                                <p className="opacity-95">Ekranda veya kasada yapılan donanım müdahaleleri sonrası cihazın fabrika çıkışındaki su ve toz direnci (IP67/IP68) garanti edilemez. Onarım sırasında sızdırmazlık bantları yenilense dahi cihazın sıvıya maruz bırakılmaması önerilir.</p>
                             </section>
 
-                            <section className="break-inside-avoid">
-                                <h3 className="font-semibold text-black mb-2 uppercase flex items-center gap-2">
-                                    <div className="w-1.5 h-1.5 bg-gray-900 rounded-full"></div> 4. YEDEK PARÇA İADESİ
+                            <section className="break-inside-avoid mb-2">
+                                <h3 className="font-bold text-black mb-0.5 uppercase text-[8px] flex items-center gap-1">
+                                    <div className="w-1 h-1 bg-green-500 rounded-full"></div> 4. YEDEK PARÇA İADESİ
                                 </h3>
-                                <p className="opacity-80">Apple servis kuralları gereğince, onarım sırasında cihazdan çıkarılan 'bozuk/hasarlı' tüm parçalar bertaraf edilmek üzere geri dönüşüme gönderilir. Çıkan parçaların müşteriye iadesi yapılmamaktadır.</p>
+                                <p className="opacity-95">Apple servis kuralları gereğince, onarım sırasında cihazdan çıkarılan 'bozuk/hasarlı' tüm parçalar bertaraf edilmek üzere geri dönüşüme gönderilir. Çıkan parçaların müşteriye iadesi yapılmamaktadır.</p>
                             </section>
                         </div>
 
-                        {/* Satisfaction Area */}
-                        <div className="mt-16 p-10 bg-[#f5f5f7] rounded-[48px] border border-gray-100 flex flex-col items-center text-center relative overflow-hidden">
-                            <div className="absolute -top-10 -left-10 w-32 h-32 bg-blue-500 rounded-full opacity-5"></div>
-                            <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-green-500 rounded-full opacity-5"></div>
-                            
-                            <h4 className="text-xl font-semibold text-black uppercase mb-3 tracking-tight">Memnuniyetiniz Bizim İçin Değerli</h4>
-                            <p className="text-xs text-gray-500 mb-8 max-w-sm font-medium leading-relaxed">
-                                Deneyiminizi iyileştirmek için çalışıyoruz. Aldığınız hizmeti değerlendirmek için aşağıdaki kanallardan bize ulaşabilirsiniz.
+                        {/* Memnuniyet ve Google Review */}
+                        <div className="p-3 bg-[#f5f5f7] rounded border-[0.5px] border-gray-300 flex flex-col items-center text-center mb-4">
+                            <h4 className="text-[11px] font-bold text-black uppercase tracking-tight mb-1">Memnuniyetiniz Bizim İçin Değerli</h4>
+                            <p className="text-[8px] text-gray-500 mb-2 max-w-md font-medium leading-tight">
+                                Deneyiminizi iyileştirmek için çalışıyoruz. Aldığınız hizmeti değerlendirmek için aşağıdaki kanaldan bizlere ulaşabilirsiniz.
                             </p>
-                            <div className="flex gap-4 mb-8">
+                            <div className="flex gap-2 mb-2">
                                 {[1, 2, 3, 4, 5].map(i => (
-                                    <div key={i} className="w-12 h-12 rounded-md bg-white flex items-center justify-center text-amber-400 font-bold text-xl shadow-sm border border-gray-100 transform hover:scale-110 transition-transform">★</div>
+                                    <div key={i} className="text-amber-400 text-xs">★</div>
                                 ))}
                             </div>
-                            <div className="flex items-center gap-3 px-6 py-3 bg-white rounded-full shadow-sm border border-gray-100">
-                                <span className="text-[10px] font-semibold text-gray-400 text-xs uppercase tracking-wide">Bizi Google'da Değerlendirin</span>
-                                <div className="h-4 w-px bg-gray-200"></div>
-                                <span className="text-xs font-semibold text-blue-600">google.com/maps/troy-servis</span>
+                            <div className="flex items-center gap-2 px-3 py-1 bg-white rounded border border-gray-200">
+                                <span className="text-[7.5px] font-bold text-gray-400 uppercase tracking-wider">Bizi Google'da Değerlendirin:</span>
+                                <span className="text-[8px] font-bold text-blue-600 font-mono">google.com/maps/troy-servis</span>
                             </div>
                         </div>
 
-                        {/* İmza Alanı (Sayfa 2 - Teslim Alındı Onayı) */}
-                        <div className="mt-auto pt-10 border-t border-gray-100">
-                            <div className="bg-[#f5f5f7] p-6 rounded-lg mb-10 flex items-center gap-6">
-                                <div className="h-12 w-12 rounded-full bg-white flex items-center justify-center text-green-500 shadow-sm border border-gray-100">
-                                    <CheckCircle size={24} />
-                                </div>
-                                <p className="text-[12px] font-bold text-gray-900 leading-tight">
-                                    Cihazımı çalışır ve hasarsız vaziyette, yapılan onarımı ve garanti şartlarını kabul ederek teslim aldım.
-                                </p>
+                        {/* Onay Bildirimi */}
+                        <div className="bg-[#f5f5f7] p-2 border-[0.5px] border-gray-300 rounded mb-4 flex items-center gap-3">
+                            <div className="h-6 w-6 rounded-full bg-white flex items-center justify-center text-green-500 border border-gray-200">
+                                <CheckCircle size={14} />
                             </div>
+                            <p className="text-[8.5px] font-bold text-gray-900 leading-tight">
+                                Cihazımı çalışır ve hasarsız vaziyette, yapılan onarımı ve garanti şartlarını kabul ederek teslim aldım.
+                            </p>
+                        </div>
 
-                            <div className="grid grid-cols-2 gap-20 px-10">
-                                <div className="text-center group">
-                                    <p className="text-[10px] font-semibold text-gray-300 uppercase tracking-[0.2em] mb-10">Servis Yetki Onayı</p>
-                                    <div className="w-20 h-20 bg-gray-50 text-gray-200 border border-gray-100 flex items-center justify-center rounded-lg font-semibold mx-auto mb-4 text-3xl opacity-40">T</div>
-                                    <p className="text-[11px] font-semibold text-gray-800 tracking-tight">TROY TEKNİK SERVİS</p>
+                        {/* İmza Alanı Sayfa 2 */}
+                        <div className="mt-auto grid grid-cols-2 gap-6 pt-3 border-t-[0.5px] border-gray-300 px-4">
+                            <div className="text-center">
+                                <span className="block text-[7.5px] font-bold text-gray-400 uppercase tracking-wider mb-2">SERVİS YETKİ ONAYI</span>
+                                <div className="w-14 h-14 bg-gray-50 border border-gray-200 flex items-center justify-center rounded font-bold mx-auto mb-1 text-xl text-gray-300 opacity-60">T</div>
+                                <span className="text-[8.5px] font-bold text-gray-700 tracking-tight block">TROY TEKNİK SERVİS</span>
+                            </div>
+                            <div className="text-center flex flex-col items-center">
+                                <span className="block text-[7.5px] font-bold text-gray-400 uppercase tracking-wider mb-2">MÜŞTERİ ONAYI (İMZA)</span>
+                                <div className="h-14 w-full flex items-center justify-center relative bg-gray-50 border border-dashed border-gray-200 rounded">
+                                    {signature ? (
+                                        <img src={signature} alt="Müşteri İmzası" className="h-[120%] object-contain mix-blend-multiply scale-110 transform -rotate-1" />
+                                    ) : (
+                                        <div className="h-px w-[60%] bg-gray-300 mt-6"></div>
+                                    )}
                                 </div>
-                                <div className="text-center group">
-                                    <p className="text-[10px] font-semibold text-gray-300 uppercase tracking-[0.2em] mb-10">Müşteri Onayı (İmza)</p>
-                                    <div className="h-24 flex items-center justify-center mb-4 relative">
-                                        {signature ? (
-                                            <img src={signature} alt="İmza" className="h-[140%] object-contain mix-blend-multiply opacity-90 scale-125 transform -rotate-3" />
-                                        ) : (
-                                            <div className="h-px w-full bg-gray-200 mt-12"></div>
-                                        )}
-                                    </div>
-                                    <p className="text-sm font-semibold text-gray-900 uppercase tracking-tight">{repair.customer}</p>
-                                </div>
+                                <span className="text-[9.5px] font-bold text-gray-900 uppercase mt-1 block">{repair.customer}</span>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 {/* Footer */}
-                <div className="p-6 bg-[#1d1d1f] flex justify-between items-center rounded-b-xl no-print border-t border-white/5">
+                <div className="p-4 bg-[#1d1d1f] flex justify-between items-center rounded-b-xl no-print border-t border-white/5">
                     <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-md bg-white/5 border border-white/10 flex items-center justify-center text-white/40">
-                            <span className="font-mono text-xs">A4</span>
+                        <div className="w-8 h-8 rounded bg-white/5 border border-white/10 flex items-center justify-center text-white/40">
+                            <span className="font-mono text-[10px]">A4</span>
                         </div>
-                        <div className="text-white/40 text-[10px] font-mono uppercase tracking-[0.2em] leading-tight opacity-50">
-                            PREMIUM DELIVERY FORM<br />
-                            ID: {repair.id}-OUT
+                        <div className="text-white/40 text-[8px] font-mono uppercase tracking-wider leading-tight opacity-50">
+                            APPLECARE INSPIRED FORM<br />
+                            WO-ID: {repair.id}-OUT
                         </div>
                     </div>
                     
-                    <div className="flex gap-4">
-                        <button onClick={onClose} className="px-6 py-3 text-white/40 hover:text-white rounded-md text-sm font-bold transition-all hover:bg-white/5">Kapat</button>
-                        <button onClick={handlePrint} className="px-8 py-3 bg-white text-black hover:scale-105 active:scale-95 rounded-md text-sm font-semibold shadow-[0_0_20px_rgba(255,255,255,0.15)] transition-all flex items-center gap-2">
-                            <Printer size={18} /> BELGELERİ YAZDIR
+                    <div className="flex gap-2">
+                        <button onClick={onClose} className="px-4 py-2 text-white/40 hover:text-white rounded text-xs font-bold transition-all hover:bg-white/5">Kapat</button>
+                        <button onClick={handlePrint} className="px-6 py-2 bg-white text-black hover:bg-gray-100 rounded text-xs font-semibold shadow-[0_0_15px_rgba(255,255,255,0.1)] transition-all flex items-center gap-1.5">
+                            <Printer size={14} /> BELGELERİ YAZDIR
                         </button>
                     </div>
                 </div>
             </div >
 
             <style>{`
-                @media print {
-                    @page { margin: 0; size: A4; }
-                    body { background: white; -webkit-print-color-adjust: exact !important; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
-                    .print-container { width: 100% !important; margin: 0 !important; border: none !important; box-shadow: none !important; }
-                    .no-print { display: none !important; }
-                    .page-break { page-break-after: always; }
-                    .page-break-before { page-break-before: always; }
+                .print-page {
+                    width: 100%;
+                    max-width: 210mm;
+                    margin: 0 auto;
+                    background: white;
+                    padding: 12mm;
+                    box-sizing: border-box;
+                    display: flex;
+                    flex-direction: column;
                 }
                 
-                .rounded-24 { border-radius: 24px; }
-                .rounded-32 { border-radius: 32px; }
+                @media screen {
+                    .print-container {
+                        padding: 20px;
+                        background-color: #f5f5f7;
+                    }
+                    .print-page {
+                        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+                        border-radius: 4px;
+                        margin-bottom: 20px;
+                        min-height: 296mm;
+                    }
+                }
 
-                .overflow-y-auto::-webkit-scrollbar {
-                    width: 8px;
+                @media print {
+                    @page { 
+                        margin: 0; 
+                        size: A4; 
+                    }
+                    body { 
+                        background: white; 
+                        -webkit-print-color-adjust: exact !important; 
+                        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+                    }
+                    .print-container { 
+                        width: 100% !important; 
+                        margin: 0 !important; 
+                        padding: 0 !important; 
+                        border: none !important; 
+                        box-shadow: none !important; 
+                    }
+                    .print-page {
+                        width: 210mm !important;
+                        height: 296mm !important;
+                        padding: 12mm !important;
+                        page-break-after: always !important;
+                        page-break-inside: avoid !important;
+                        margin: 0 !important;
+                        border: none !important;
+                        box-shadow: none !important;
+                    }
+                    .no-print { 
+                        display: none !important; 
+                    }
                 }
-                .overflow-y-auto::-webkit-scrollbar-track {
-                    background: transparent;
-                }
-                .overflow-y-auto::-webkit-scrollbar-thumb {
-                    background: rgba(0, 0, 0, 0.1);
-                    border-radius: 20px;
-                    border: 2px solid transparent;
-                    background-clip: padding-box;
+
+                .print-container {
+                    font-smoothing: antialiased;
+                    -webkit-font-smoothing: antialiased;
                 }
             `}</style>
         </div >
