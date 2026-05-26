@@ -195,14 +195,75 @@ export const AppProvider = ({ children }) => {
         return null;
     };
 
-    const computeAlerts = (repairsList) => {
+    const [announcements, setAnnouncements] = useState([]);
+
+    const fetchAnnouncements = async () => {
+        if (!currentUser) return;
+        try {
+            let queryParams = '';
+            if (!hasPermission(currentUser, 'view_all_stores') && currentUser.storeId) {
+                queryParams = `?storeId=${currentUser.storeId}`;
+            }
+            const res = await apiFetch(`${API_URL}/store-announcements${queryParams}`);
+            if (res.ok) {
+                const data = await res.json();
+                const fetchedList = Array.isArray(data) ? data : [];
+                
+                setAnnouncements(prevList => {
+                    // Eğer önceki liste varsa ve yeni bir duyuru eklenmişse (ve yazarı ben değilsem) Toast göster
+                    if (prevList && prevList.length > 0 && fetchedList.length > prevList.length) {
+                        const oldIds = prevList.map(item => item._id);
+                        const newItems = fetchedList.filter(item => !oldIds.includes(item._id));
+                        
+                        newItems.forEach(newItem => {
+                            if (newItem.author !== currentUser.name) {
+                                showToast(`Yeni Duyuru: ${newItem.title}`, 'info');
+                            }
+                        });
+                    }
+                    return fetchedList;
+                });
+            }
+        } catch (error) {
+            console.error("Error fetching announcements in context:", error);
+        }
+    };
+
+    useEffect(() => {
+        if (!currentUser) return;
+        
+        fetchAnnouncements();
+
+        const interval = setInterval(fetchAnnouncements, 15000);
+        return () => clearInterval(interval);
+    }, [currentUser]);
+
+    const computeAlerts = (repairsList, announcementsList = []) => {
         const newAlerts = [];
+        
+        // SLA Alerts
         repairsList.forEach(r => {
             const sla = checkSLA(r);
             if (sla && !clearedAlertIds.includes(r.id)) {
                 newAlerts.push({ id: r.id, repair: r, ...sla });
             }
         });
+
+        // Announcement Alerts
+        announcementsList.forEach(ann => {
+            const annId = `ann-${ann._id}`;
+            if (!clearedAlertIds.includes(annId)) {
+                newAlerts.push({
+                    id: annId,
+                    type: 'announcement',
+                    title: ann.title,
+                    message: ann.content.substring(0, 100) + (ann.content.length > 100 ? '...' : ''),
+                    author: ann.author,
+                    createdAt: ann.createdAt
+                });
+            }
+        });
+
         setAlerts(newAlerts);
     };
 
@@ -213,8 +274,8 @@ export const AppProvider = ({ children }) => {
     };
 
     useEffect(() => {
-        if (repairs.length > 0) computeAlerts(repairs);
-    }, [repairs, clearedAlertIds]);
+        computeAlerts(repairs, announcements);
+    }, [repairs, announcements, clearedAlertIds]);
 
     const uploadMedia = async (file) => {
         try {

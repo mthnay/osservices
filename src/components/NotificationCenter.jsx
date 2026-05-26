@@ -3,13 +3,18 @@ import { Bell, AlertCircle, Clock, ChevronRight, X, Info } from 'lucide-react';
 import MyPhoneIcon from './LocalIcons';
 import { useAppContext } from '../context/AppContext';
 
-const NotificationCenter = ({ onSelectRepair }) => {
+const NotificationCenter = ({ onSelectRepair, onGoToAnnouncements }) => {
     const { alerts, clearAllAlerts } = useAppContext();
     const [isOpen, setIsOpen] = useState(false);
 
-    const handleSelect = (repair) => {
-        if (onSelectRepair) {
-            onSelectRepair(repair);
+    const handleSelect = (alert) => {
+        if (alert.type === 'announcement') {
+            if (onGoToAnnouncements) {
+                onGoToAnnouncements();
+                setIsOpen(false);
+            }
+        } else if (onSelectRepair && alert.repair) {
+            onSelectRepair(alert.repair);
             setIsOpen(false);
         }
     };
@@ -60,35 +65,63 @@ const NotificationCenter = ({ onSelectRepair }) => {
                                     {alerts.map((alert, idx) => (
                                         <div 
                                             key={idx} 
-                                            onClick={() => handleSelect(alert.repair)}
+                                            onClick={() => handleSelect(alert)}
                                             className="p-4 hover:bg-gray-50 transition-colors cursor-pointer group"
                                         >
                                             <div className="flex gap-4">
                                                 <div className={`mt-1 p-2 rounded-md shrink-0 ${
                                                     alert.type === 'critical' ? 'bg-red-50 text-red-500' :
-                                                    alert.type === 'warning' ? 'bg-orange-50 text-orange-500' : 'bg-blue-50 text-blue-500'
+                                                    alert.type === 'warning' ? 'bg-orange-50 text-orange-500' :
+                                                    alert.type === 'announcement' ? 'bg-indigo-50 text-indigo-500' :
+                                                    'bg-blue-50 text-blue-500'
                                                 }`}>
                                                     {alert.type === 'critical' ? <AlertCircle size={18} /> : 
-                                                     alert.type === 'warning' ? <Clock size={18} /> : <Info size={18} />}
+                                                     alert.type === 'warning' ? <Clock size={18} /> :
+                                                     alert.type === 'announcement' ? <Bell size={18} /> :
+                                                     <Info size={18} />}
                                                 </div>
                                                 <div className="flex-1 min-w-0">
-                                                    <div className="flex justify-between items-start mb-0.5">
-                                                        <h4 className="font-bold text-gray-900 text-sm truncate">
-                                                            {alert.repair.device}
-                                                        </h4>
-                                                        <span className="text-[9px] font-semibold text-gray-400">#{alert.repair.id}</span>
-                                                    </div>
-                                                    <p className="text-xs text-gray-500 font-medium leading-relaxed italic mb-2">
-                                                        {alert.message}
-                                                    </p>
-                                                    <div className="flex items-center justify-between">
-                                                        <span className="text-[10px] font-bold text-gray-400 flex items-center gap-1">
-                                                            <MyPhoneIcon size={10} /> {alert.repair.customer}
-                                                        </span>
-                                                        <span className="text-[10px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-100/50 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                                                            Detaya Git <ChevronRight size={10} className="inline ml-1" />
-                                                        </span>
-                                                    </div>
+                                                    {alert.type === 'announcement' ? (
+                                                        <>
+                                                            <div className="flex justify-between items-start mb-0.5">
+                                                                <h4 className="font-bold text-gray-900 text-sm truncate">
+                                                                    📢 {alert.title}
+                                                                </h4>
+                                                                <span className="text-[9px] font-semibold text-gray-400">Duyuru</span>
+                                                            </div>
+                                                            <p className="text-xs text-gray-500 font-medium leading-relaxed italic mb-2">
+                                                                {alert.message}
+                                                            </p>
+                                                            <div className="flex items-center justify-between">
+                                                                <span className="text-[10px] font-bold text-gray-400 flex items-center gap-1">
+                                                                    Yazan: {alert.author}
+                                                                </span>
+                                                                <span className="text-[10px] font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100/50 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                                                                    Duyurulara Git <ChevronRight size={10} className="inline ml-1" />
+                                                                </span>
+                                                            </div>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <div className="flex justify-between items-start mb-0.5">
+                                                                <h4 className="font-bold text-gray-900 text-sm truncate">
+                                                                    {alert.repair?.device}
+                                                                </h4>
+                                                                <span className="text-[9px] font-semibold text-gray-400">#{alert.repair?.id}</span>
+                                                            </div>
+                                                            <p className="text-xs text-gray-500 font-medium leading-relaxed italic mb-2">
+                                                                {alert.message}
+                                                            </p>
+                                                            <div className="flex items-center justify-between">
+                                                                <span className="text-[10px] font-bold text-gray-400 flex items-center gap-1">
+                                                                    <MyPhoneIcon size={10} /> {alert.repair?.customer}
+                                                                </span>
+                                                                <span className="text-[10px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-100/50 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                                                                    Detaya Git <ChevronRight size={10} className="inline ml-1" />
+                                                                </span>
+                                                            </div>
+                                                        </>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>
