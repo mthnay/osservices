@@ -298,8 +298,8 @@ const ServiceFormPrint = ({ formData, repairId, onClose }) => {
                             <div className="border-[0.5px] border-gray-300 rounded p-2 bg-gray-50 flex flex-col justify-between h-[75px]">
                                 <div>
                                     <span className="block text-[7px] font-bold text-gray-400 uppercase tracking-wider">TESLİM ALAN UZMAN</span>
-                                    <span className="text-[9.5px] font-semibold text-gray-900 block mt-0.5">M. Taha Nay</span>
-                                    <span className="text-[7.5px] text-gray-400 block leading-tight">Kıdemli Servis Yetkilisi</span>
+                                    <span className="text-[9.5px] font-semibold text-gray-900 block mt-0.5">{formData.createdBy || 'Servis Yetkilisi'}</span>
+                                    <span className="text-[7.5px] text-gray-400 block leading-tight">Teknik Servis Uzmanı</span>
                                 </div>
                                 <span className="text-[7px] text-gray-400 font-mono self-end">Troy Servis Yetkilisi</span>
                             </div>
@@ -345,10 +345,15 @@ const ServiceFormPrint = ({ formData, repairId, onClose }) => {
                             <div className="break-inside-avoid">
                                 <h3 className="font-bold text-black mb-1 uppercase text-[8px] flex items-center gap-1">
                                     <div className="w-1 h-1 bg-black rounded-full"></div> 
-                                    {serviceTerms?.termsTitle || '1. GENEL ŞARTLAR VE KOŞULLAR'}
+                                    {serviceTerms?.termsTitle || 'TROY TEKNİK SERVİS GENEL HİZMET SÖZLEŞMESİ'}
                                 </h3>
-                                <div className="whitespace-pre-line opacity-95">
-                                    {serviceTerms?.termsContent || "İşbu sözleşme, Troy Teknik Servis ile müşteri arasında servis girişi yapılan cihazın onarım ve hizmet şartlarını belirler. Cihaz içindeki verilerin yedeklenmesi tamamen müşterinin sorumluluğundadır. Sökülen koruyucu aksesuarların iadesi mümkün değildir. Sıvı temaslı veya darbeli cihazlarda onarım sırasında oluşabilecek riskler müşteriye aittir."}
+                                <div className="whitespace-pre-line opacity-95 text-[6.8px] leading-tight">
+                                    {serviceTerms?.termsContent || `1. GENEL HÜKÜMLER: Cihazın teslim alınması onarımın kabul edildiği anlamına gelmez. Teknik servis ön incelemesi sonrasında nihai servis kaydı oluşturulur. Cihazla birlikte teslim edilmeyen aksesuar, koruyucu cam, kılıf, şarj aleti, SIM kart vb. yan ürünlerin kaybından veya hasarından servisimiz sorumlu tutulamaz.
+2. VERİ GÜVENLİĞİ VE YEDEKLER: Servis işlemleri (anakart onarımı, batarya/ekran değişimleri veya yazılım güncellemeleri) esnasında veri silinmesi veya kalıcı olarak kaybolması riski mevcuttur. Cihaz içerisindeki tüm verilerin yedeklenmesi tamamen müşterinin sorumluluğundadır. Servisimiz veri kaybından dolayı hiçbir şekilde sorumlu tutulamaz.
+3. FİZİKSEL ANALİZ VE YAN ETKİ RİSKLERİ: Sıvı temasına maruz kalmış, ağır darbe almış, bükülmüş veya daha önce yetkisiz müdahale görmüş cihazlarda, onarım veya söküm işlemleri sırasında ortaya çıkabilecek ek arızalar (cihazın tamamen kapanması, ekranın gitmesi, şebeke kaybı vb.) müşterinin bilgisi dahilindedir ve bu durumdaki tüm riskler müşteriye aittir.
+4. KABUL VE TESLİMAT SÜRESİ: Yasal azami onarım süresi 20 iş günüdür. Üretici parça tedarik süreçlerine bağlı gecikmeler bu süreye ilave edilebilir. Onarımı tamamlanan veya iade edilen cihazlar 90 gün içinde teslim alınmalıdır; teslim alınmayan cihazlar için sorumluluk kabul edilmez.
+5. PARÇA VE İŞÇİLİK GARANTİSİ: Değiştirilen tüm orijinal yedek parçalar ve uygulanan işçilikler teslim tarihinden itibaren 90 gün süreyle servisimiz garantisi altındadır. Sıvı teması, kırılma, kullanıcı kaynaklı fiziksel hasarlar ve yetkisiz müdahaleler garanti kapsamı dışındadır.
+6. MÜLKİYET VE İMHA: Apple servis politikaları gereği cihazdan sökülen arızalı orijinal parçalar üreticiye (Apple) geri gönderilir veya imha edilmek üzere geri dönüşüme verilir. Çıkan parçanın müşteriye iadesi mümkün değildir.`}
                                 </div>
                             </div>
                         </div>
@@ -357,13 +362,11 @@ const ServiceFormPrint = ({ formData, repairId, onClose }) => {
                         <div className="bg-[#f5f5f7] p-2.5 border-[0.5px] border-gray-300 rounded mb-4 text-[8px] text-gray-800 leading-tight">
                             <p className="font-bold flex items-center gap-1 text-[8.5px]">
                                 <CheckCircle size={10} className="text-green-600 flex-shrink-0" />
-                                {serviceTerms?.approvalText || "Müşteri olarak, yukarıdaki sözleşme metnini ve teknik riskleri okudum, anladım ve cihazımı bu şartlar altında teslim ediyorum."}
+                                {serviceTerms?.approvalText || "Müşteri olarak, yukarıdaki sözleşme metnini, teknik riskleri okudum, anladım ve cihazımı bu şartlar altında teslim ediyorum."}
                             </p>
-                            {serviceTerms?.kvkkText && (
-                                <p className="text-gray-400 mt-1 text-[7px] leading-tight">
-                                    {serviceTerms?.kvkkText}
-                                </p>
-                            )}
+                            <p className="text-gray-400 mt-1 text-[7px] leading-tight font-medium">
+                                {serviceTerms?.kvkkText || "Kişisel verileriniz KVKK kapsamında işlenmektedir. Aydınlatma metnini ve verilerimin işlenmesini onaylıyorum."}
+                            </p>
                         </div>
 
                         {/* İmza Alanı Sayfa 2 */}

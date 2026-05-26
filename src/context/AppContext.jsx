@@ -165,10 +165,15 @@ export const AppProvider = ({ children }) => {
     const [roles, setRoles] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [serviceTerms, setServiceTerms] = useState({
-        termsTitle: '1. GENEL ŞARTLAR VE KOŞULLAR',
-        termsContent: "İşbu sözleşme, Troy Teknik Servis ile müşteri arasında servis girişi yapılan cihazın onarım ve hizmet şartlarını belirler. Cihaz içindeki verilerin yedeklenmesi tamamen müşterinin sorumluluğundadır. Sökülen koruyucu aksesuarların iadesi mümkün değildir. Sıvı temaslı veya darbeli cihazlarda onarım sırasında oluşabilecek riskler müşteriye aittir.",
-        approvalText: "Müşteri olarak, yukarıdaki sözleşme metnini ve teknik riskleri okudum, anladım ve cihazımı bu şartlar altında teslim ediyorum.",
-        kvkkText: "Kişisel verileriniz KVKK kapsamında işlenmektedir. Aydınlatma metnini okuduğumu kabul ediyorum."
+        termsTitle: 'TROY TEKNİK SERVİS GENEL HİZMET SÖZLEŞMESİ',
+        termsContent: `1. GENEL HÜKÜMLER: Cihazın teslim alınması onarımın kabul edildiği anlamına gelmez. Teknik servis ön incelemesi sonrasında nihai servis kaydı oluşturulur. Cihazla birlikte teslim edilmeyen aksesuar, koruyucu cam, kılıf, şarj aleti, SIM kart vb. yan ürünlerin kaybından veya hasarından servisimiz sorumlu tutulamaz.
+2. VERİ GÜVENLİĞİ VE YEDEKLER: Servis işlemleri (anakart onarımı, batarya/ekran değişimleri veya yazılım güncellemeleri) esnasında veri silinmesi veya kalıcı olarak kaybolması riski mevcuttur. Cihaz içerisindeki tüm verilerin yedeklenmesi tamamen müşterinin sorumluluğundadır. Servisimiz veri kaybından dolayı hiçbir şekilde sorumlu tutulamaz.
+3. FİZİKSEL ANALİZ VE YAN ETKİ RİSKLERİ: Sıvı temasına maruz kalmış, ağır darbe almış, bükülmüş veya daha önce yetkisiz müdahale görmüş cihazlarda, onarım veya söküm işlemleri sırasında ortaya çıkabilecek ek arızalar (cihazın tamamen kapanması, ekranın gitmesi, şebeke kaybı vb.) müşterinin bilgisi dahilindedir ve bu durumdaki tüm riskler müşteriye aittir.
+4. KABUL VE TESLİMAT SÜRESİ: Yasal azami onarım süresi 20 iş günüdür. Üretici parça tedarik süreçlerine bağlı gecikmeler bu süreye ilave edilebilir. Onarımı tamamlanan veya iade edilen cihazlar 90 gün içinde teslim alınmalıdır; teslim alınmayan cihazlar için sorumluluk kabul edilmez.
+5. PARÇA VE İŞÇİLİK GARANTİSİ: Değiştirilen tüm orijinal yedek parçalar ve uygulanan işçilikler teslim tarihinden itibaren 90 gün süreyle servisimiz garantisi altındadır. Sıvı teması, kırılma, kullanıcı kaynaklı fiziksel hasarlar ve yetkisiz müdahaleler garanti kapsamı dışındadır.
+6. MÜLKİYET VE İMHA: Apple servis politikaları gereği cihazdan sökülen arızalı orijinal parçalar üreticiye (Apple) geri gönderilir veya imha edilmek üzere geri dönüşüme verilir. Çıkan parçanın müşteriye iadesi mümkün değildir.`,
+        approvalText: "Müşteri olarak, yukarıdaki sözleşme metnini, teknik riskleri okudum, anladım ve cihazımı bu şartlar altında teslim ediyorum.",
+        kvkkText: "Kişisel verileriniz KVKK kapsamında işlenmektedir. Aydınlatma metnini ve verilerimin işlenmesini onaylıyorum."
     });
 
     // SLA Helper
