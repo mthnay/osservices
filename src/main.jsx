@@ -10,6 +10,42 @@ import React, { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
+import Swal from 'sweetalert2'
+
+// Global SweetAlert2 Interceptor / Wrapper
+const originalSwalFire = Swal.fire;
+Swal.fire = function (options, ...args) {
+  if (!options) return originalSwalFire.apply(this, [options, ...args]);
+
+  // Normalleştirme (String veya obje olması durumu)
+  let opts = typeof options === 'string' ? { text: options } : { ...options };
+
+  // Onay penceresi (showCancelButton), input alanları veya explicitly timer kapatılmadıysa
+  const isConfirmation = opts.showCancelButton || opts.input;
+
+  // Konumlandırmayı ekranın üst kısmına al
+  opts.position = 'top';
+
+  // Bilgi/uyarı amaçlı ise 5 saniye otomatik kapanma ekle
+  if (!isConfirmation) {
+    opts.timer = 5000;
+    opts.timerProgressBar = true;
+  }
+
+  // Modern CSS sınıflarını enjekte et
+  const existingClasses = opts.customClass || {};
+  opts.customClass = {
+    ...existingClasses,
+    popup: `${existingClasses.popup || ''} modern-top-popup`.trim(),
+    title: `${existingClasses.title || ''} modern-top-title`.trim(),
+    htmlContainer: `${existingClasses.htmlContainer || ''} modern-top-content`.trim(),
+    confirmButton: `${existingClasses.confirmButton || ''} modern-top-confirm`.trim(),
+    cancelButton: `${existingClasses.cancelButton || ''} modern-top-cancel`.trim(),
+  };
+
+  return originalSwalFire.apply(this, [opts, ...args]);
+};
+
 
 class ErrorBoundary extends React.Component {
   constructor(props) {

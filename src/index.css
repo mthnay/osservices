@@ -185,3 +185,97 @@ input:focus, select:focus, textarea:focus {
   background: rgba(255, 255, 255, 0.2);
   border-radius: 10px;
 }
+
+/* Modern Top Popup Notifications (SweetAlert2 Custom Styling) */
+.swal2-container.swal2-top {
+  padding-top: 1.5rem !important;
+}
+
+.modern-top-popup {
+  width: 50% !important; /* Yarı sayfa genişliğinde */
+  max-width: 650px !important;
+  min-width: 320px !important;
+  border-radius: 24px !important; /* Oval köşeli */
+  background: rgba(255, 255, 255, 0.85) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+  padding: 1.5rem !important;
+  font-family: var(--font-sans) !important;
+  animation: swalDropIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+}
+
+/* Responsive adjustment for mobile screens */
+@media (max-width: 768px) {
+  .modern-top-popup {
+    width: 90% !important;
+    max-width: 90% !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
+}
+
+.modern-top-title {
+  font-size: 1.1rem !important;
+  font-weight: 800 !important;
+  color: #1d1d1f !important;
+  margin-top: 0.5rem !important;
+}
+
+.modern-top-content {
+  font-size: 0.9rem !important;
+  color: #515154 !important;
+  font-weight: 500 !important;
+  line-height: 1.5 !important;
+}
+
+.modern-top-confirm {
+  background-color: #0071e3 !important;
+  color: white !important;
+  border-radius: 14px !important;
+  font-weight: 600 !important;
+  font-size: 0.8rem !important;
+  padding: 0.6rem 1.5rem !important;
+  border: none !important;
+  box-shadow: 0 4px 12px rgba(0, 113, 227, 0.2) !important;
+  transition: all 0.2s ease !important;
+}
+
+.modern-top-confirm:hover {
+  background-color: #0077ed !important;
+  transform: translateY(-1px) !important;
+}
+
+.modern-top-cancel {
+  background-color: transparent !important;
+  color: #ff3b30 !important;
+  border: 1px solid rgba(255, 59, 48, 0.2) !important;
+  border-radius: 14px !important;
+  font-weight: 600 !important;
+  font-size: 0.8rem !important;
+  padding: 0.6rem 1.5rem !important;
+  transition: all 0.2s ease !important;
+}
+
+.modern-top-cancel:hover {
+  background-color: rgba(255, 59, 48, 0.05) !important;
+}
+
+/* Custom animation for drop in from top */
+@keyframes swalDropIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Accenting SweetAlert timer progress bar */
+.swal2-timer-progress-bar {
+  background: #0071e3 !important;
+  height: 3px !important;
+}
