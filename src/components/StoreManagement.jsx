@@ -138,10 +138,19 @@ const StoreManagement = () => {
         if (selectedStore === 0) return users;
         return users.filter(u => Number(u.storeId) === Number(selectedStore));
     }, [users, selectedStore]);
-
     // Handle Announcement Create
     const handleAddAnnouncement = async (e) => {
         e.preventDefault();
+        if (!isManagerOrAdmin) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Yetki Hatası',
+                text: 'Bu işlemi gerçekleştirme yetkiniz bulunmamaktadır.',
+                confirmButtonColor: '#0071e3'
+            });
+            return;
+        }
+
         if (!announcementForm.title.trim() || !announcementForm.content.trim()) return;
 
         if (selectedStore === 0) {
@@ -194,6 +203,16 @@ const StoreManagement = () => {
 
     // Handle Announcement Delete
     const handleDeleteAnnouncement = async (id) => {
+        if (!isManagerOrAdmin) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Yetki Hatası',
+                text: 'Bu işlemi gerçekleştirme yetkiniz bulunmamaktadır.',
+                confirmButtonColor: '#0071e3'
+            });
+            return;
+        }
+
         const result = await Swal.fire({
             title: 'Emin misiniz?',
             text: "Bu duyuru kalıcı olarak silinecektir!",
@@ -234,10 +253,19 @@ const StoreManagement = () => {
             });
         }
     };
-
     // Handle Task Create
     const handleAddTask = async (e) => {
         e.preventDefault();
+        if (!isManagerOrAdmin) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Yetki Hatası',
+                text: 'Bu işlemi gerçekleştirme yetkiniz bulunmamaktadır.',
+                confirmButtonColor: '#0071e3'
+            });
+            return;
+        }
+
         if (!taskForm.title.trim()) return;
 
         if (selectedStore === 0) {
@@ -335,6 +363,16 @@ const StoreManagement = () => {
 
     // Handle Task Delete
     const handleDeleteTask = async (id) => {
+        if (!isManagerOrAdmin) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Yetki Hatası',
+                text: 'Bu işlemi gerçekleştirme yetkiniz bulunmamaktadır.',
+                confirmButtonColor: '#0071e3'
+            });
+            return;
+        }
+
         const result = await Swal.fire({
             title: 'Emin misiniz?',
             text: "Bu görev kalıcı olarak silinecektir!",
@@ -399,6 +437,16 @@ const StoreManagement = () => {
     // Handle Shift Create
     const handleAddShift = async (e) => {
         e.preventDefault();
+        if (!isManagerOrAdmin) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Yetki Hatası',
+                text: 'Bu işlemi gerçekleştirme yetkiniz bulunmamaktadır.',
+                confirmButtonColor: '#0071e3'
+            });
+            return;
+        }
+
         if (!shiftForm.userName || !shiftForm.date || !shiftForm.startTime || !shiftForm.endTime) {
             Swal.fire({
                 icon: 'warning',
@@ -475,6 +523,16 @@ const StoreManagement = () => {
     // Handle Shift Create via Modal
     const handleModalAddShift = async (e) => {
         e.preventDefault();
+        if (!isManagerOrAdmin) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Yetki Hatası',
+                text: 'Bu işlemi gerçekleştirme yetkiniz bulunmamaktadır.',
+                confirmButtonColor: '#0071e3'
+            });
+            return;
+        }
+
         if (!selectedCell || !shiftForm.startTime || !shiftForm.endTime) return;
 
         try {
@@ -531,6 +589,16 @@ const StoreManagement = () => {
 
     // Handle Shift Delete
     const handleDeleteShift = async (id) => {
+        if (!isManagerOrAdmin) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Yetki Hatası',
+                text: 'Bu işlemi gerçekleştirme yetkiniz bulunmamaktadır.',
+                confirmButtonColor: '#0071e3'
+            });
+            return;
+        }
+
         const result = await Swal.fire({
             title: 'Emin misiniz?',
             text: "Bu vardiya kaydı kalıcı olarak silinecektir!",

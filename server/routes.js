@@ -1225,9 +1225,20 @@ router.post('/ai/enhance-message', async (req, res) => {
 router.get('/store-announcements', async (req, res) => {
     try {
         const filter = {};
-        if (req.query.storeId) {
+        const userRole = req.user?.role?.toLowerCase();
+        const userStoreId = Number(req.user?.storeId);
+
+        if (!userRole) {
+            return res.status(403).json({ message: 'Yetkisiz erişim.' });
+        }
+
+        const isGlobalAdmin = ['superadmin', 'admin', 'yonetici'].includes(userRole);
+        if (!isGlobalAdmin) {
+            filter.storeId = userStoreId;
+        } else if (req.query.storeId) {
             filter.storeId = Number(req.query.storeId);
         }
+
         const announcements = await StoreAnnouncement.find(filter).sort({ createdAt: -1 });
         res.json(announcements);
     } catch (err) {
@@ -1237,6 +1248,14 @@ router.get('/store-announcements', async (req, res) => {
 
 router.post('/store-announcements', requireRole(['superadmin', 'storemanager']), async (req, res) => {
     try {
+        const userRole = req.user?.role?.toLowerCase();
+        const isGlobalAdmin = ['superadmin', 'admin', 'yonetici'].includes(userRole);
+        const bodyStoreId = Number(req.body.storeId);
+
+        if (!isGlobalAdmin && bodyStoreId !== Number(req.user.storeId)) {
+            return res.status(403).json({ message: 'Sadece kendi mağazanız için duyuru ekleyebilirsiniz.' });
+        }
+
         const announcement = new StoreAnnouncement(req.body);
         const saved = await announcement.save();
         await createLog(req, 'CREATE_ANNOUNCEMENT', 'STORE_MANAGEMENT', `Yeni duyuru oluşturuldu: ${saved.title}`);
@@ -1248,10 +1267,19 @@ router.post('/store-announcements', requireRole(['superadmin', 'storemanager']),
 
 router.delete('/store-announcements/:id', requireRole(['superadmin', 'storemanager']), async (req, res) => {
     try {
-        const deleted = await StoreAnnouncement.findByIdAndDelete(req.params.id);
-        if (deleted) {
-            await createLog(req, 'DELETE_ANNOUNCEMENT', 'STORE_MANAGEMENT', `Duyuru silindi: ${deleted.title}`);
+        const announcement = await StoreAnnouncement.findById(req.params.id);
+        if (!announcement) {
+            return res.status(404).json({ message: 'Duyuru bulunamadı.' });
         }
+
+        const userRole = req.user?.role?.toLowerCase();
+        const isGlobalAdmin = ['superadmin', 'admin', 'yonetici'].includes(userRole);
+        if (!isGlobalAdmin && Number(announcement.storeId) !== Number(req.user.storeId)) {
+            return res.status(403).json({ message: 'Sadece kendi mağazanızın duyurularını silebilirsiniz.' });
+        }
+
+        await announcement.deleteOne();
+        await createLog(req, 'DELETE_ANNOUNCEMENT', 'STORE_MANAGEMENT', `Duyuru silindi: ${announcement.title}`);
         res.json({ success: true, message: 'Duyuru silindi.' });
     } catch (err) {
         res.status(500).json({ message: err.message });
@@ -1262,9 +1290,20 @@ router.delete('/store-announcements/:id', requireRole(['superadmin', 'storemanag
 router.get('/store-tasks', async (req, res) => {
     try {
         const filter = {};
-        if (req.query.storeId) {
+        const userRole = req.user?.role?.toLowerCase();
+        const userStoreId = Number(req.user?.storeId);
+
+        if (!userRole) {
+            return res.status(403).json({ message: 'Yetkisiz erişim.' });
+        }
+
+        const isGlobalAdmin = ['superadmin', 'admin', 'yonetici'].includes(userRole);
+        if (!isGlobalAdmin) {
+            filter.storeId = userStoreId;
+        } else if (req.query.storeId) {
             filter.storeId = Number(req.query.storeId);
         }
+
         const tasks = await StoreTask.find(filter).sort({ createdAt: -1 });
         res.json(tasks);
     } catch (err) {
@@ -1274,6 +1313,14 @@ router.get('/store-tasks', async (req, res) => {
 
 router.post('/store-tasks', requireRole(['superadmin', 'storemanager']), async (req, res) => {
     try {
+        const userRole = req.user?.role?.toLowerCase();
+        const isGlobalAdmin = ['superadmin', 'admin', 'yonetici'].includes(userRole);
+        const bodyStoreId = Number(req.body.storeId);
+
+        if (!isGlobalAdmin && bodyStoreId !== Number(req.user.storeId)) {
+            return res.status(403).json({ message: 'Sadece kendi mağazanız için görev ekleyebilirsiniz.' });
+        }
+
         const task = new StoreTask(req.body);
         const saved = await task.save();
         await createLog(req, 'CREATE_TASK', 'STORE_MANAGEMENT', `Yeni görev oluşturuldu: ${saved.title}`);
@@ -1285,6 +1332,21 @@ router.post('/store-tasks', requireRole(['superadmin', 'storemanager']), async (
 
 router.put('/store-tasks/:id', requireRole(['superadmin', 'storemanager']), async (req, res) => {
     try {
+        const task = await StoreTask.findById(req.params.id);
+        if (!task) {
+            return res.status(404).json({ message: 'Görev bulunamadı.' });
+        }
+
+        const userRole = req.user?.role?.toLowerCase();
+        const isGlobalAdmin = ['superadmin', 'admin', 'yonetici'].includes(userRole);
+        if (!isGlobalAdmin && Number(task.storeId) !== Number(req.user.storeId)) {
+            return res.status(403).json({ message: 'Sadece kendi mağazanızın görevlerini güncelleyebilirsiniz.' });
+        }
+
+        if (!isGlobalAdmin && req.body.storeId && Number(req.body.storeId) !== Number(req.user.storeId)) {
+            return res.status(403).json({ message: 'Görevi başka bir mağazaya taşıyamazsınız.' });
+        }
+
         const updated = await StoreTask.findByIdAndUpdate(req.params.id, req.body, { new: true });
         await createLog(req, 'UPDATE_TASK', 'STORE_MANAGEMENT', `Görev güncellendi: ${updated?.title} (Durum: ${updated?.status})`);
         res.json(updated);
@@ -1295,10 +1357,19 @@ router.put('/store-tasks/:id', requireRole(['superadmin', 'storemanager']), asyn
 
 router.delete('/store-tasks/:id', requireRole(['superadmin', 'storemanager']), async (req, res) => {
     try {
-        const deleted = await StoreTask.findByIdAndDelete(req.params.id);
-        if (deleted) {
-            await createLog(req, 'DELETE_TASK', 'STORE_MANAGEMENT', `Görev silindi: ${deleted.title}`);
+        const task = await StoreTask.findById(req.params.id);
+        if (!task) {
+            return res.status(404).json({ message: 'Görev bulunamadı.' });
         }
+
+        const userRole = req.user?.role?.toLowerCase();
+        const isGlobalAdmin = ['superadmin', 'admin', 'yonetici'].includes(userRole);
+        if (!isGlobalAdmin && Number(task.storeId) !== Number(req.user.storeId)) {
+            return res.status(403).json({ message: 'Sadece kendi mağazanızın görevlerini silebilirsiniz.' });
+        }
+
+        await task.deleteOne();
+        await createLog(req, 'DELETE_TASK', 'STORE_MANAGEMENT', `Görev silindi: ${task.title}`);
         res.json({ success: true, message: 'Görev silindi.' });
     } catch (err) {
         res.status(500).json({ message: err.message });
@@ -1309,9 +1380,20 @@ router.delete('/store-tasks/:id', requireRole(['superadmin', 'storemanager']), a
 router.get('/store-shifts', async (req, res) => {
     try {
         const filter = {};
-        if (req.query.storeId) {
+        const userRole = req.user?.role?.toLowerCase();
+        const userStoreId = Number(req.user?.storeId);
+
+        if (!userRole) {
+            return res.status(403).json({ message: 'Yetkisiz erişim.' });
+        }
+
+        const isGlobalAdmin = ['superadmin', 'admin', 'yonetici'].includes(userRole);
+        if (!isGlobalAdmin) {
+            filter.storeId = userStoreId;
+        } else if (req.query.storeId) {
             filter.storeId = Number(req.query.storeId);
         }
+
         if (req.query.startDate && req.query.endDate) {
             filter.date = {
                 $gte: new Date(req.query.startDate),
@@ -1327,6 +1409,14 @@ router.get('/store-shifts', async (req, res) => {
 
 router.post('/store-shifts', requireRole(['superadmin', 'storemanager']), async (req, res) => {
     try {
+        const userRole = req.user?.role?.toLowerCase();
+        const isGlobalAdmin = ['superadmin', 'admin', 'yonetici'].includes(userRole);
+        const bodyStoreId = Number(req.body.storeId);
+
+        if (!isGlobalAdmin && bodyStoreId !== Number(req.user.storeId)) {
+            return res.status(403).json({ message: 'Sadece kendi mağazanız için vardiya ekleyebilirsiniz.' });
+        }
+
         const shift = new StoreShift(req.body);
         const saved = await shift.save();
         await createLog(req, 'CREATE_SHIFT', 'STORE_MANAGEMENT', `Yeni vardiya oluşturuldu: ${saved.userName} - ${saved.shiftType} (${new Date(saved.date).toLocaleDateString('tr-TR')})`);
@@ -1338,6 +1428,21 @@ router.post('/store-shifts', requireRole(['superadmin', 'storemanager']), async 
 
 router.put('/store-shifts/:id', requireRole(['superadmin', 'storemanager']), async (req, res) => {
     try {
+        const shift = await StoreShift.findById(req.params.id);
+        if (!shift) {
+            return res.status(404).json({ message: 'Vardiya bulunamadı.' });
+        }
+
+        const userRole = req.user?.role?.toLowerCase();
+        const isGlobalAdmin = ['superadmin', 'admin', 'yonetici'].includes(userRole);
+        if (!isGlobalAdmin && Number(shift.storeId) !== Number(req.user.storeId)) {
+            return res.status(403).json({ message: 'Sadece kendi mağazanızın vardiyalarını güncelleyebilirsiniz.' });
+        }
+
+        if (!isGlobalAdmin && req.body.storeId && Number(req.body.storeId) !== Number(req.user.storeId)) {
+            return res.status(403).json({ message: 'Vardiyayı başka bir mağazaya taşıyamazsınız.' });
+        }
+
         const updated = await StoreShift.findByIdAndUpdate(req.params.id, req.body, { new: true });
         await createLog(req, 'UPDATE_SHIFT', 'STORE_MANAGEMENT', `Vardiya güncellendi: ${updated?.userName} - ${updated?.shiftType}`);
         res.json(updated);
@@ -1348,10 +1453,19 @@ router.put('/store-shifts/:id', requireRole(['superadmin', 'storemanager']), asy
 
 router.delete('/store-shifts/:id', requireRole(['superadmin', 'storemanager']), async (req, res) => {
     try {
-        const deleted = await StoreShift.findByIdAndDelete(req.params.id);
-        if (deleted) {
-            await createLog(req, 'DELETE_SHIFT', 'STORE_MANAGEMENT', `Vardiya silindi: ${deleted.userName} - ${deleted.shiftType}`);
+        const shift = await StoreShift.findById(req.params.id);
+        if (!shift) {
+            return res.status(404).json({ message: 'Vardiya bulunamadı.' });
         }
+
+        const userRole = req.user?.role?.toLowerCase();
+        const isGlobalAdmin = ['superadmin', 'admin', 'yonetici'].includes(userRole);
+        if (!isGlobalAdmin && Number(shift.storeId) !== Number(req.user.storeId)) {
+            return res.status(403).json({ message: 'Sadece kendi mağazanızın vardiyalarını silebilirsiniz.' });
+        }
+
+        await shift.deleteOne();
+        await createLog(req, 'DELETE_SHIFT', 'STORE_MANAGEMENT', `Vardiya silindi: ${shift.userName} - ${shift.shiftType}`);
         res.json({ success: true, message: 'Vardiya silindi.' });
     } catch (err) {
         res.status(500).json({ message: err.message });
