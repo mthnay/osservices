@@ -61,6 +61,7 @@ export const AppProvider = ({ children }) => {
 
     const [servicePoints, setServicePoints] = useState([]);
     const [users, setUsers] = useState([]);
+    const [deviceModels, setDeviceModels] = useState([]);
     const [currentUser, setCurrentUser] = useState(() => {
         try {
             const saved = sessionStorage.getItem('currentUser');
@@ -329,7 +330,7 @@ export const AppProvider = ({ children }) => {
                 if (!hasPermission(currentUser, 'view_all_stores') && currentUser.storeId) {
                     queryParams = `?storeId=${currentUser.storeId}`;
                 }
-                const [repairsRes, inventoryRes, techniciansRes, settingsRes, customersRes, companyRes, earningsRes, notifSetRes, notifTempRes, serviceTermsRes, rolesRes] = await Promise.all([
+                const [repairsRes, inventoryRes, techniciansRes, settingsRes, customersRes, companyRes, earningsRes, notifSetRes, notifTempRes, serviceTermsRes, rolesRes, deviceModelsRes] = await Promise.all([
                     apiFetch(`${API_URL}/repairs${queryParams}`),
                     apiFetch(`${API_URL}/inventory${queryParams}`),
                     apiFetch(`${API_URL}/technicians${queryParams}`),
@@ -340,7 +341,8 @@ export const AppProvider = ({ children }) => {
                     apiFetch(`${API_URL}/settings/notificationSettings`),
                     apiFetch(`${API_URL}/settings/notificationTemplates`),
                     apiFetch(`${API_URL}/settings/serviceTerms`),
-                    apiFetch(`${API_URL}/roles`)
+                    apiFetch(`${API_URL}/roles`),
+                    apiFetch(`${API_URL}/device-models`)
                 ]);
                 if (repairsRes.ok) {
                     const data = await repairsRes.json();
@@ -398,6 +400,9 @@ export const AppProvider = ({ children }) => {
                 if (customersRes.ok) {
                     const custData = await customersRes.json();
                     setCustomers(Array.isArray(custData) ? custData : []);
+                }
+                if (deviceModelsRes && deviceModelsRes.ok) {
+                    setDeviceModels(await deviceModelsRes.json());
                 }
             } catch (error) {
                 console.error("Error fetching data:", error);
@@ -1042,6 +1047,75 @@ export const AppProvider = ({ children }) => {
         }
     };
 
+    const addDeviceModel = async (model) => {
+        try {
+            const res = await apiFetch(`${API_URL}/device-models`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(model)
+            });
+            if (res.ok) {
+                const saved = await res.json();
+                setDeviceModels(prev => [...prev, saved]);
+                showToast('Cihaz modeli eklendi.', 'success');
+                return true;
+            } else {
+                const errData = await res.json();
+                showToast(errData.message || 'Cihaz modeli eklenemedi.', 'error');
+                return false;
+            }
+        } catch (error) {
+            console.error("Error adding device model:", error);
+            showToast('Bağlantı hatası', 'error');
+            return false;
+        }
+    };
+
+    const updateDeviceModel = async (id, updates) => {
+        try {
+            const res = await apiFetch(`${API_URL}/device-models/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updates)
+            });
+            if (res.ok) {
+                const updated = await res.json();
+                setDeviceModels(prev => prev.map(m => (m._id === id || m.id === id) ? updated : m));
+                showToast('Cihaz modeli güncellendi.', 'success');
+                return true;
+            } else {
+                const errData = await res.json();
+                showToast(errData.message || 'Cihaz modeli güncellenemedi.', 'error');
+                return false;
+            }
+        } catch (error) {
+            console.error("Error updating device model:", error);
+            showToast('Bağlantı hatası', 'error');
+            return false;
+        }
+    };
+
+    const removeDeviceModel = async (id) => {
+        try {
+            const res = await apiFetch(`${API_URL}/device-models/${id}`, {
+                method: 'DELETE'
+            });
+            if (res.ok) {
+                setDeviceModels(prev => prev.filter(m => m._id !== id && m.id !== id));
+                showToast('Cihaz modeli silindi.', 'info');
+                return true;
+            } else {
+                const errData = await res.json();
+                showToast(errData.message || 'Cihaz modeli silinemedi.', 'error');
+                return false;
+            }
+        } catch (error) {
+            console.error("Error deleting device model:", error);
+            showToast('Bağlantı hatası', 'error');
+            return false;
+        }
+    };
+
     const getStoreRepairs = () => {
         if (!currentUser) return [];
         if (hasPermission(currentUser, 'view_all_stores')) {
@@ -1156,6 +1230,7 @@ export const AppProvider = ({ children }) => {
             notificationTemplates, setNotificationTemplates: (s) => { setNotificationTemplates(s); saveSettings('notificationTemplates', s); },
             serviceTerms, setServiceTerms: (s) => { setServiceTerms(s); saveSettings('serviceTerms', s); },
             roles, addRole, updateRole, deleteRole,
+            deviceModels, addDeviceModel, updateDeviceModel, removeDeviceModel,
             selectedStoreId, setSelectedStoreId, showToast, alerts: alerts.filter(a => !clearedAlertIds.includes(a.id)), checkSLA, sendWhatsApp, uploadMedia, clearAllAlerts
         }}>
             {children}

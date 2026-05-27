@@ -1039,12 +1039,67 @@ router.post('/earnings', async (req, res) => {
 router.get('/device-models', async (req, res) => {
     try {
         const query = req.query.q;
+        const limit = req.query.limit ? parseInt(req.query.limit) : undefined;
         let filter = {};
         if (query) {
             filter = { name: { $regex: query, $options: 'i' } };
         }
-        const models = await DeviceModel.find(filter).limit(50);
+        let queryBuilder = DeviceModel.find(filter).sort({ name: 1 });
+        if (limit) {
+            queryBuilder = queryBuilder.limit(limit);
+        }
+        const models = await queryBuilder;
         res.json(models);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+router.post('/device-models', requireRole(['superadmin', 'yonetici']), async (req, res) => {
+    try {
+        const { name, type, configurations, colors } = req.body;
+        if (!name) {
+            return res.status(400).json({ message: 'Cihaz adı zorunludur.' });
+        }
+        const newModel = new DeviceModel({
+            name,
+            type: type || 'Other',
+            configurations: configurations || [],
+            colors: colors || []
+        });
+        const saved = await newModel.save();
+        res.status(201).json(saved);
+    } catch (err) {
+        res.status(400).json({ message: err.message });
+    }
+});
+
+router.put('/device-models/:id', requireRole(['superadmin', 'yonetici']), async (req, res) => {
+    try {
+        const { name, type, configurations, colors } = req.body;
+        const id = req.params.id;
+        const updated = await DeviceModel.findByIdAndUpdate(
+            id,
+            { name, type, configurations, colors },
+            { new: true }
+        );
+        if (!updated) {
+            return res.status(404).json({ message: 'Cihaz modeli bulunamadı.' });
+        }
+        res.json(updated);
+    } catch (err) {
+        res.status(400).json({ message: err.message });
+    }
+});
+
+router.delete('/device-models/:id', requireRole(['superadmin', 'yonetici']), async (req, res) => {
+    try {
+        const id = req.params.id;
+        const deleted = await DeviceModel.findByIdAndDelete(id);
+        if (!deleted) {
+            return res.status(404).json({ message: 'Cihaz modeli bulunamadı.' });
+        }
+        res.json({ success: true, message: 'Cihaz modeli silindi.' });
     } catch (err) {
         res.status(500).json({ message: err.message });
     }

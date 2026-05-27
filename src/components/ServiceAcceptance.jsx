@@ -116,7 +116,7 @@ const DEVICE_DATABASE = [
 
 
 const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
-    const { addRepair, customers, addCustomer, companyProfile, uploadMedia, showToast, serviceTerms, currentUser, servicePoints, visibleServicePoints } = useAppContext();
+    const { addRepair, customers, addCustomer, companyProfile, uploadMedia, showToast, serviceTerms, currentUser, servicePoints, visibleServicePoints, deviceModels } = useAppContext();
     const hasAllStores = currentUser?.role === 'admin' || currentUser?.role === ROLES?.SUPER_ADMIN || hasPermission(currentUser, 'view_all_stores');
 
     const [step, setStep] = useState(1);
@@ -281,22 +281,21 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
         if (val.length > 1) {
             const searchTerms = val.toLowerCase().split(' ').filter(t => t.length > 0);
             const results = [];
-            DEVICE_DATABASE.forEach(dev => {
+            const sourceDatabase = deviceModels && deviceModels.length > 0 ? deviceModels : DEVICE_DATABASE;
+            sourceDatabase.forEach(dev => {
                 const nameLower = dev.name.toLowerCase();
                 if (searchTerms.some(term => nameLower.includes(term))) {
                     let combinations = [];
-                    if (dev.capacities && dev.colors) {
-                        dev.colors.forEach(color => dev.capacities.forEach(cap => combinations.push(`${dev.name}, ${cap}, ${color}`)));
-                    } else if (dev.chips && dev.configurations) {
-                        dev.chips.forEach(chip => dev.configurations.forEach(config => combinations.push(`${dev.name}, ${chip}, ${config}`)));
-                    } else if (dev.capacities && dev.generations) {
-                        dev.generations.forEach(gen => dev.capacities.forEach(cap => combinations.push(`${dev.name} (${gen}), ${cap}`)));
-                    } else if (dev.sizes && dev.materials) {
-                        dev.materials.forEach(mat => dev.sizes.forEach(size => combinations.push(`${dev.name}, ${size}, ${mat}`)));
-                    } else if (dev.configurations) {
-                        dev.configurations.forEach(config => combinations.push(`${dev.name}, ${config}`));
-                    } else if (dev.colors) {
-                        dev.colors.forEach(color => combinations.push(`${dev.name}, ${color}`));
+                    // Adapt to both DB format and static DEVICE_DATABASE format
+                    const configs = dev.configurations || dev.capacities || dev.chips || dev.generations || dev.sizes || [];
+                    const colors = dev.colors || [];
+
+                    if (configs.length > 0 && colors.length > 0) {
+                        colors.forEach(color => configs.forEach(config => combinations.push(`${dev.name}, ${config}, ${color}`)));
+                    } else if (configs.length > 0) {
+                        configs.forEach(config => combinations.push(`${dev.name}, ${config}`));
+                    } else if (colors.length > 0) {
+                        colors.forEach(color => combinations.push(`${dev.name}, ${color}`));
                     } else {
                         combinations.push(dev.name);
                     }

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Save, Bell, Shield, Store, Globe, CreditCard, MapPin, Plus, Trash2, Building, Users, UserPlus, Mail, Lock, Paperclip, Check, Upload, X, ChevronRight, Package, AlertTriangle, Key, Clock, RefreshCw, MessageSquare } from 'lucide-react';
+import { Save, Bell, Shield, Store, Globe, CreditCard, MapPin, Plus, Trash2, Building, Users, UserPlus, Mail, Lock, Paperclip, Check, Upload, X, ChevronRight, Package, AlertTriangle, Key, Clock, RefreshCw, MessageSquare, Smartphone, Edit } from 'lucide-react';
 import { appConfirm } from '../utils/alert';
 import { useAppContext } from '../context/AppContext';
 import Swal from 'sweetalert2';
@@ -19,11 +19,22 @@ const Settings = () => {
         earnings, addEarning,
         roles, addRole, updateRole, deleteRole,
         serviceTerms, setServiceTerms,
-        inventory, updateInventoryItem
+        inventory, updateInventoryItem,
+        deviceModels, addDeviceModel, updateDeviceModel, removeDeviceModel
     } = useAppContext();
 
     const [activeTab, setActiveTab] = useState('general');
     const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: () => { } });
+
+    // --- Device Model Management States ---
+    const [showDeviceModelModal, setShowDeviceModelModal] = useState(false);
+    const [editingDeviceModel, setEditingDeviceModel] = useState(null);
+    const [deviceModelForm, setDeviceModelForm] = useState({
+        name: '',
+        type: 'iPhone',
+        configurations: '',
+        colors: ''
+    });
 
     // Earnings Form State
     const [showEarningsModal, setShowEarningsModal] = useState(false);
@@ -325,6 +336,59 @@ const Settings = () => {
                 timer: 2000,
                 showConfirmButton: false
             });
+        }
+    };
+
+    const handleSaveDeviceModel = async () => {
+        if (!deviceModelForm.name.trim()) {
+            Swal.fire('Hata', 'Lütfen cihaz model adını giriniz.', 'error');
+            return;
+        }
+
+        const payload = {
+            name: deviceModelForm.name.trim(),
+            type: deviceModelForm.type,
+            configurations: deviceModelForm.configurations
+                .split(',')
+                .map(c => c.trim())
+                .filter(c => c.length > 0),
+            colors: deviceModelForm.colors
+                .split(',')
+                .map(c => c.trim())
+                .filter(c => c.length > 0)
+        };
+
+        let success;
+        if (editingDeviceModel) {
+            success = await updateDeviceModel(editingDeviceModel._id || editingDeviceModel.id, payload);
+        } else {
+            success = await addDeviceModel(payload);
+        }
+
+        if (success) {
+            setShowDeviceModelModal(false);
+            setDeviceModelForm({ name: '', type: 'iPhone', configurations: '', colors: '' });
+            setEditingDeviceModel(null);
+        }
+    };
+
+    const handleDeleteDeviceModel = async (model) => {
+        const confirmed = await Swal.fire({
+            title: 'Emin misiniz?',
+            text: `${model.name} modeli silinecektir. Bu işlem geri alınamaz!`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Evet, Sil!',
+            cancelButtonText: 'İptal',
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6'
+        });
+
+        if (confirmed.isConfirmed) {
+            const success = await removeDeviceModel(model._id || model.id);
+            if (success) {
+                Swal.fire('Silindi!', 'Cihaz modeli başarıyla silindi.', 'success');
+            }
         }
     };
 
@@ -2066,6 +2130,201 @@ const Settings = () => {
                         </div>
                     </div>
                 );
+            case 'device_models':
+                return (
+                    <div className="space-y-8 animate-fade-in">
+                        <div className="flex justify-between items-center bg-white p-8 rounded-lg border border-gray-100 shadow-sm">
+                            <div>
+                                <h4 className="text-xl font-semibold text-gray-900 leading-none">Cihaz Model Tanımları</h4>
+                                <p className="text-gray-500 text-sm mt-2 font-medium">Servis kabul ekranındaki cihaz model tahmini ve konfigürasyon seçeneklerini yönetin.</p>
+                            </div>
+                            <button
+                                onClick={() => {
+                                    setEditingDeviceModel(null);
+                                    setDeviceModelForm({ name: '', type: 'iPhone', configurations: '', colors: '' });
+                                    setShowDeviceModelModal(true);
+                                }}
+                                className="bg-gray-900 text-white px-8 py-3.5 rounded-md font-semibold text-xs hover:bg-black transition-all shadow-xl shadow-gray-200 hover:-translate-y-1 active:scale-95 flex items-center gap-2 text-xs uppercase tracking-wide"
+                            >
+                                <Plus size={18} /> Yeni Model Ekle
+                            </button>
+                        </div>
+
+                        <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr className="bg-gray-50/50 border-b border-gray-100">
+                                            <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Cihaz Modeli</th>
+                                            <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Tür</th>
+                                            <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Seçenekler / Kapasite</th>
+                                            <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Renkler</th>
+                                            <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest text-right">İşlemler</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-50">
+                                        {deviceModels && deviceModels.length > 0 ? (
+                                            deviceModels.map((model) => (
+                                                <tr key={model._id || model.id} className="hover:bg-gray-50/50 transition-colors">
+                                                    <td className="px-6 py-4 font-bold text-gray-900 text-sm">
+                                                        {model.name}
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${
+                                                            model.type === 'iPhone' ? 'bg-blue-50 text-blue-600' :
+                                                            model.type === 'iPad' ? 'bg-purple-50 text-purple-600' :
+                                                            model.type === 'Mac' ? 'bg-orange-50 text-orange-600' :
+                                                            model.type === 'Watch' ? 'bg-emerald-50 text-emerald-600' :
+                                                            'bg-gray-100 text-gray-600'
+                                                        }`}>
+                                                            {model.type || 'Diğer'}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex flex-wrap gap-1 max-w-xs">
+                                                            {model.configurations && model.configurations.map((config, idx) => (
+                                                                <span key={idx} className="bg-gray-100 text-gray-700 text-[9px] font-bold px-2 py-0.5 rounded uppercase">
+                                                                    {config}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex flex-wrap gap-1 max-w-xs">
+                                                            {model.colors && model.colors.map((color, idx) => (
+                                                                <span key={idx} className="bg-blue-50 text-blue-700 border border-blue-100/50 text-[9px] font-bold px-2 py-0.5 rounded uppercase">
+                                                                    {color}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-right">
+                                                        <div className="flex justify-end gap-2">
+                                                            <button
+                                                                onClick={() => {
+                                                                    setEditingDeviceModel(model);
+                                                                    setDeviceModelForm({
+                                                                        name: model.name,
+                                                                        type: model.type || 'iPhone',
+                                                                        configurations: model.configurations?.join(', ') || '',
+                                                                        colors: model.colors?.join(', ') || ''
+                                                                    });
+                                                                    setShowDeviceModelModal(true);
+                                                                }}
+                                                                className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-all"
+                                                                title="Düzenle"
+                                                            >
+                                                                <Edit size={16} />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleDeleteDeviceModel(model)}
+                                                                className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-all"
+                                                                title="Sil"
+                                                            >
+                                                                <Trash2 size={16} />
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        ) : (
+                                            <tr>
+                                                <td colSpan="5" className="px-6 py-20 text-center">
+                                                    <div className="flex flex-col items-center gap-3">
+                                                        <div className="w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center text-gray-300">
+                                                            <Smartphone size={24} />
+                                                        </div>
+                                                        <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">Kayıtlı cihaz modeli bulunmuyor</p>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        {/* Add/Edit Device Model Modal */}
+                        {showDeviceModelModal && (
+                            <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+                                <div className="bg-white rounded-lg w-full max-w-xl p-8 shadow-2xl animate-scale-up border border-white/20">
+                                    <div className="flex justify-between items-center mb-6">
+                                        <h3 className="text-xl font-semibold text-gray-900">{editingDeviceModel ? 'Cihaz Modelini Düzenle' : 'Yeni Cihaz Modeli Ekle'}</h3>
+                                        <button onClick={() => setShowDeviceModelModal(false)} className="w-10 h-10 bg-gray-50 text-gray-400 hover:text-gray-900 rounded-md flex items-center justify-center transition-all">
+                                            <X size={20} />
+                                        </button>
+                                    </div>
+
+                                    <div className="space-y-4 mb-6">
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-semibold text-gray-400 text-xs uppercase tracking-wide ml-1">Cihaz Model Adı</label>
+                                            <input
+                                                type="text"
+                                                value={deviceModelForm.name}
+                                                onChange={(e) => setDeviceModelForm({ ...deviceModelForm, name: e.target.value })}
+                                                placeholder="Orn: iPhone 15 Pro"
+                                                className="w-full px-4 py-3 bg-gray-50 rounded-md border border-gray-200 focus:bg-white focus:border-blue-500 outline-none transition-all font-bold text-sm text-gray-900"
+                                            />
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-semibold text-gray-400 text-xs uppercase tracking-wide ml-1">Cihaz Türü</label>
+                                            <select
+                                                value={deviceModelForm.type}
+                                                onChange={(e) => setDeviceModelForm({ ...deviceModelForm, type: e.target.value })}
+                                                className="w-full px-4 py-3 bg-gray-50 rounded-md border border-gray-200 focus:bg-white focus:border-blue-500 outline-none transition-all font-bold text-sm text-gray-700"
+                                            >
+                                                <option value="iPhone">iPhone</option>
+                                                <option value="iPad">iPad</option>
+                                                <option value="Mac">Mac</option>
+                                                <option value="Watch">Watch</option>
+                                                <option value="Aksesuar">Aksesuar</option>
+                                                <option value="Diğer">Diğer</option>
+                                            </select>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-semibold text-gray-400 text-xs uppercase tracking-wide ml-1">Kapasite / Konfigürasyon Seçenekleri (Virgülle ayırın)</label>
+                                            <input
+                                                type="text"
+                                                value={deviceModelForm.configurations}
+                                                onChange={(e) => setDeviceModelForm({ ...deviceModelForm, configurations: e.target.value })}
+                                                placeholder="Orn: 128GB, 256GB, 512GB, 1TB"
+                                                className="w-full px-4 py-3 bg-gray-50 rounded-md border border-gray-200 focus:bg-white focus:border-blue-500 outline-none transition-all font-semibold text-sm text-gray-800"
+                                            />
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-semibold text-gray-400 text-xs uppercase tracking-wide ml-1">Renk Seçenekleri (Virgülle ayırın)</label>
+                                            <input
+                                                type="text"
+                                                value={deviceModelForm.colors}
+                                                onChange={(e) => setDeviceModelForm({ ...deviceModelForm, colors: e.target.value })}
+                                                placeholder="Orn: Uzay Siyahı, Gümüş, Altın"
+                                                className="w-full px-4 py-3 bg-gray-50 rounded-md border border-gray-200 focus:bg-white focus:border-blue-500 outline-none transition-all font-semibold text-sm text-gray-800"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="flex gap-3">
+                                        <button
+                                            onClick={() => setShowDeviceModelModal(false)}
+                                            className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-500 font-bold rounded-md text-xs uppercase tracking-wider transition-all"
+                                        >
+                                            Vazgeç
+                                        </button>
+                                        <button
+                                            onClick={handleSaveDeviceModel}
+                                            className="flex-2 bg-gray-900 hover:bg-black text-white py-3 rounded-md font-bold text-xs uppercase tracking-wider shadow-lg transition-all active:scale-95"
+                                        >
+                                            {editingDeviceModel ? 'Kaydet' : 'Ekle'}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                );
         }
     };
 
@@ -2085,6 +2344,7 @@ const Settings = () => {
                                 { id: 'users', label: 'Ekip & Erişim', icon: Users },
                                 { id: 'warehouse_management', label: 'Ambar Yönetimi', icon: Package },
                                 { id: 'kbb_history', label: 'KBB Arşivi', icon: Store },
+                                { id: 'device_models', label: 'Cihaz Modelleri', icon: Smartphone },
                                 { id: 'earnings', label: 'Hakediş Kayıtları', icon: CreditCard },
                                 { id: 'notifications', label: 'E-Posta & SMTP', icon: Mail },
                                 { id: 'service_terms', label: 'Servis Metinleri', icon: MessageSquare },
@@ -2125,6 +2385,7 @@ const Settings = () => {
                              activeTab === 'notifications' ? 'E-Posta & SMTP Yapısı' :
                              activeTab === 'warehouse_management' ? 'Ambar & Lojistik Yönetimi' :
                              activeTab === 'stock' ? 'Envanter Veritabanı' :
+                             activeTab === 'device_models' ? 'Cihaz Modelleri Veritabanı' :
                              activeTab === 'updates' ? 'Yazılım Güncelleme' :
                              activeTab === 'roles' ? 'Yetki ve Rol Yönetimi' :
                              activeTab === 'service_terms' ? 'Servis Onay & Gizlilik' :
