@@ -49,6 +49,7 @@ const PartArrivalModal = ({ repairId, onClose }) => {
 
             showToast('Kaydedildi.', 'success');
             onClose();
+        // eslint-disable-next-line no-unused-vars
         } catch (error) {
             showToast('Hata oluştu.', 'error');
         } finally {

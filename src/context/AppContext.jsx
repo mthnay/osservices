@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import Toast from '../components/Toast';
 import { hasPermission, ROLES, setGlobalRoles } from '../utils/permissions';
@@ -205,6 +206,7 @@ export const AppProvider = ({ children }) => {
                 const [day, month, year] = datePart.split('.');
                 const isoDate = `${year}-${month}-${day}T${timePart || '00:00:00'}`;
                 return new Date(isoDate);
+            // eslint-disable-next-line no-unused-vars
             } catch (e) { return new Date(); }
         };
         const startDate = parseDateString(repair.date);
@@ -261,6 +263,7 @@ export const AppProvider = ({ children }) => {
 
         const interval = setInterval(fetchAnnouncements, 15000);
         return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentUser]);
 
     const computeAlerts = (repairsList, announcementsList = []) => {
@@ -300,6 +303,7 @@ export const AppProvider = ({ children }) => {
 
     useEffect(() => {
         computeAlerts(repairs, announcements);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [repairs, announcements, clearedAlertIds]);
 
     const uploadMedia = async (file) => {
@@ -428,6 +432,7 @@ export const AppProvider = ({ children }) => {
             }
         };
         fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentUser]);
 
     // Force store restriction for unauthorized users

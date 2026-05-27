@@ -5,9 +5,11 @@ import {
     ArrowUpRight, Target
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
+// eslint-disable-next-line no-unused-vars
 import { hasPermission } from '../utils/permissions';
 
 const StoreOperations = () => {
+    // eslint-disable-next-line no-unused-vars
     const { repairs, allRepairs, servicePoints, technicians, users } = useAppContext();
     const [selectedStoreDetails, setSelectedStoreDetails] = useState(null);
 

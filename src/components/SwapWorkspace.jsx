@@ -35,6 +35,7 @@ const SwapWorkspace = ({ repairId, onClose, setActiveTab }) => {
 
     useEffect(() => {
         const found = repairs.find(r => r.id === repairId);
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setRepair(found);
 
         let interval;

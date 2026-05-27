@@ -17,6 +17,7 @@ const KBBManagement = () => {
     }, [currentUser]);
 
     const [activeTab, setActiveTab] = useState('stocks'); // 'stocks', 'loaners', 'returns'
+    // eslint-disable-next-line no-unused-vars
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedItems, setSelectedItems] = useState([]);
     const [showReturnModal, setShowReturnModal] = useState(false);

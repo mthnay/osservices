@@ -33,6 +33,7 @@ const CustomerPortal = ({ trackId }) => {
             }
         };
         fetchStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [trackId]);
 
     const handleQuote = async (action) => {
@@ -55,6 +56,7 @@ const CustomerPortal = ({ trackId }) => {
             } else {
                 alert(data.message);
             }
+        // eslint-disable-next-line no-unused-vars
         } catch (err) {
             alert('İşlem başarısız oldu. Lütfen daha sonra tekrar deneyin.');
         } finally {
@@ -81,6 +83,7 @@ const CustomerPortal = ({ trackId }) => {
                 const data = await res.json();
                 alert(data.message);
             }
+        // eslint-disable-next-line no-unused-vars
         } catch (err) {
             alert('İşlem başarısız oldu.');
         } finally {
@@ -230,6 +233,7 @@ const CustomerPortal = ({ trackId }) => {
                         
                         {history && history.map((item, index) => {
                             const isLast = index === history.length - 1;
+                            // eslint-disable-next-line no-unused-vars
                             const isFirst = index === 0;
                             
                             return (

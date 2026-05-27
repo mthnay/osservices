@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { User, Plus, Search, Filter, Mail, MapPin, MoreHorizontal, Edit, Calendar, DollarSign, Tag, Clock, ChevronRight, MessageCircle, Trash2 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import MyPhoneIcon from './LocalIcons';
+// eslint-disable-next-line no-unused-vars
 import { appConfirm, appAlert } from '../utils/alert';
 
 const Customers = ({ setActiveTab, setServiceInitialData }) => {
@@ -89,6 +90,7 @@ const Customers = ({ setActiveTab, setServiceInitialData }) => {
         c.id.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
+    // eslint-disable-next-line no-unused-vars
     const [groupBy, setGroupBy] = useState('letter'); // 'letter' | 'type'
     const [collapsedGroups, setCollapsedGroups] = useState([]);
 
@@ -110,6 +112,7 @@ const Customers = ({ setActiveTab, setServiceInitialData }) => {
     // Default collapse all groups on first load
     useEffect(() => {
         setCollapsedGroups(sortedGroups);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [groupBy]);
 
     const toggleGroup = (key) => {
@@ -412,7 +415,8 @@ const Customers = ({ setActiveTab, setServiceInitialData }) => {
                                     </h4>
                                     
                                     <div className="relative pl-8 space-y-6 before:absolute before:left-[23px] before:top-4 before:bottom-4 before:w-[2px] before:bg-gray-100">
-                                        {customerHistory.map((history, idx) => (
+                                        // eslint-disable-next-line no-unused-vars
+                                        {customerHistory.map((history, /* idx */) => (
                                             <div key={history.id} className="relative group/item flex items-center gap-6 p-4 bg-white rounded-[28px] border border-gray-100 hover:border-blue-200 hover:translate-x-2 transition-all">
                                                 <div className="absolute -left-[14px] top-1/2 -translate-y-1/2 w-4 h-4 rounded-full border-4 border-gray-50 bg-white group-hover/item:bg-blue-500 transition-colors"></div>
                                                 

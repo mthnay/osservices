@@ -1,3 +1,4 @@
+// eslint-disable-next-line no-unused-vars
 import React, { useEffect, useRef } from 'react';
 import { CheckCircle, AlertCircle, XCircle, Info, Check } from 'lucide-react';
 

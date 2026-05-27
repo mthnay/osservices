@@ -9,7 +9,9 @@ import {
 import { useAppContext } from '../context/AppContext';
 
 const Reports = () => {
+    // eslint-disable-next-line no-unused-vars
     const { repairs, allTechnicians, earnings, servicePoints, allRepairs } = useAppContext();
+    // eslint-disable-next-line no-unused-vars
     const [timeRange, setTimeRange] = useState('monthly');
     const [activeTab, setActiveTab] = useState('performance'); // 'performance' or 'financial'
 

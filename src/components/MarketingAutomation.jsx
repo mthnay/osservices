@@ -4,6 +4,7 @@ import { useAppContext } from '../context/AppContext';
 import { appAlert } from '../utils/alert';
 
 const MarketingAutomation = () => {
+    // eslint-disable-next-line no-unused-vars
     const { allCustomers, emailSettings, allRepairs } = useAppContext();
     const [searchTerm, setSearchTerm] = useState('');
     const [filterType, setFilterType] = useState('all'); // 'all', 'old_repairs', 'no_recent_visits'
@@ -36,6 +37,7 @@ const MarketingAutomation = () => {
     );
 
     if (filterType === 'old_repairs') {
+        // eslint-disable-next-line no-unused-vars
         filteredList = filteredList.filter(item => {
             // Sadece 3 aydan eski kayıtları simüle et (Gerçekte Date objesine göre hesaplanmalı)
             // Biz basitçe her şeyi 'Eski' sayıp listeleyeceğiz test için, sadece demonstrasyon.

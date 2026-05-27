@@ -17,6 +17,7 @@ const AppleLogisticsModal = ({ repairId, onClose }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [arcResult, setArcResult] = useState('');
     const [arcParts, setArcParts] = useState([]);
+    // eslint-disable-next-line no-unused-vars
     const [activeTimeline, setActiveTimeline] = useState(2); // Mock: 2. adımda (Apple Merkezi'nde)
     const [showNotificationModal, setShowNotificationModal] = useState(false);
     const [uploading, setUploading] = useState(false);

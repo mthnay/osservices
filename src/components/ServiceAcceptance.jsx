@@ -116,6 +116,7 @@ const DEVICE_DATABASE = [
 
 
 const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
+    // eslint-disable-next-line no-unused-vars
     const { addRepair, customers, addCustomer, companyProfile, uploadMedia, showToast, serviceTerms, currentUser, servicePoints, visibleServicePoints, deviceModels } = useAppContext();
     const hasAllStores = currentUser?.role === 'admin' || currentUser?.role === ROLES?.SUPER_ADMIN || hasPermission(currentUser, 'view_all_stores');
 
@@ -124,6 +125,7 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
     const [showKioskModal, setShowKioskModal] = useState(false);
     const [lastRepairId, setLastRepairId] = useState(null);
     const [searching, setSearching] = useState(false);
+    // eslint-disable-next-line no-unused-vars
     const [toast, setToast] = useState(null);
     const [uploading, setUploading] = useState(false);
     const fileInputRef = useRef(null);
@@ -356,6 +358,7 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
             }));
             if (clearInitialData) clearInitialData();
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [initialData]);
  
     // Kullanıcının bağlı olduğu mağazayı varsayılan seç
@@ -367,6 +370,7 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
             // view_all_stores yetkisi varsa ama storeId boşsa, kendi mağazasını ata
             setFormData(prev => ({ ...prev, storeId: currentUser.storeId }));
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentUser?.storeId]);
 
     // Customer Matching

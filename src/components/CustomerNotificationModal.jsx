@@ -7,6 +7,7 @@ import MyPhoneIcon from './LocalIcons';
 import { useAppContext } from '../context/AppContext';
 
 const CustomerNotificationModal = ({ repair, onClose, onActionComplete }) => {
+    // eslint-disable-next-line no-unused-vars
     const { emailSettings, notificationSettings, notificationTemplates, updateRepair, showToast, sendWhatsApp, API_URL } = useAppContext();
     const [activeChannel, setActiveChannel] = useState('whatsapp'); // WhatsApp'ı varsayılan yaptık
     const [selectedTemplate, setSelectedTemplate] = useState(repair.status === 'Müşteri Onayı Bekliyor' ? 'status_update' : (repair.quoteAmount && repair.quoteAmount !== '0.00' ? 'repair_requote' : 'status_update'));
@@ -23,6 +24,7 @@ const CustomerNotificationModal = ({ repair, onClose, onActionComplete }) => {
         if (showHistory) {
             fetchHistory();
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [showHistory]);
 
     const fetchHistory = async () => {

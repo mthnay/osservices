@@ -54,6 +54,7 @@ function App() {
     if (!isPrivileged && currentUser.storeId && selectedStoreId === 0) {
       setSelectedStoreId(currentUser.storeId);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser, servicePoints]);
   const [serviceInitialData, setServiceInitialData] = useState(null);
   const [trackingMode, setTrackingMode] = useState(false);

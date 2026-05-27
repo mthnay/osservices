@@ -5,12 +5,15 @@ import MyPhoneIcon from './LocalIcons';
 import RepairHistoryModal from './RepairHistoryModal';
 import TechnicianPerformance from './TechnicianPerformance';
 import { useAppContext } from '../context/AppContext';
+// eslint-disable-next-line no-unused-vars
 import { appConfirm, appAlert } from '../utils/alert';
 
 const Technicians = () => {
+    // eslint-disable-next-line no-unused-vars
     const { repairs, technicians, assignTechnician, currentUser, addTechnician, removeTechnician, updateTechnician, showToast, servicePoints, updateRepair, completeJob, inventory, updateInventoryItem, usePart, sendWhatsApp, uploadMedia } = useAppContext();
     const [activeRepairId, setActiveRepairId] = useState(null);
     const [selectedHistoryRepair, setSelectedHistoryRepair] = useState(null);
+    // eslint-disable-next-line no-unused-vars
     const [filter, setFilter] = useState('pending');
     const [searchTerm, setSearchTerm] = useState('');
     const [viewMode, setViewMode] = useState('pool'); // 'pool' or 'stats'

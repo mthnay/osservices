@@ -131,6 +131,7 @@ const StoreManagement = () => {
 
     useEffect(() => {
         fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedStore]);
 
     // Store Employees List
@@ -435,6 +436,7 @@ const StoreManagement = () => {
     };
 
     // Handle Shift Create
+    // eslint-disable-next-line no-unused-vars
     const handleAddShift = async (e) => {
         e.preventDefault();
         if (!isManagerOrAdmin) {

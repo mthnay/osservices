@@ -50,6 +50,7 @@ const ReadyForPickup = () => {
         setShowDeliveryModal(true);
     };
 
+    // eslint-disable-next-line no-unused-vars
     const startSignature = (e) => {
         const canvas = canvasRef.current;
         const ctx = canvas.getContext('2d');

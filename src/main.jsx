@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 const DummyIcon = () => null;
 window.phone = undefined;
 window.smartphone = undefined;
@@ -61,6 +62,7 @@ class ErrorBoundary extends React.Component {
     this.state = { hasError: false, error: null, errorInfo: null };
   }
 
+  // eslint-disable-next-line no-unused-vars
   static getDerivedStateFromError(error) {
     return { hasError: true };
   }

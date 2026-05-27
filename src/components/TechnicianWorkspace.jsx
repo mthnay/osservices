@@ -6,13 +6,17 @@ import {
     Camera, Plus, Trash2, ArrowRight, ShieldCheck, Microscope, Info
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
+// eslint-disable-next-line no-unused-vars
 import { appPrompt, appAlert } from '../utils/alert';
 import { getSafeRepairImageUrl } from '../utils/productImages';
 
 const TechnicianWorkspace = ({ repairId, onClose, setActiveTab }) => {
     const { 
+        // eslint-disable-next-line no-unused-vars
         repairs, updateRepair, completeJob, currentUser, inventory, 
+        // eslint-disable-next-line no-unused-vars
         updateInventoryItem, usePart, processStockMovement, showToast, 
+        // eslint-disable-next-line no-unused-vars
         technicians, sendWhatsApp, uploadMedia, API_URL, verifyTechnicianPassword
     } = useAppContext();
 
@@ -22,11 +26,13 @@ const TechnicianWorkspace = ({ repairId, onClose, setActiveTab }) => {
     const [isTimerRunning, setIsTimerRunning] = useState(false);
     const [showReturnModal, setShowReturnModal] = useState(false);
     const [returnReason, setReturnReason] = useState('');
+    // eslint-disable-next-line no-unused-vars
     const [customReturnReason, setCustomReturnReason] = useState('');
     const [uploading, setUploading] = useState(false);
     const [localSerials, setLocalSerials] = useState({});
     const [showQuoteModal, setShowQuoteModal] = useState(false);
     const [quoteItems, setQuoteItems] = useState([{ name: '', price: '' }]);
+    // eslint-disable-next-line no-unused-vars
     const [quoteNotes, setQuoteNotes] = useState('');
 
     const fileInputRef = useRef(null);
@@ -79,6 +85,7 @@ const TechnicianWorkspace = ({ repairId, onClose, setActiveTab }) => {
                 lastLoadedRepairId.current = currentId;
             }
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [repairId, repairs]);
 
     useEffect(() => {

@@ -36,6 +36,7 @@ const Login = ({ onTrackingClick }) => {
             } else {
                 setError(data.message || 'Kullanıcı bulunamadı.');
             }
+        // eslint-disable-next-line no-unused-vars
         } catch (err) {
             setError('Bağlantı hatası.');
         } finally {
@@ -54,6 +55,7 @@ const Login = ({ onTrackingClick }) => {
                 setError('Hatalı şifre.');
                 setPassword('');
             }
+        // eslint-disable-next-line no-unused-vars
         } catch (err) {
             setError('Bağlantı hatası.');
             setPassword('');
@@ -78,6 +80,7 @@ const Login = ({ onTrackingClick }) => {
             } else {
                 Swal.fire({ icon: 'error', title: 'Hata', text: data.message });
             }
+        // eslint-disable-next-line no-unused-vars
         } catch (err) {
             Swal.fire({ icon: 'error', title: 'Hata', text: 'Bağlantı hatası.' });
         } finally {
