@@ -162,6 +162,7 @@ export const AppProvider = ({ children }) => {
     const [customers, setCustomers] = useState([]);
     const [earnings, setEarnings] = useState([]);
     const [clearedAlertIds, setClearedAlertIds] = useState([]);
+    const [searchQuery, setSearchQuery] = useState('');
     const [serviceTerms, setServiceTerms] = useState({
         termsTitle: 'OSS - OPERATING SYSTEM SOFTWARE GENEL HİZMET SÖZLEŞMESİ',
         termsContent: `Bu Hüküm ve Koşullar OSS - Operating System Software tarafından ürününüz için sağlanacak servis hakkındaki kuralları belirler.
