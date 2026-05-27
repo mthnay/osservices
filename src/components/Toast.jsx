@@ -2,20 +2,14 @@ import React, { useEffect, useRef } from 'react';
 import { CheckCircle, AlertCircle, XCircle, Info, Check } from 'lucide-react';
 
 const Toast = ({ message, type = 'success', onClose, duration = 3000 }) => {
-    const onCloseRef = useRef(onClose);
-
     useEffect(() => {
-        onCloseRef.current = onClose;
-    });
-
-    useEffect(() => {
-        if (duration) {
+        if (duration && onClose) {
             const timer = setTimeout(() => {
-                onCloseRef.current();
+                onClose();
             }, duration);
             return () => clearTimeout(timer);
         }
-    }, [duration]);
+    }, [duration, onClose]);
 
     const bgColors = {
         success: 'bg-white/90 border-emerald-100/70 text-emerald-950 shadow-emerald-500/5',

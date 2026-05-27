@@ -272,6 +272,10 @@ if (fs.existsSync(distDir)) {
         if (req.originalUrl.startsWith('/api')) {
             return res.status(404).json({ success: false, message: 'API endpoint bulunamadı.' });
         }
+        // Set Cache-Control header to prevent caching of index.html in Single Page Apps
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
         res.sendFile(path.join(distDir, 'index.html'));
     });
 } else {

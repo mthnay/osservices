@@ -1051,7 +1051,7 @@ export const AppProvider = ({ children }) => {
         return repairs.filter(r => String(r.storeId) === String(currentUser.storeId));
     };
 
-    const [toast, setToast] = useState({ message: '', type: 'info', isVisible: false });
+    const [toast, setToast] = useState({ id: 0, message: '', type: 'info', isVisible: false });
     const sendWhatsApp = (phone, message) => {
         if (!phone) return;
         // Sadece rakamları al
@@ -1063,7 +1063,7 @@ export const AppProvider = ({ children }) => {
     };
 
     const showToast = React.useCallback((message, type = 'info') => {
-        setToast({ message, type, isVisible: true });
+        setToast({ id: Date.now(), message, type, isVisible: true });
     }, []);
 
     const hideToast = React.useCallback(() => {
@@ -1159,7 +1159,7 @@ export const AppProvider = ({ children }) => {
             selectedStoreId, setSelectedStoreId, showToast, alerts: alerts.filter(a => !clearedAlertIds.includes(a.id)), checkSLA, sendWhatsApp, uploadMedia, clearAllAlerts
         }}>
             {children}
-            {toast.isVisible && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
+            {toast.isVisible && <Toast key={toast.id} message={toast.message} type={toast.type} onClose={hideToast} />}
         </AppContext.Provider>
     );
 };
