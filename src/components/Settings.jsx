@@ -5,7 +5,7 @@ import { useAppContext } from '../context/AppContext';
 import Swal from 'sweetalert2';
 import ConfirmationModal from './ConfirmationModal';
 import MyPhoneIcon from './LocalIcons';
-import { isSuperAdmin, isYonetici } from '../utils/permissions';
+import { isSuperAdmin, isYonetici, ROLE_DISPLAY_NAMES } from '../utils/permissions';
 
 const Settings = () => {
     const {
@@ -385,7 +385,7 @@ const Settings = () => {
     };
 
     // --- User Form ---
-    const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'Technician', storeId: 1 });
+    const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'technician', storeId: 1 });
     
     // Role change handler for new users
     const handleNewUserRoleChange = (e) => {
@@ -419,7 +419,7 @@ const Settings = () => {
             storeId: parseInt(newUser.storeId),
             avatar: newUser.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2)
         });
-        setNewUser({ name: '', email: '', password: '', role: 'Technician', storeId: 1 });
+        setNewUser({ name: '', email: '', password: '', role: 'technician', storeId: 1 });
     };
 
     const handleUpdateUser = async () => {
@@ -1306,14 +1306,27 @@ const Settings = () => {
                                                 <div className="space-y-1">
                                                     <label className="text-[10px] font-semibold text-gray-400 text-xs uppercase tracking-wide pl-1">Yetki & Mağaza</label>
                                                     <div className="flex flex-col gap-1">
-                                                        <select className="w-full px-4 py-2 bg-white rounded-md border border-gray-200 outline-none font-semibold text-[10px] uppercase" value={editUserData.role} onChange={handleEditRoleChange}>
-                                                            {!isYonetici(currentUser) && <option value="SuperAdmin">SÜPER ADMIN</option>}
-                                                            {isYonetici(currentUser) && editUserData.role?.toLowerCase() === 'superadmin' && <option value="SuperAdmin">SÜPER ADMIN</option>}
-                                                            <option value="Yonetici">YÖNETİCİ</option>
-                                                            <option value="StoreManager">MAĞAZA YÖNETİCİSİ</option>
-                                                            <option value="Reception">BANKO / KARŞILAMA</option>
-                                                            <option value="Technician">TEKNİSYEN</option>
-                                                            <option value="Logistic">LOJİSTİK</option>
+                                                        <select 
+                                                            className="w-full px-4 py-2 bg-white rounded-md border border-gray-200 outline-none font-semibold text-[10px] uppercase" 
+                                                            value={roles.find(r => r.name.toLowerCase() === editUserData.role?.toLowerCase())?.name || editUserData.role} 
+                                                            onChange={handleEditRoleChange}
+                                                        >
+                                                            {roles
+                                                                .filter(role => {
+                                                                    // Yönetici, SuperAdmin veya Admin rolünü atayamaz
+                                                                    if (isYonetici(currentUser)) {
+                                                                        const isTargetSuper = editUserData.role?.toLowerCase() === 'superadmin' || editUserData.role?.toLowerCase() === 'admin';
+                                                                        const isRoleSuper = role.name.toLowerCase() === 'superadmin' || role.name.toLowerCase() === 'admin';
+                                                                        if (isRoleSuper) {
+                                                                            return isTargetSuper;
+                                                                        }
+                                                                    }
+                                                                    return true;
+                                                                })
+                                                                .map(role => (
+                                                                    <option key={role.name} value={role.name}>{role.displayName.toUpperCase()}</option>
+                                                                ))
+                                                            }
                                                         </select>
                                                         <select className="w-full px-4 py-2 bg-white rounded-md border border-gray-200 outline-none font-semibold text-[10px] uppercase" value={editUserData.storeId} onChange={e => setEditUserData({ ...editUserData, storeId: Number(e.target.value) })}>
                                                             <option value="0">GENEL MERKEZ</option>
@@ -1336,11 +1349,11 @@ const Settings = () => {
                                                         <h4 className="font-semibold text-gray-900 text-lg tracking-tight truncate">{u.name}</h4>
                                                         <div className="flex items-center gap-2">
                                                             <span className={`text-[9px] font-semibold px-2.5 py-1 rounded-lg border uppercase tracking-wider ${
-                                                                (u.role === 'SuperAdmin' || u.role === 'Admin') ? 'bg-indigo-600 text-white border-indigo-600' : 
-                                                                (u.role === 'Technician' || u.role === 'Teknisyen') ? 'bg-emerald-500 text-white border-emerald-500' :
+                                                                (u.role?.toLowerCase() === 'superadmin' || u.role?.toLowerCase() === 'admin') ? 'bg-indigo-600 text-white border-indigo-600' : 
+                                                                (u.role?.toLowerCase() === 'technician' || u.role?.toLowerCase() === 'teknisyen') ? 'bg-emerald-500 text-white border-emerald-500' :
                                                                 'bg-amber-500 text-white border-amber-500'
                                                             }`}>
-                                                                {u.role}
+                                                                {ROLE_DISPLAY_NAMES[u.role?.toLowerCase()] || u.role}
                                                             </span>
                                                             <span className="text-[9px] font-semibold bg-gray-50 text-gray-500 px-2.5 py-1 rounded-lg border border-gray-100 uppercase tracking-wider">
                                                                 {store ? store.name : 'Genel Merkez'}
