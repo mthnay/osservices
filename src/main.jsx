@@ -23,6 +23,14 @@ Swal.fire = function (options, ...args) {
   // Onay penceresi (showCancelButton), input alanları veya explicitly timer kapatılmadıysa
   const isConfirmation = opts.showCancelButton || opts.input;
 
+  // Bilgi/uyarı amaçlı ise ve showToast fonksiyonu global olarak tanımlıysa Toast bileşenine yönlendir
+  if (!isConfirmation && window.showToast) {
+    const message = opts.text || opts.title || '';
+    const type = opts.icon === 'error' ? 'error' : opts.icon === 'success' ? 'success' : opts.icon === 'warning' ? 'warning' : 'info';
+    window.showToast(message, type);
+    return Promise.resolve({ isConfirmed: true, isDenied: false, isDismissed: false });
+  }
+
   // Konumlandırmayı ekranın üst kısmına al
   opts.position = 'top';
 

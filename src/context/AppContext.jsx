@@ -1140,6 +1140,13 @@ export const AppProvider = ({ children }) => {
         setToast({ id: Date.now(), message, type, isVisible: true });
     }, []);
 
+    React.useEffect(() => {
+        window.showToast = showToast;
+        return () => {
+            delete window.showToast;
+        };
+    }, [showToast]);
+
     const hideToast = React.useCallback(() => {
         setToast(prev => ({ ...prev, isVisible: false }));
     }, []);
