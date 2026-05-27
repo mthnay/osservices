@@ -1062,8 +1062,13 @@ export const AppProvider = ({ children }) => {
         window.open(`https://wa.me/${finalPhone}?text=${encodedMsg}`, '_blank');
     };
 
-    const showToast = (message, type = 'info') => setToast({ message, type, isVisible: true });
-    const hideToast = () => setToast(prev => ({ ...prev, isVisible: false }));
+    const showToast = React.useCallback((message, type = 'info') => {
+        setToast({ message, type, isVisible: true });
+    }, []);
+
+    const hideToast = React.useCallback(() => {
+        setToast(prev => ({ ...prev, isVisible: false }));
+    }, []);
 
     const { isAdmin, isStaff } = React.useMemo(() => {
         if (!currentUser) return { isAdmin: false, isStaff: false };

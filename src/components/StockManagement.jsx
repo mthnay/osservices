@@ -376,12 +376,12 @@ const StockManagement = () => {
                     </div>
 
                     {/* Inventory Table */}
-                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                        <table className="w-full text-left">
-                            <thead className="bg-gray-50 border-b border-gray-200">
+                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm max-h-[550px] overflow-y-auto custom-scrollbar relative">
+                        <table className="w-full text-left border-separate border-spacing-0">
+                            <thead className="sticky top-0 z-10 bg-gray-50 border-b border-gray-200">
                                 <tr className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">
-                                    <th className="px-6 py-4">Parça Bilgisi</th>
-                                    <th className="px-6 py-4">P/N Kodu</th>
+                                    <th className="px-6 py-4 bg-gray-50 border-b border-gray-200">Parça Bilgisi</th>
+                                    <th className="px-6 py-4 bg-gray-50 border-b border-gray-200">P/N Kodu</th>
                                     {selectedStoreId === 0 && <th className="px-6 py-4">Şube</th>}
                                     <th className="px-6 py-4 text-center">Stok Adedi</th>
                                     <th className="px-6 py-4 text-right">İşlem</th>
@@ -519,14 +519,14 @@ const StockManagement = () => {
                     </div>
 
                     {activeKbbTab === 'returns' ? (
-                        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                            <table className="w-full text-left">
-                                <thead className="bg-gray-50 border-b border-gray-200">
+                        <div className="bg-white rounded-xl border border-gray-200 shadow-sm max-h-[550px] overflow-y-auto custom-scrollbar relative">
+                            <table className="w-full text-left border-separate border-spacing-0">
+                                <thead className="sticky top-0 z-10 bg-gray-50 border-b border-gray-200">
                                     <tr className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">
-                                        <th className="px-6 py-4">
+                                        <th className="px-6 py-4 bg-gray-50 border-b border-gray-200">
                                             <input type="checkbox" onChange={handleSelectAll} checked={selectedItems.length === filteredKbbItems.length && filteredKbbItems.length > 0} className="w-4 h-4 rounded border-gray-300 text-indigo-600" />
                                         </th>
-                                        <th className="px-6 py-4">Geri Gönderilecek Parça</th>
+                                        <th className="px-6 py-4 bg-gray-50 border-b border-gray-200">Geri Gönderilecek Parça</th>
                                         <th className="px-6 py-4">Servis / Müşteri</th>
                                         <th className="px-6 py-4 text-center">Kalan Gün</th>
                                         <th className="px-6 py-4 text-center">Durum</th>
@@ -579,14 +579,14 @@ const StockManagement = () => {
                             </table>
                         </div>
                     ) : activeKbbTab === 'stocks' ? (
-                        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                            <table className="w-full text-left">
-                                <thead className="bg-gray-50 border-b border-gray-200">
+                        <div className="bg-white rounded-xl border border-gray-200 shadow-sm max-h-[550px] overflow-y-auto custom-scrollbar relative">
+                            <table className="w-full text-left border-separate border-spacing-0">
+                                <thead className="sticky top-0 z-10 bg-gray-50 border-b border-gray-200">
                                     <tr className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">
-                                        <th className="px-6 py-4">Parça Bilgisi</th>
-                                        <th className="px-6 py-4">P/N Kodu</th>
-                                        <th className="px-6 py-4 text-center">Stok Adedi</th>
-                                        <th className="px-6 py-4 text-right">İşlem</th>
+                                        <th className="px-6 py-4 bg-gray-50 border-b border-gray-200">Parça Bilgisi</th>
+                                        <th className="px-6 py-4 bg-gray-50 border-b border-gray-200">P/N Kodu</th>
+                                        <th className="px-6 py-4 bg-gray-50 border-b border-gray-200 text-center">Stok Adedi</th>
+                                        <th className="px-6 py-4 bg-gray-50 border-b border-gray-200 text-right">İşlem</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
