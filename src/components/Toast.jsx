@@ -2,22 +2,17 @@ import React, { useEffect, useRef } from 'react';
 import { CheckCircle, AlertCircle, XCircle, Info, Check } from 'lucide-react';
 
 const Toast = ({ message, type = 'success', onClose, duration = 3000 }) => {
-    const onCloseRef = useRef(onClose);
-
     useEffect(() => {
-        onCloseRef.current = onClose;
-    }, [onClose]);
-
-    useEffect(() => {
-        if (duration) {
-            const timer = setTimeout(() => {
-                if (onCloseRef.current) {
-                    onCloseRef.current();
-                }
-            }, duration);
-            return () => clearTimeout(timer);
-        }
-    }, [duration]);
+        if (!duration) return;
+        
+        const timer = setTimeout(() => {
+            if (onClose) {
+                onClose();
+            }
+        }, duration);
+        
+        return () => clearTimeout(timer);
+    }, [duration, onClose]);
 
     const bgColors = {
         success: 'bg-white/90 border-emerald-100/70 text-emerald-950 shadow-emerald-500/5',
@@ -76,7 +71,7 @@ const Toast = ({ message, type = 'success', onClose, duration = 3000 }) => {
             </div>
             
             <button
-                onClick={() => onCloseRef.current?.()}
+                onClick={() => onClose?.()}
                 className={`relative flex items-center justify-center w-5 h-5 rounded-full transition-colors shrink-0 focus:outline-none cursor-pointer ${themeColors[type].btnBg}`}
             >
                 {/* Circular timer track and filling progress */}
