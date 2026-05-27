@@ -1,4 +1,3 @@
-/* eslint-disable no-constant-binary-expression */
 import React, { useState, useMemo } from 'react';
 import { Clock, User, ChevronRight, AlertCircle, Calendar, ArrowRight, Eye, Search, Filter, LayoutGrid, List as ListIcon, MoreHorizontal, Truck, Check, Fingerprint, Activity, ClipboardList, PackageSearch } from 'lucide-react';
 import MyPhoneIcon from './LocalIcons';
@@ -51,7 +50,7 @@ const PendingRepairs = ({ setActiveTab }) => {
                 const year = yearTime[0];
                 return new Date(`${year}-${month}-${day}`);
             }
-            return new Date(dateStr) || new Date();
+            const d = new Date(dateStr); return isNaN(d) ? new Date() : d;
         };
         const repairDate = parseDate(repair.date);
         const diffTime = Math.abs(new Date() - repairDate);
@@ -60,8 +59,7 @@ const PendingRepairs = ({ setActiveTab }) => {
 
     const filteredRepairs = useMemo(() => {
         return repairs.filter(r =>
-            (// eslint-disable-next-line no-constant-binary-expression
-            r.device?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (r.device?.toLowerCase().includes(searchQuery.toLowerCase()) ||
             r.customer?.toLowerCase().includes(searchQuery.toLowerCase()) ||
             r.id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
             r.serial?.toLowerCase().includes(searchQuery.toLowerCase()))
