@@ -193,21 +193,21 @@ input:focus, select:focus, textarea:focus {
 
 .modern-top-popup {
   width: auto !important;
-  max-width: 400px !important;
-  min-width: 280px !important;
+  max-width: 450px !important;
+  min-width: 300px !important;
   border-radius: 32px !important;
   background: rgba(255, 255, 255, 0.75) !important;
   backdrop-filter: blur(24px) !important;
   -webkit-backdrop-filter: blur(24px) !important;
   border: 1px solid rgba(255, 255, 255, 0.6) !important;
   box-shadow: 0 12px 32px -12px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0,0,0,0.02) !important;
-  padding: 1.25rem 1.5rem !important;
+  padding: 1.5rem 1.75rem !important;
   font-family: var(--font-sans) !important;
 }
 
 .modern-top-popup .swal2-icon {
-  transform: scale(0.7) !important;
-  margin: 0 auto 0.25rem auto !important;
+  transform: scale(0.85) !important;
+  margin: 0 auto 0.5rem auto !important;
 }
 
 .modern-top-popup .swal2-actions {
@@ -226,17 +226,17 @@ input:focus, select:focus, textarea:focus {
 }
 
 .modern-top-title {
-  font-size: 0.95rem !important;
+  font-size: 1.1rem !important;
   font-weight: 800 !important;
   color: #1d1d1f !important;
   margin-top: 0.25rem !important;
 }
 
 .modern-top-content {
-  font-size: 0.8rem !important;
+  font-size: 0.95rem !important;
   color: #515154 !important;
   font-weight: 500 !important;
-  line-height: 1.4 !important;
+  line-height: 1.5 !important;
 }
 
 .modern-top-confirm {
@@ -244,8 +244,8 @@ input:focus, select:focus, textarea:focus {
   color: white !important;
   border-radius: 9999px !important;
   font-weight: 600 !important;
-  font-size: 0.75rem !important;
-  padding: 0.5rem 1.25rem !important;
+  font-size: 0.85rem !important;
+  padding: 0.6rem 1.5rem !important;
   border: none !important;
   box-shadow: 0 4px 12px rgba(0, 113, 227, 0.2) !important;
   transition: all 0.2s ease !important;
@@ -262,8 +262,8 @@ input:focus, select:focus, textarea:focus {
   border: 1px solid rgba(255, 59, 48, 0.2) !important;
   border-radius: 9999px !important;
   font-weight: 600 !important;
-  font-size: 0.75rem !important;
-  padding: 0.5rem 1.25rem !important;
+  font-size: 0.85rem !important;
+  padding: 0.6rem 1.5rem !important;
   transition: all 0.2s ease !important;
 }
 
