@@ -152,7 +152,15 @@ const StoreManagement = () => {
             return;
         }
 
-        if (!announcementForm.title.trim() || !announcementForm.content.trim()) return;
+        if (!announcementForm.title.trim() || !announcementForm.content.trim()) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Eksik Bilgi',
+                text: 'Lütfen başlık ve içerik alanlarını doldurun.',
+                confirmButtonColor: '#0071e3'
+            });
+            return;
+        }
 
         if (selectedStore === 0) {
             Swal.fire({
@@ -267,7 +275,15 @@ const StoreManagement = () => {
             return;
         }
 
-        if (!taskForm.title.trim()) return;
+        if (!taskForm.title.trim()) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Eksik Bilgi',
+                text: 'Lütfen görev başlığını girin.',
+                confirmButtonColor: '#0071e3'
+            });
+            return;
+        }
 
         if (selectedStore === 0) {
             Swal.fire({
@@ -613,7 +629,15 @@ const StoreManagement = () => {
             return;
         }
 
-        if (!selectedCell || !shiftForm.startTime || !shiftForm.endTime) return;
+        if (!selectedCell || !shiftForm.startTime || !shiftForm.endTime) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Eksik Bilgi',
+                text: 'Lütfen başlangıç ve bitiş saatlerini doldurun.',
+                confirmButtonColor: '#0071e3'
+            });
+            return;
+        }
 
         try {
             const token = sessionStorage.getItem('token');

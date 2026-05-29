@@ -373,8 +373,16 @@ router.post('/repairs', async (req, res) => {
         console.log('[REPAIR] Incoming data logged to debug_log.json');
         // Otomatik ID Oluştur (Eğer yoksa)
         if (!req.body.id || req.body.id.startsWith('TR-')) {
-            const repairCount = await Repair.countDocuments();
-            req.body.id = `S${String(repairCount + 1).padStart(5, '0')}`;
+            const lastRepair = await Repair.findOne({ id: /^S\d+$/ }).sort({ id: -1 });
+            let nextId = 1;
+            if (lastRepair && lastRepair.id) {
+                const num = parseInt(lastRepair.id.replace('S', ''), 10);
+                if (!isNaN(num)) nextId = num + 1;
+            } else {
+                const repairCount = await Repair.countDocuments();
+                nextId = repairCount + 1;
+            }
+            req.body.id = `S${String(nextId).padStart(5, '0')}`;
         }
         
         const repair = new Repair(req.body);
@@ -979,8 +987,13 @@ router.get('/customers', async (req, res) => {
 
 router.post('/customers', async (req, res) => {
     try {
-        const count = await Customer.countDocuments();
-        const customerId = `C-${1000 + count + 1}`;
+        const lastCustomer = await Customer.findOne({ id: /^C-\d+$/ }).sort({ id: -1 });
+        let nextId = 1000 + (await Customer.countDocuments()) + 1;
+        if (lastCustomer && lastCustomer.id) {
+            const num = parseInt(lastCustomer.id.replace('C-', ''), 10);
+            if (!isNaN(num)) nextId = num + 1;
+        }
+        const customerId = `C-${nextId}`;
 
         const newCustomer = new Customer({
             ...req.body,
