@@ -12,19 +12,19 @@ const Toast = ({ message, type = 'info', onClose, duration = 3000 }) => {
     }, [duration, onClose]);
 
     const icons = {
-        success: <CheckCircle className="text-emerald-400 shrink-0" size={14} />,
-        error: <XCircle className="text-rose-400 shrink-0" size={14} />,
-        info: <Info className="text-blue-400 shrink-0" size={14} />,
-        warning: <AlertCircle className="text-amber-400 shrink-0" size={14} />
+        success: <CheckCircle className="text-emerald-500 shrink-0" size={20} />,
+        error: <XCircle className="text-rose-500 shrink-0" size={20} />,
+        info: <Info className="text-blue-500 shrink-0" size={20} />,
+        warning: <AlertCircle className="text-amber-500 shrink-0" size={20} />
     };
 
     return (
         <div 
-            className="fixed top-5 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-2 px-3 py-1.5 bg-gray-900/95 backdrop-blur-md text-gray-50 rounded-full shadow-lg shadow-black/10 border border-gray-800 animate-in slide-in-from-top-5 fade-in duration-300 pointer-events-auto"
+            className="fixed top-6 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-3 px-5 py-3 bg-white/85 backdrop-blur-xl text-gray-800 rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.08)] border border-white/50 animate-in slide-in-from-top-5 fade-in duration-300 pointer-events-auto cursor-pointer hover:bg-white/95 transition-all"
             onClick={() => onClose && onClose()}
         >
             {icons[type] || icons.info}
-            <span className="text-[11px] font-semibold tracking-wide whitespace-nowrap mr-1">{message}</span>
+            <span className="text-[14px] font-semibold tracking-tight whitespace-nowrap mr-1">{message}</span>
         </div>
     );
 };
