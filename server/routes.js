@@ -1385,7 +1385,7 @@ router.post('/store-tasks', requireRole(['superadmin', 'storemanager']), async (
     }
 });
 
-router.put('/store-tasks/:id', requireRole(['superadmin', 'storemanager']), async (req, res) => {
+router.put('/store-tasks/:id', async (req, res) => {
     try {
         const task = await StoreTask.findById(req.params.id);
         if (!task) {
@@ -1394,6 +1394,12 @@ router.put('/store-tasks/:id', requireRole(['superadmin', 'storemanager']), asyn
 
         const userRole = req.user?.role?.toLowerCase();
         const isGlobalAdmin = ['superadmin', 'admin', 'yonetici'].includes(userRole);
+        const isManager = ['storemanager'].includes(userRole);
+
+        if (!isGlobalAdmin && !isManager && task.assignedTo !== req.user.name) {
+            return res.status(403).json({ message: 'Sadece yöneticiler veya göreve atanan kişi güncelleyebilir.' });
+        }
+
         if (!isGlobalAdmin && Number(task.storeId) !== Number(req.user.storeId)) {
             return res.status(403).json({ message: 'Sadece kendi mağazanızın görevlerini güncelleyebilirsiniz.' });
         }

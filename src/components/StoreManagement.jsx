@@ -320,7 +320,7 @@ const StoreManagement = () => {
 
     // Handle Task Toggle Status (Complete / Uncomplete)
     const handleToggleTaskStatus = async (task) => {
-        if (!isManagerOrAdmin) {
+        if (!isManagerOrAdmin && task.assignedTo !== currentUser.name) {
             Swal.fire({
                 icon: 'error',
                 title: 'Yetki Hatası',
@@ -520,6 +520,84 @@ const StoreManagement = () => {
                 text: error.message
             });
         }
+    };
+
+    const handleClearWeekShifts = async () => {
+        if (!isManagerOrAdmin) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Yetki Hatası',
+                text: 'Bu işlemi gerçekleştirme yetkiniz bulunmamaktadır.',
+                confirmButtonColor: '#0071e3'
+            });
+            return;
+        }
+
+        const result = await Swal.fire({
+            title: 'Tümünü Temizle',
+            text: "Bu haftaya ait tüm vardiyalar silinecektir. Emin misiniz?",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Evet, Temizle',
+            cancelButtonText: 'İptal'
+        });
+
+        if (!result.isConfirmed) return;
+
+        try {
+            const token = sessionStorage.getItem('token');
+            const startDate = formatDateString(weekDates[0]);
+            const endDate = formatDateString(weekDates[6]);
+
+            const res = await fetch(`${API_URL}/store-shifts/bulk-delete?storeId=${selectedStore}&startDate=${startDate}&endDate=${endDate}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (res.ok) {
+                setShifts(prev => prev.filter(s => {
+                    if (s.storeId !== selectedStore && selectedStore !== 0) return true;
+                    const sDate = formatDateString(new Date(s.date));
+                    return sDate < startDate || sDate > endDate;
+                }));
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Temizlendi',
+                    text: 'Bu haftaya ait tüm vardiyalar silindi.',
+                    timer: 1500,
+                    showConfirmButton: false
+                });
+            } else {
+                throw new Error('Vardiyalar silinemedi');
+            }
+        } catch (error) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Hata',
+                text: error.message
+            });
+        }
+    };
+
+    const handleSaveShifts = () => {
+        if (!isManagerOrAdmin) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Yetki Hatası',
+                text: 'Bu işlemi gerçekleştirme yetkiniz bulunmamaktadır.',
+                confirmButtonColor: '#0071e3'
+            });
+            return;
+        }
+        Swal.fire({
+            icon: 'success',
+            title: 'Başarılı',
+            text: 'Vardiya programı kaydedildi!',
+            timer: 1500,
+            showConfirmButton: false
+        });
     };
 
     // Handle Shift Create via Modal
@@ -1124,7 +1202,7 @@ const StoreManagement = () => {
                                                                         : 'border-gray-300 hover:border-[#0071e3] text-transparent hover:text-gray-400'
                                                                 }`}
                                                                 title={isCompleted ? "Tamamlanmadı Olarak İşaretle" : "Tamamlandı Olarak İşaretle"}
-                                                                disabled={!isManagerOrAdmin}
+                                                                disabled={!isManagerOrAdmin && task.assignedTo !== currentUser.name}
                                                             >
                                                                 <Check size={14} className={isCompleted ? 'stroke-[3]' : ''} />
                                                             </button>
@@ -1226,6 +1304,20 @@ const StoreManagement = () => {
                                                 </div>
 
                                                 <div className="flex items-center gap-3">
+                                                    <button
+                                                        onClick={handleClearWeekShifts}
+                                                        className="px-5 py-2.5 bg-red-50 text-red-600 rounded-xl text-xs font-semibold hover:bg-red-100 transition-all flex items-center gap-2 cursor-pointer border border-red-100"
+                                                    >
+                                                        <Trash2 size={14} />
+                                                        Tümünü Temizle
+                                                    </button>
+                                                    <button
+                                                        onClick={handleSaveShifts}
+                                                        className="px-5 py-2.5 bg-green-600 text-white rounded-xl text-xs font-semibold hover:bg-green-700 transition-all flex items-center gap-2 shadow-sm cursor-pointer"
+                                                    >
+                                                        <Check size={14} />
+                                                        Kaydet
+                                                    </button>
                                                     <button
                                                         onClick={handleDownloadPDF}
                                                         className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-semibold hover:bg-indigo-700 transition-all flex items-center gap-2 shadow-sm cursor-pointer"
