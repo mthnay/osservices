@@ -145,7 +145,7 @@ router.post('/system/seed-roles', async (req, res) => {
 // --- Roles ---
 router.get('/roles', async (req, res) => {
     try {
-        const roles = await Role.find({});
+        const roles = await Role.find({}).lean();
         res.json(roles);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -346,7 +346,7 @@ router.get('/repairs', async (req, res) => {
         if (req.query.storeId) {
             filter.storeId = req.query.storeId;
         }
-        const repairs = await Repair.find(filter).sort({ createdAt: -1 });
+        const repairs = await Repair.find(filter).sort({ createdAt: -1 }).lean();
         res.json(repairs);
     } catch (err) {
         res.status(500).json({ message: err.message });
@@ -439,7 +439,7 @@ router.get('/users', async (req, res) => {
         if (req.query.storeId) filter.storeId = req.query.storeId;
         
         // Şifre alanını güvenlik için hariç tutuyoruz
-        const users = await User.find(filter).select('-password');
+        const users = await User.find(filter).select('-password').lean();
         res.json(users);
     } catch (err) {
         res.status(500).json({ message: err.message });
@@ -650,7 +650,7 @@ router.get('/inventory', async (req, res) => {
         if (req.query.storeId) {
             filter.storeId = req.query.storeId;
         }
-        const inventory = await Inventory.find(filter);
+        const inventory = await Inventory.find(filter).lean();
         res.json(inventory);
     } catch (err) {
         res.status(500).json({ message: err.message });
@@ -811,7 +811,7 @@ router.get('/technicians', async (req, res) => {
         if (req.query.storeId) {
             filter.storeId = req.query.storeId;
         }
-        const technicians = await Technician.find(filter);
+        const technicians = await Technician.find(filter).lean();
         res.json(technicians);
     } catch (err) {
         res.status(500).json({ message: err.message });
@@ -847,7 +847,7 @@ router.delete('/technicians/:id', async (req, res) => {
 // --- Service Points ---
 router.get('/service-points', async (req, res) => {
     try {
-        const points = await ServicePoint.find();
+        const points = await ServicePoint.find().lean();
         res.json(points);
     } catch (err) {
         res.status(500).json({ message: err.message });
@@ -961,7 +961,7 @@ router.get('/customers', async (req, res) => {
         if (req.query.storeId) {
             filter.storeId = req.query.storeId;
         }
-        const customers = await Customer.find(filter).sort({ createdAt: -1 });
+        const customers = await Customer.find(filter).sort({ createdAt: -1 }).lean();
         res.json(customers);
     } catch (err) {
         res.status(500).json({ message: err.message });
@@ -1017,7 +1017,7 @@ router.get('/earnings', async (req, res) => {
         if (req.query.storeId) {
             filter.storeId = req.query.storeId;
         }
-        const earnings = await Earning.find(filter).sort({ month: -1 });
+        const earnings = await Earning.find(filter).sort({ month: -1 }).lean();
         res.json(earnings);
     } catch (err) {
         res.status(500).json({ message: err.message });
@@ -1048,7 +1048,7 @@ router.get('/device-models', async (req, res) => {
         if (limit) {
             queryBuilder = queryBuilder.limit(limit);
         }
-        const models = await queryBuilder;
+        const models = await queryBuilder.lean();
         res.json(models);
     } catch (err) {
         res.status(500).json({ message: err.message });
@@ -1181,7 +1181,7 @@ router.get('/notifications', async (req, res) => {
         if (req.query.repairId) {
             filter.repairId = req.query.repairId;
         }
-        const notifications = await Notification.find(filter).sort({ sentAt: -1 });
+        const notifications = await Notification.find(filter).sort({ sentAt: -1 }).lean();
         res.json(notifications);
     } catch (err) {
         res.status(500).json({ message: err.message });
@@ -1294,7 +1294,7 @@ router.get('/store-announcements', async (req, res) => {
             filter.storeId = Number(req.query.storeId);
         }
 
-        const announcements = await StoreAnnouncement.find(filter).sort({ createdAt: -1 });
+        const announcements = await StoreAnnouncement.find(filter).sort({ createdAt: -1 }).lean();
         res.json(announcements);
     } catch (err) {
         res.status(500).json({ message: err.message });
@@ -1359,7 +1359,7 @@ router.get('/store-tasks', async (req, res) => {
             filter.storeId = Number(req.query.storeId);
         }
 
-        const tasks = await StoreTask.find(filter).sort({ createdAt: -1 });
+        const tasks = await StoreTask.find(filter).sort({ createdAt: -1 }).lean();
         res.json(tasks);
     } catch (err) {
         res.status(500).json({ message: err.message });
@@ -1461,7 +1461,7 @@ router.get('/store-shifts', async (req, res) => {
                 $lte: new Date(req.query.endDate)
             };
         }
-        const shifts = await StoreShift.find(filter).sort({ date: 1, startTime: 1 });
+        const shifts = await StoreShift.find(filter).sort({ date: 1, startTime: 1 }).lean();
         res.json(shifts);
     } catch (err) {
         res.status(500).json({ message: err.message });
@@ -1566,7 +1566,7 @@ router.delete('/store-shifts/:id', requireRole(['superadmin', 'storemanager']), 
 // --- Audit Logs ---
 router.get('/system/audit-logs', requireRole(['superadmin']), async (req, res) => {
     try {
-        const logs = await AuditLog.find().sort({ createdAt: -1 }).limit(200);
+        const logs = await AuditLog.find().sort({ createdAt: -1 }).limit(200).lean();
         res.json(logs);
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });

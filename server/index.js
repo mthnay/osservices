@@ -285,6 +285,16 @@ if (fs.existsSync(distDir)) {
     });
 }
 
+// Global Error Handler
+app.use((err, req, res, next) => {
+    console.error('GLOBAL ERROR CAUGHT:', err);
+    res.status(500).json({
+        success: false,
+        message: 'Sunucu tarafında beklenmeyen bir hata oluştu.',
+        error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+});
+
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`Email/API server running on port ${PORT} (Listening on 0.0.0.0)`);
 });

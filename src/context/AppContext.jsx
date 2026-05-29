@@ -38,8 +38,14 @@ export const AppProvider = ({ children }) => {
             ...(token ? { 'Authorization': `Bearer ${token}` } : {})
         };
 
+        const timeoutMs = options.timeout || 15000;
+        const controller = new AbortController();
+        const id = setTimeout(() => controller.abort(), timeoutMs);
+
         try {
-            const res = await fetch(url, { ...options, headers });
+            const fetchOptions = { ...options, headers, signal: controller.signal };
+            const res = await fetch(url, fetchOptions);
+            clearTimeout(id);
             
             if (res.status === 401 && !url.includes('/login') && !url.includes('/forgot-password')) {
                 const currentToken = sessionStorage.getItem('token');
@@ -53,8 +59,12 @@ export const AppProvider = ({ children }) => {
             }
             return res;
         } catch (error) {
+            clearTimeout(id);
             if (window.isLoggingOut) {
                 return new Response(JSON.stringify([]), { status: 200 });
+            }
+            if (error.name === 'AbortError') {
+                throw new Error('Sunucuya bağlanılamadı veya istek zaman aşımına uğradı. Lütfen internetinizi kontrol edin.');
             }
             throw error;
         }
