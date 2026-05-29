@@ -54,19 +54,30 @@ app.set('trust proxy', 1);
 // CORS en başta olmalı ki preflight (OPTIONS) istekleri bloklanmasın
 app.use(cors()); 
 
-// Helmet ayarları esnetildi (Frontend'in bozulmaması için CSP kapatıldı)
+// Helmet Security Headers with Safe CSP for Vite React SPA
 app.use(helmet({
-    contentSecurityPolicy: false,
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+            styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+            fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
+            imgSrc: ["'self'", "data:", "blob:", "https:"],
+            connectSrc: ["'self'", "http://localhost:5001", "http://127.0.0.1:5001"], // Allow local API during dev
+        },
+    },
     crossOriginOpenerPolicy: false,
     crossOriginResourcePolicy: false,
     crossOriginEmbedderPolicy: false
 }));
 
-// Rate Limit aktif edildi (DDoS ve Brute Force koruması)
+// DDoS and Brute Force Protection (General Rate Limit)
 const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 dakika
-    max: 10000, // Geliştirme ortamında HMR sorunlarını önlemek için artırıldı
-    message: 'Çok fazla istek gönderildi, lütfen biraz bekleyin.'
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 300, // Limit each IP to 300 requests per windowMs
+    message: { success: false, message: 'Çok fazla istek gönderildi, lütfen 15 dakika sonra tekrar deneyin.' },
+    standardHeaders: true,
+    legacyHeaders: false,
 });
 app.use('/api/', limiter);
 

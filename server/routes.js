@@ -1,5 +1,6 @@
 import express from 'express';
 import mongoose from 'mongoose';
+import rateLimit from 'express-rate-limit';
 import Repair from './models/Repair.js';
 import User from './models/User.js';
 import Inventory from './models/Inventory.js';
@@ -91,6 +92,14 @@ const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
 const router = express.Router();
+
+const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    message: { success: false, message: 'Çok fazla hatalı giriş denemesi yaptınız. Güvenlik nedeniyle IP adresiniz 15 dakikalığına engellenmiştir.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
 
 // --- Global Authentication Middleware ---
 router.use((req, res, next) => {
@@ -463,7 +472,7 @@ router.post('/users/check-email', async (req, res) => {
     }
 });
 
-router.post('/login', async (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
     try {
         const { email, password } = req.body;
         console.log(`[LOGIN] Attempt for email: ${email}`);
