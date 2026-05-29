@@ -32,7 +32,7 @@ const GlobalDialogs = () => {
     };
 
     return (
-        <div className="fixed inset-0 z-[99999] pointer-events-none flex justify-center pt-5">
+        <div className="fixed inset-0 z-[99999] pointer-events-none flex justify-center items-start pt-5">
             {/* Overlay for confirm/prompt to block interaction but keep it transparent */}
             {(dialog.type === 'confirm' || dialog.type === 'prompt') && (
                 <div className="fixed inset-0 pointer-events-auto bg-black/5 backdrop-blur-[1px]" onClick={() => handleClose(false)}></div>

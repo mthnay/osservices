@@ -23,6 +23,7 @@ const TopNav = ({ activeTab, setActiveTab }) => {
             id: 'merkez',
             label: 'Operasyon',
             items: [
+                { id: 'technicians', icon: Users, label: 'Teknisyenler' },
                 { id: 'in-store', icon: Wrench, label: 'Mağaza İçi Onarım' },
                 { id: 'apple-center', icon: Truck, label: 'Apple Merkezi' },
                 { id: 'ready-pickup', icon: CheckCircle, label: 'Teslimat Havuzu' },
@@ -48,7 +49,6 @@ const TopNav = ({ activeTab, setActiveTab }) => {
             id: 'yonetim',
             label: 'Yönetim',
             items: [
-                { id: 'technicians', icon: Users, label: 'Teknisyenler' },
                 { id: 'store-operations', icon: Home, label: 'Operasyon Şeması' },
                 { id: 'store-management', icon: ClipboardList, label: 'Mağaza İçi Yönetim' },
                 { id: 'reports', icon: BarChart2, label: 'Raporlar' },
