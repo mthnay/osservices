@@ -223,17 +223,23 @@ export const AppProvider = ({ children }) => {
     };
 
     const [announcements, setAnnouncements] = useState([]);
+    const [tasks, setTasks] = useState([]);
 
-    const fetchAnnouncements = async () => {
+    const fetchStoreUpdates = async () => {
         if (!currentUser) return;
         try {
             let queryParams = '';
             if (!hasPermission(currentUser, 'view_all_stores') && currentUser.storeId) {
                 queryParams = `?storeId=${currentUser.storeId}`;
             }
-            const res = await apiFetch(`${API_URL}/store-announcements${queryParams}`);
-            if (res.ok) {
-                const data = await res.json();
+            
+            const [annRes, taskRes] = await Promise.all([
+                apiFetch(`${API_URL}/store-announcements${queryParams}`),
+                apiFetch(`${API_URL}/store-tasks${queryParams}`)
+            ]);
+
+            if (annRes.ok) {
+                const data = await annRes.json();
                 const fetchedList = Array.isArray(data) ? data : [];
                 
                 setAnnouncements(prevList => {
@@ -251,22 +257,42 @@ export const AppProvider = ({ children }) => {
                     return fetchedList;
                 });
             }
+
+            if (taskRes.ok) {
+                const data = await taskRes.json();
+                const fetchedList = Array.isArray(data) ? data : [];
+                
+                setTasks(prevList => {
+                    // Yeni bir görev eklendiğinde ve bana atandığında Toast göster
+                    if (prevList && prevList.length > 0 && fetchedList.length > prevList.length) {
+                        const oldIds = prevList.map(item => item._id);
+                        const newItems = fetchedList.filter(item => !oldIds.includes(item._id));
+                        
+                        newItems.forEach(newItem => {
+                            if (newItem.assignedTo === currentUser.name) {
+                                showToast(`Yeni Görev: ${newItem.title}`, 'info');
+                            }
+                        });
+                    }
+                    return fetchedList;
+                });
+            }
         } catch (error) {
-            console.error("Error fetching announcements in context:", error);
+            console.error("Error fetching store updates in context:", error);
         }
     };
 
     useEffect(() => {
         if (!currentUser) return;
         
-        fetchAnnouncements();
+        fetchStoreUpdates();
 
-        const interval = setInterval(fetchAnnouncements, 15000);
+        const interval = setInterval(fetchStoreUpdates, 15000);
         return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentUser]);
 
-    const computeAlerts = (repairsList, announcementsList = []) => {
+    const computeAlerts = (repairsList, announcementsList = [], tasksList = []) => {
         const newAlerts = [];
         
         // SLA Alerts
@@ -292,6 +318,23 @@ export const AppProvider = ({ children }) => {
             }
         });
 
+        // Task Alerts
+        tasksList.forEach(task => {
+            if (task.status === 'pending' && task.assignedTo === currentUser.name) {
+                const taskId = `task-${task._id}`;
+                if (!clearedAlertIds.includes(taskId)) {
+                    newAlerts.push({
+                        id: taskId,
+                        type: 'task',
+                        title: task.title,
+                        message: task.description ? (task.description.substring(0, 100) + (task.description.length > 100 ? '...' : '')) : 'Detay belirtilmemiş.',
+                        dueDate: task.dueDate,
+                        createdAt: task.createdAt
+                    });
+                }
+            }
+        });
+
         setAlerts(newAlerts);
     };
 
@@ -302,9 +345,9 @@ export const AppProvider = ({ children }) => {
     };
 
     useEffect(() => {
-        computeAlerts(repairs, announcements);
+        computeAlerts(repairs, announcements, tasks);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [repairs, announcements, clearedAlertIds]);
+    }, [repairs, announcements, tasks, clearedAlertIds]);
 
     const uploadMedia = async (file) => {
         try {

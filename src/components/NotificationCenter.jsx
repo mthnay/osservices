@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Bell, AlertCircle, Clock, ChevronRight, X, Info } from 'lucide-react';
+import { Bell, AlertCircle, Clock, ChevronRight, X, Info, ClipboardList } from 'lucide-react';
 import MyPhoneIcon from './LocalIcons';
 import { useAppContext } from '../context/AppContext';
 
@@ -19,7 +19,7 @@ const NotificationCenter = ({ onSelectRepair, onGoToAnnouncements }) => {
     }, []);
 
     const handleSelect = (alert) => {
-        if (alert.type === 'announcement') {
+        if (alert.type === 'announcement' || alert.type === 'task') {
             if (onGoToAnnouncements) {
                 onGoToAnnouncements();
                 setIsOpen(false);
@@ -82,11 +82,13 @@ const NotificationCenter = ({ onSelectRepair, onGoToAnnouncements }) => {
                                                 alert.type === 'critical' ? 'bg-red-50 text-red-500' :
                                                 alert.type === 'warning' ? 'bg-orange-50 text-orange-500' :
                                                 alert.type === 'announcement' ? 'bg-indigo-50 text-indigo-500' :
+                                                alert.type === 'task' ? 'bg-amber-50 text-amber-600' :
                                                 'bg-blue-50 text-blue-500'
                                             }`}>
                                                 {alert.type === 'critical' ? <AlertCircle size={18} /> : 
                                                  alert.type === 'warning' ? <Clock size={18} /> :
                                                  alert.type === 'announcement' ? <Bell size={18} /> :
+                                                 alert.type === 'task' ? <ClipboardList size={18} /> :
                                                  <Info size={18} />}
                                             </div>
                                             <div className="flex-1 min-w-0">
@@ -107,6 +109,26 @@ const NotificationCenter = ({ onSelectRepair, onGoToAnnouncements }) => {
                                                             </span>
                                                             <span className="text-[10px] font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100/50 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
                                                                 Duyurulara Git <ChevronRight size={10} className="inline ml-1" />
+                                                            </span>
+                                                        </div>
+                                                    </>
+                                                ) : alert.type === 'task' ? (
+                                                    <>
+                                                        <div className="flex justify-between items-start mb-0.5">
+                                                            <h4 className="font-bold text-gray-900 text-sm truncate">
+                                                                📋 {alert.title}
+                                                            </h4>
+                                                            <span className="text-[9px] font-semibold text-gray-400">Yeni Görev</span>
+                                                        </div>
+                                                        <p className="text-xs text-gray-500 font-medium leading-relaxed italic mb-2">
+                                                            {alert.message}
+                                                        </p>
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="text-[10px] font-bold text-gray-400 flex items-center gap-1">
+                                                                Son Tarih: {alert.dueDate ? new Date(alert.dueDate).toLocaleDateString() : 'Belirtilmedi'}
+                                                            </span>
+                                                            <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-100/50 group-hover:bg-amber-600 group-hover:text-white transition-colors">
+                                                                Görevlere Git <ChevronRight size={10} className="inline ml-1" />
                                                             </span>
                                                         </div>
                                                     </>
