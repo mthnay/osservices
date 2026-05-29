@@ -499,7 +499,7 @@ const StoreManagement = () => {
                     userId: '',
                     userName: '',
                     date: '',
-                    startTime: '09:00',
+                    startTime: '10:00',
                     endTime: '18:00',
                     shiftType: 'Tam Gün',
                     notes: ''
@@ -566,7 +566,7 @@ const StoreManagement = () => {
                     userId: '',
                     userName: '',
                     date: '',
-                    startTime: '09:00',
+                    startTime: '10:00',
                     endTime: '18:00',
                     shiftType: 'Tam Gün',
                     notes: ''

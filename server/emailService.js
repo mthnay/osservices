@@ -64,7 +64,7 @@ export const sendAutomatedEmail = async (repair, statusType) => {
                     İyi haber! <strong>${repair.device}</strong> cihazınızın onarım süreci başarıyla tamamlanmıştır. 
                     Cihazınızı mağazamızdan dilediğiniz zaman teslim alabilirsiniz.<br><br>
                     <strong>Servis Kaydı:</strong> #${repair.id}<br>
-                    <strong>Çalışma Saatleri:</strong> 09:00 - 18:00
+                    <strong>Çalışma Saatleri:</strong> 10:00 - 18:00
                 `;
                 break;
 
