@@ -55,7 +55,7 @@ const StoreManagement = () => {
         userId: '',
         userName: '',
         date: '',
-        startTime: '09:00',
+        startTime: '10:00',
         endTime: '18:00',
         shiftType: 'Tam Gün',
         notes: ''
@@ -417,16 +417,16 @@ const StoreManagement = () => {
 
     // Handle Shift Type change to set default hours
     const handleShiftTypeChange = (type) => {
-        let startTime = '09:00';
+        let startTime = '10:00';
         let endTime = '18:00';
         if (type === 'Sabah') {
-            startTime = '09:00';
+            startTime = '10:00';
             endTime = '15:00';
         } else if (type === 'Akşam') {
             startTime = '15:00';
             endTime = '22:00';
         } else if (type === 'Tam Gün') {
-            startTime = '09:00';
+            startTime = '10:00';
             endTime = '18:00';
         } else if (type === 'İzin') {
             startTime = '00:00';
@@ -1384,8 +1384,8 @@ const StoreManagement = () => {
                                                     className="w-full px-4 py-3 bg-[#f5f5f7] border border-transparent rounded-xl text-sm outline-none focus:border-[#0071e3] focus:bg-white transition-all text-[#1d1d1f]"
                                                     required
                                                 >
-                                                    <option value="Tam Gün">Tam Gün (09:00 - 18:00)</option>
-                                                    <option value="Sabah">Sabah (09:00 - 15:00)</option>
+                                                    <option value="Tam Gün">Tam Gün (10:00 - 18:00)</option>
+                                                    <option value="Sabah">Sabah (10:00 - 15:00)</option>
                                                     <option value="Akşam">Akşam (15:00 - 22:00)</option>
                                                     <option value="İzin">İzinli (Tüm Gün)</option>
                                                     <option value="Diğer">Diğer (Manuel Saat)</option>

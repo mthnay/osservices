@@ -39,12 +39,12 @@ const GlobalDialogs = () => {
             )}
             
             <div 
-                className="relative pointer-events-auto flex items-center gap-4 px-5 py-3 bg-white/85 backdrop-blur-xl text-gray-800 rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.08)] border border-white/50 animate-in slide-in-from-top-5 fade-in duration-200"
+                className="relative pointer-events-auto flex items-center gap-3 px-4 py-1.5 bg-white/85 backdrop-blur-xl text-gray-800 rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.08)] border border-white/50 animate-in slide-in-from-top-5 fade-in duration-200"
                 onClick={(e) => e.stopPropagation()}
             >
-                <div className="flex items-center gap-2.5">
+                <div className="flex items-center gap-2">
                     {getIcon()}
-                    <span className="text-[14px] font-semibold tracking-tight max-w-[400px] truncate" title={cleanMessage}>
+                    <span className="text-[13px] font-medium tracking-tight max-w-[400px] truncate" title={cleanMessage}>
                         {cleanMessage}
                     </span>
                 </div>
@@ -56,29 +56,29 @@ const GlobalDialogs = () => {
                         value={inputValue}
                         onChange={(e) => setInputValue(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleClose(inputValue)}
-                        className="bg-gray-50 border border-gray-200 text-gray-800 text-[13px] px-3 py-1.5 rounded-lg outline-none focus:border-blue-500 w-40"
+                        className="bg-gray-50 border border-gray-200 text-gray-800 text-[12px] px-2.5 py-1 rounded-lg outline-none focus:border-blue-500 w-40"
                         placeholder="..."
                     />
                 )}
 
-                <div className="flex items-center gap-2 ml-2 border-l border-gray-200 pl-4">
+                <div className="flex items-center gap-1.5 ml-1 border-l border-gray-200 pl-3">
                     {dialog.type === 'alert' ? (
                         <button 
                             onClick={() => handleClose(true)} 
-                            className="text-[12px] font-bold px-4 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-full transition-colors"
+                            className="text-[11px] font-bold px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-full transition-colors"
                         >
                             Tamam
                         </button>
                     ) : dialog.type === 'prompt' ? (
                         <>
-                            <button onClick={() => handleClose(false)} className="text-[12px] font-semibold px-3 py-1.5 text-gray-500 hover:text-gray-800 transition-colors">İptal</button>
-                            <button onClick={() => handleClose(inputValue)} className="text-[12px] font-bold px-4 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-full transition-colors">Kaydet</button>
+                            <button onClick={() => handleClose(false)} className="text-[11px] font-semibold px-2.5 py-1 text-gray-500 hover:text-gray-800 transition-colors">İptal</button>
+                            <button onClick={() => handleClose(inputValue)} className="text-[11px] font-bold px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded-full transition-colors">Kaydet</button>
                         </>
                     ) : (
                         // Confirm
                         <>
-                            <button onClick={() => handleClose(false)} className="text-[12px] font-semibold px-3 py-1.5 text-gray-500 hover:text-gray-800 transition-colors">İptal</button>
-                            <button onClick={() => handleClose(true)} className="text-[12px] font-bold px-4 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors">Evet</button>
+                            <button onClick={() => handleClose(false)} className="text-[11px] font-semibold px-2.5 py-1 text-gray-500 hover:text-gray-800 transition-colors">İptal</button>
+                            <button onClick={() => handleClose(true)} className="text-[11px] font-bold px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors">Evet</button>
                         </>
                     )}
                 </div>
