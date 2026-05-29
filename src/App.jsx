@@ -20,6 +20,7 @@ import CustomerPortal from './components/CustomerPortal';
 import TrackingInput from './components/TrackingInput';
 import MarketingAutomation from './components/MarketingAutomation';
 import StockManagement from './components/StockManagement';
+import GlobalDialogs from './components/GlobalDialogs';
 import { useAppContext } from './context/AppContext';
 import { hasPermission } from './utils/permissions';
 
@@ -79,6 +80,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-[#f5f5f7] flex flex-col font-sans text-[#1d1d1f]">
+      <GlobalDialogs />
       <TopNav activeTab={activeTab} setActiveTab={setActiveTab} />
 
       <main className="flex-1 w-full pt-20 pb-20 px-6 transition-all duration-300 relative">
