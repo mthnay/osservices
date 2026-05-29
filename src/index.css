@@ -192,27 +192,45 @@ input:focus, select:focus, textarea:focus {
 }
 
 .modern-top-popup {
+  display: grid !important;
+  grid-template-columns: auto 1fr auto !important;
+  grid-template-rows: auto auto !important;
+  grid-template-areas: 
+    "icon title actions"
+    "icon content actions" !important;
+  align-items: center !important;
+  column-gap: 16px !important;
+  row-gap: 2px !important;
   width: auto !important;
-  max-width: 450px !important;
-  min-width: 300px !important;
-  border-radius: 32px !important;
-  background: rgba(255, 255, 255, 0.75) !important;
+  max-width: 600px !important;
+  min-width: 350px !important;
+  border-radius: 9999px !important;
+  background: rgba(255, 255, 255, 0.85) !important;
   backdrop-filter: blur(24px) !important;
   -webkit-backdrop-filter: blur(24px) !important;
   border: 1px solid rgba(255, 255, 255, 0.6) !important;
-  box-shadow: 0 12px 32px -12px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0,0,0,0.02) !important;
-  padding: 1.5rem 1.75rem !important;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0,0,0,0.02) !important;
+  padding: 12px 16px !important;
   font-family: var(--font-sans) !important;
 }
 
 .modern-top-popup .swal2-icon {
-  transform: scale(0.85) !important;
-  margin: 0 auto 0.5rem auto !important;
+  grid-area: icon;
+  margin: 0 !important;
+  transform: scale(0.65) !important;
+  width: 48px !important;
+  height: 48px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 
 .modern-top-popup .swal2-actions {
-  gap: 0.5rem !important;
-  margin-top: 1rem !important;
+  grid-area: actions;
+  margin: 0 !important;
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 8px !important;
 }
 
 /* Responsive adjustment for mobile screens */
@@ -226,17 +244,24 @@ input:focus, select:focus, textarea:focus {
 }
 
 .modern-top-title {
-  font-size: 1.1rem !important;
-  font-weight: 800 !important;
+  grid-area: title;
+  margin: 0 !important;
+  text-align: left !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
   color: #1d1d1f !important;
-  margin-top: 0.25rem !important;
+  align-self: end !important;
 }
 
 .modern-top-content {
-  font-size: 0.95rem !important;
+  grid-area: content;
+  margin: 0 !important;
+  text-align: left !important;
+  font-size: 12px !important;
   color: #515154 !important;
   font-weight: 500 !important;
-  line-height: 1.5 !important;
+  line-height: 1.3 !important;
+  align-self: start !important;
 }
 
 .modern-top-confirm {
@@ -244,10 +269,10 @@ input:focus, select:focus, textarea:focus {
   color: white !important;
   border-radius: 9999px !important;
   font-weight: 600 !important;
-  font-size: 0.85rem !important;
-  padding: 0.6rem 1.5rem !important;
+  font-size: 12px !important;
+  padding: 6px 14px !important;
   border: none !important;
-  box-shadow: 0 4px 12px rgba(0, 113, 227, 0.2) !important;
+  box-shadow: 0 2px 8px rgba(0, 113, 227, 0.15) !important;
   transition: all 0.2s ease !important;
 }
 
@@ -262,8 +287,8 @@ input:focus, select:focus, textarea:focus {
   border: 1px solid rgba(255, 59, 48, 0.2) !important;
   border-radius: 9999px !important;
   font-weight: 600 !important;
-  font-size: 0.85rem !important;
-  padding: 0.6rem 1.5rem !important;
+  font-size: 12px !important;
+  padding: 6px 14px !important;
   transition: all 0.2s ease !important;
 }
 
