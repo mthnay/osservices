@@ -188,21 +188,31 @@ input:focus, select:focus, textarea:focus {
 
 /* Modern Top Popup Notifications (SweetAlert2 Custom Styling) */
 .swal2-container.swal2-top {
-  padding-top: 1.5rem !important;
+  padding-top: 1rem !important;
 }
 
 .modern-top-popup {
-  width: 50% !important; /* Yarı sayfa genişliğinde */
-  max-width: 650px !important;
-  min-width: 320px !important;
-  border-radius: 24px !important; /* Oval köşeli */
-  background: rgba(255, 255, 255, 0.85) !important;
-  backdrop-filter: blur(20px) !important;
-  -webkit-backdrop-filter: blur(20px) !important;
-  border: 1px solid rgba(0, 0, 0, 0.08) !important;
-  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.04) !important;
-  padding: 1.5rem !important;
+  width: auto !important;
+  max-width: 400px !important;
+  min-width: 280px !important;
+  border-radius: 32px !important;
+  background: rgba(255, 255, 255, 0.75) !important;
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.6) !important;
+  box-shadow: 0 12px 32px -12px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0,0,0,0.02) !important;
+  padding: 1.25rem 1.5rem !important;
   font-family: var(--font-sans) !important;
+}
+
+.modern-top-popup .swal2-icon {
+  transform: scale(0.7) !important;
+  margin: 0 auto 0.25rem auto !important;
+}
+
+.modern-top-popup .swal2-actions {
+  gap: 0.5rem !important;
+  margin-top: 1rem !important;
 }
 
 /* Responsive adjustment for mobile screens */
@@ -216,26 +226,26 @@ input:focus, select:focus, textarea:focus {
 }
 
 .modern-top-title {
-  font-size: 1.1rem !important;
+  font-size: 0.95rem !important;
   font-weight: 800 !important;
   color: #1d1d1f !important;
-  margin-top: 0.5rem !important;
+  margin-top: 0.25rem !important;
 }
 
 .modern-top-content {
-  font-size: 0.9rem !important;
+  font-size: 0.8rem !important;
   color: #515154 !important;
   font-weight: 500 !important;
-  line-height: 1.5 !important;
+  line-height: 1.4 !important;
 }
 
 .modern-top-confirm {
   background-color: #0071e3 !important;
   color: white !important;
-  border-radius: 14px !important;
+  border-radius: 9999px !important;
   font-weight: 600 !important;
-  font-size: 0.8rem !important;
-  padding: 0.6rem 1.5rem !important;
+  font-size: 0.75rem !important;
+  padding: 0.5rem 1.25rem !important;
   border: none !important;
   box-shadow: 0 4px 12px rgba(0, 113, 227, 0.2) !important;
   transition: all 0.2s ease !important;
@@ -250,10 +260,10 @@ input:focus, select:focus, textarea:focus {
   background-color: transparent !important;
   color: #ff3b30 !important;
   border: 1px solid rgba(255, 59, 48, 0.2) !important;
-  border-radius: 14px !important;
+  border-radius: 9999px !important;
   font-weight: 600 !important;
-  font-size: 0.8rem !important;
-  padding: 0.6rem 1.5rem !important;
+  font-size: 0.75rem !important;
+  padding: 0.5rem 1.25rem !important;
   transition: all 0.2s ease !important;
 }
 
