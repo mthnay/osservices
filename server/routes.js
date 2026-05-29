@@ -1506,6 +1506,36 @@ router.put('/store-shifts/:id', requireRole(['superadmin', 'storemanager']), asy
     }
 });
 
+router.delete('/store-shifts/bulk-delete', requireRole(['superadmin', 'storemanager']), async (req, res) => {
+    try {
+        const userRole = req.user?.role?.toLowerCase();
+        const isGlobalAdmin = ['superadmin', 'admin', 'yonetici'].includes(userRole);
+        const { storeId, startDate, endDate } = req.query;
+
+        if (!storeId || !startDate || !endDate) {
+            return res.status(400).json({ message: 'storeId, startDate ve endDate parametreleri zorunludur.' });
+        }
+
+        if (!isGlobalAdmin && Number(storeId) !== Number(req.user.storeId)) {
+            return res.status(403).json({ message: 'Sadece kendi mağazanızın vardiyalarını silebilirsiniz.' });
+        }
+
+        const filter = {
+            storeId: Number(storeId),
+            date: {
+                $gte: new Date(startDate),
+                $lte: new Date(endDate)
+            }
+        };
+
+        const result = await StoreShift.deleteMany(filter);
+        await createLog(req, 'DELETE_SHIFT_BULK', 'STORE_MANAGEMENT', `${storeId} nolu mağazada ${startDate} - ${endDate} arası ${result.deletedCount} vardiya silindi.`);
+        res.json({ success: true, message: `${result.deletedCount} vardiya silindi.`, deletedCount: result.deletedCount });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
 router.delete('/store-shifts/:id', requireRole(['superadmin', 'storemanager']), async (req, res) => {
     try {
         const shift = await StoreShift.findById(req.params.id);
