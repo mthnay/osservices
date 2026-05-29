@@ -203,7 +203,6 @@ input:focus, select:focus, textarea:focus {
   box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.04) !important;
   padding: 1.5rem !important;
   font-family: var(--font-sans) !important;
-  animation: swalDropIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
 }
 
 /* Responsive adjustment for mobile screens */
@@ -272,6 +271,25 @@ input:focus, select:focus, textarea:focus {
     opacity: 1;
     transform: translateY(0) scale(1);
   }
+}
+
+@keyframes swalDropOut {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+}
+
+.swal2-show.modern-top-popup {
+  animation: swalDropIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+}
+
+.swal2-hide.modern-top-popup {
+  animation: swalDropOut 0.2s forwards !important;
 }
 
 /* Accenting SweetAlert timer progress bar */
