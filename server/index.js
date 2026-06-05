@@ -15,7 +15,7 @@ const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.join(__dirname, '.env') });
 
 import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
+
 import mongoSanitize from 'express-mongo-sanitize';
 
 import mongoose from 'mongoose';
@@ -72,15 +72,7 @@ app.use(helmet({
     crossOriginEmbedderPolicy: false
 }));
 
-// DDoS and Brute Force Protection (General Rate Limit)
-const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 300, // Limit each IP to 300 requests per windowMs
-    message: { success: false, message: 'Çok fazla istek gönderildi, lütfen 15 dakika sonra tekrar deneyin.' },
-    standardHeaders: true,
-    legacyHeaders: false,
-});
-app.use('/api/', limiter);
+
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
