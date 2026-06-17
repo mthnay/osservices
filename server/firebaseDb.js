@@ -244,3 +244,46 @@ class FirestoreQuery {
         return this.exec().then(resolve).catch(reject);
     }
 }
+
+export function createModel(collectionName) {
+    const dbInstance = new FirestoreModel(collectionName);
+    
+    function Model(data = {}) {
+        Object.assign(this, data);
+        
+        this.save = async function() {
+            if (this._id) {
+                const docRef = dbInstance.collection.doc(String(this._id));
+                const cleanData = JSON.parse(JSON.stringify({ ...this }));
+                delete cleanData._id;
+                delete cleanData.save;
+                delete cleanData.deleteOne;
+                await docRef.set(cleanData, { merge: true });
+                return this;
+            } else {
+                const res = await dbInstance.create(this);
+                this._id = res._id;
+                return this;
+            }
+        };
+        
+        this.deleteOne = async function() {
+            if (this._id) {
+                await dbInstance.collection.doc(String(this._id)).delete();
+            }
+            return this;
+        };
+    }
+    
+    // Copy all methods from dbInstance to Model as static methods
+    for (const key of Object.getOwnPropertyNames(Object.getPrototypeOf(dbInstance))) {
+        if (key !== 'constructor') {
+            Model[key] = dbInstance[key].bind(dbInstance);
+        }
+    }
+    // Also copy properties
+    Model.collection = dbInstance.collection;
+    Model.collectionName = dbInstance.collectionName;
+    
+    return Model;
+}

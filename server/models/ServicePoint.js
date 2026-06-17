@@ -1,2 +1,2 @@
-import { FirestoreModel } from '../firebaseDb.js';
-export default new FirestoreModel('servicepoints');
+import { createModel } from '../firebaseDb.js';
+export default createModel('servicepoints');
