@@ -30,13 +30,22 @@ export class FirestoreModel {
     }
 
     async findOne(filter = {}) {
-        return this._fallbackFindOne(filter);
+        const hasComplex = this._hasComplexFilters(filter);
+        const query = this.find(filter);
+        if (!hasComplex) query._limit = 1;
+        const results = await query.exec();
+        return results[0] || null;
     }
 
-    async _fallbackFindOne(filter) {
-        const snapshot = await this.collection.get();
-        const allDocs = snapshot.docs.map(d => ({ _id: d.id, ...d.data() }));
-        return allDocs.find(doc => this._matchFilter(doc, filter)) || null;
+    _hasComplexFilters(filter) {
+        if (!filter) return false;
+        for (const [key, value] of Object.entries(filter)) {
+            if (key === '$or') return true;
+            if (value instanceof RegExp) return true;
+            if (typeof value === 'object' && value !== null && value.$regex) return true;
+            if (typeof value === 'object' && value !== null && !value.$in) return true;
+        }
+        return false;
     }
 
     _matchFilter(doc, filter) {
@@ -206,8 +215,29 @@ class FirestoreQuery {
     }
 
     async exec() {
-        // Fallback to memory for complex filters
-        const snapshot = await this.collection.get();
+        let snapshot;
+        try {
+            let q = this.collection;
+            if (this.filter) {
+                for (const [key, value] of Object.entries(this.filter)) {
+                    if (key !== '$or' && key !== '_id' && typeof value !== 'object' && typeof value !== 'function') {
+                        q = q.where(key, '==', value);
+                    } else if (key === '_id') {
+                        q = q.where('__name__', '==', String(value));
+                    } else if (typeof value === 'object' && value !== null && value.$in) {
+                        if (value.$in.length > 0 && value.$in.length <= 30) {
+                            q = q.where(key, 'in', value.$in);
+                        }
+                    }
+                }
+            }
+            if (this._limit) q = q.limit(this._limit);
+            snapshot = await q.get();
+        } catch(e) {
+            console.warn("Firestore query failed natively, falling back to full scan:", e.message);
+            snapshot = await this.collection.get();
+        }
+
         let allDocs = snapshot.docs.map(d => {
             const docData = { _id: d.id, ...d.data() };
             // Simulate save and deleteOne
