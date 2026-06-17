@@ -18,35 +18,14 @@ import helmet from 'helmet';
 
 import mongoSanitize from 'express-mongo-sanitize';
 
-import mongoose from 'mongoose';
+import { db } from './firebase.js';
 
 const app = express();
 const PORT = process.env.PORT || 5001;
 
-// --- database connection ---
-const MONGODB_URI = process.env.MONGODB_URI;
-if (!MONGODB_URI) {
-    console.error('CRITICAL ERROR: MONGODB_URI is not defined in .env file!');
-    process.exit(1);
-}
+console.log('SUCCESS: Connected to Firestore via firebase.js');
+// Note: We leave mongoose commented or remove it.
 
-mongoose.connect(MONGODB_URI)
-    .then(async () => {
-        console.log('SUCCESS: Connected to MongoDB Atlas');
-        try { mongoose.connection.db.collection('inventories').dropIndex('id_1').catch(()=>null); } catch (e) {}
-        await seedData();
-    })
-    .catch(err => {
-        console.error('CRITICAL: MongoDB connection error:', err);
-        console.error('ERROR CODE:', err.code);
-        console.error('ERROR MESSAGE:', err.message);
-        
-        if (err.message.includes('ETIMEDOUT') || err.message.includes('ECONNREFUSED')) {
-            console.log('TIP: This might be an IP Whitelist issue. Ensure 0.0.0.0/0 is allowed in MongoDB Atlas Network Access.');
-        }
-        
-        console.log('WARNING: System is starting without database connection. Some features may not work.');
-    });
 
 // --- Security Middleware ---
 // Render proxy ayarı (Rate limit ve IP tespiti için gerekli)

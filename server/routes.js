@@ -1,5 +1,11 @@
 import express from 'express';
-import mongoose from 'mongoose';
+const mongoose = {
+  Types: {
+    ObjectId: {
+      isValid: (id) => typeof id === 'string' && id.length > 0
+    }
+  }
+};
 
 import Repair from './models/Repair.js';
 import User from './models/User.js';
