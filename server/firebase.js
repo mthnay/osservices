@@ -13,6 +13,10 @@ if (process.env.FIREBASE_SERVICE_ACCOUNT) {
     // Render üzerinden (veya .env üzerinden) JSON string olarak geliyorsa
     try {
         serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+        if (serviceAccount.private_key) {
+            // Render gibi ortamlarda \n karakterleri bazen bozulabilir, bunu onaralım
+            serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
+        }
     } catch (e) {
         console.error('CRITICAL ERROR: Failed to parse FIREBASE_SERVICE_ACCOUNT env variable!');
         process.exit(1);
