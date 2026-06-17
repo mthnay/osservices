@@ -143,6 +143,14 @@ export class FirestoreModel {
         return doc;
     }
 
+    async findByIdAndDelete(id) {
+        const docRef = this.collection.doc(String(id));
+        const docSnapshot = await docRef.get();
+        if (!docSnapshot.exists) return null;
+        await docRef.delete();
+        return { _id: id, ...docSnapshot.data() };
+    }
+
     async updateMany(filter, update) {
         const docs = await this.find(filter).exec();
         const batch = db.batch();
@@ -156,6 +164,19 @@ export class FirestoreModel {
         }
         await batch.commit();
         return { modifiedCount: docs.length };
+    }
+
+    async deleteMany(filter) {
+        const docs = await this.find(filter).exec();
+        if (docs.length === 0) return { deletedCount: 0 };
+        
+        const batch = db.batch();
+        for (const doc of docs) {
+            const docRef = this.collection.doc(String(doc._id));
+            batch.delete(docRef);
+        }
+        await batch.commit();
+        return { deletedCount: docs.length };
     }
 
     async countDocuments(filter = {}) {
