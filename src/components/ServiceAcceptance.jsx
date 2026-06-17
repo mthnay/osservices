@@ -407,6 +407,13 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
     const handleFileChange = async (e, category = 'before') => {
         const file = e.target.files[0];
         if (!file) return;
+
+        const field = category === 'before' ? 'beforeImages' : 'afterImages';
+        if (formData[field] && formData[field].length >= 15) {
+            showToast('En fazla 15 görsel yükleyebilirsiniz.', 'error');
+            return;
+        }
+
         setUploading(true);
         try {
             const data = await uploadMedia(file);

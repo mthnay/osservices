@@ -963,7 +963,17 @@ router.get('/media/:id', async (req, res) => {
         const media = await Media.findById(req.params.id);
         if (!media) return res.status(404).send('Bulunamadı');
         res.set('Content-Type', media.contentType);
-        res.send(media.data);
+        
+        let bufferData = media.data;
+        // Firestore Bytes nesnesini Node Buffer'a çevir
+        if (bufferData && typeof bufferData.toUint8Array === 'function') {
+            bufferData = Buffer.from(bufferData.toUint8Array());
+        } else if (bufferData && bufferData._bsontype === 'Binary') {
+            // Eski MongoDB verisi
+            bufferData = Buffer.from(bufferData.buffer);
+        }
+        
+        res.send(bufferData);
     } catch (err) {
         res.status(500).send(err.message);
     }
