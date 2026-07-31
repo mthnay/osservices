@@ -2391,86 +2391,104 @@ const Settings = () => {
         }
     };
 
+    const settingsTabs = [
+        { id: 'general', label: 'Kurumsal Kimlik', icon: Building },
+        { id: 'locations', label: 'Mağaza Ağı', icon: MapPin },
+        { id: 'users', label: 'Ekip & Erişim', icon: Users },
+        { id: 'warehouse_management', label: 'Ambar Yönetimi', icon: Package },
+        { id: 'kbb_history', label: 'KBB Arşivi', icon: Store },
+        { id: 'device_models', label: 'Cihaz Modelleri', icon: Smartphone },
+        { id: 'earnings', label: 'Hakediş Kayıtları', icon: CreditCard },
+        { id: 'notifications', label: 'E-Posta & SMTP', icon: Mail },
+        { id: 'service_terms', label: 'Servis Metinleri', icon: MessageSquare },
+        { id: 'security', label: 'Sistem Güvenliği', icon: Shield },
+        { id: 'audit_logs', label: 'Sistem Günlükleri', icon: Clock },
+        { id: 'roles', label: 'Yetki ve İzinler', icon: Key },
+        { id: 'updates', label: 'Yazılım Güncelleme', icon: RefreshCw },
+    ];
+
+    const activeTitle = (
+        activeTab === 'users' ? 'Personel & Rol Yönetimi' :
+        activeTab === 'locations' ? 'Mağaza & Lokasyon Ağı' :
+        activeTab === 'notifications' ? 'E-Posta & SMTP Yapısı' :
+        activeTab === 'warehouse_management' ? 'Ambar & Lojistik Yönetimi' :
+        activeTab === 'stock' ? 'Envanter Veritabanı' :
+        activeTab === 'device_models' ? 'Cihaz Modelleri Veritabanı' :
+        activeTab === 'updates' ? 'Yazılım Güncelleme' :
+        activeTab === 'roles' ? 'Yetki ve Rol Yönetimi' :
+        activeTab === 'service_terms' ? 'Servis Onay & Gizlilik' :
+        (settingsTabs.find(t => t.id === activeTab)?.label || 'Genel Sistem Ayarları')
+    );
+
     return (
-        <div className="max-w-[1600px] mx-auto pb-16 animate-fade-in px-4 md:px-6">
-            <div className="flex flex-col lg:flex-row gap-6 mt-4 items-start">
-                {/* Sol Menü: GSX Sidebar */}
-                <aside className="w-full lg:w-64 shrink-0 lg:sticky lg:top-6">
-                    <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
-                        <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2.5">
-                            <div className="w-8 h-8 bg-[#1d1d1f] text-white rounded-lg flex items-center justify-center">
-                                <Settings2 size={16} />
-                            </div>
-                            <div>
-                                <h3 className="text-[13px] font-bold text-[#1d1d1f] leading-none">Sistem Ayarları</h3>
-                                <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Yönetim Menüsü</span>
-                            </div>
+        <div className="max-w-[1600px] mx-auto animate-fade-in px-4 md:px-6">
+            {/* Mobil sekme şeridi (yatay kaydırmalı) */}
+            <div className="lg:hidden -mx-4 px-4 mb-4 overflow-x-auto custom-scrollbar">
+                <div className="flex gap-2 w-max pb-1">
+                    {settingsTabs.map((item) => {
+                        const active = activeTab === item.id;
+                        return (
+                            <button
+                                key={item.id}
+                                onClick={() => setActiveTab(item.id)}
+                                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[12px] font-bold whitespace-nowrap transition-all border ${
+                                    active ? 'bg-[#0071e3] text-white border-[#0071e3] shadow-sm' : 'bg-white text-gray-600 border-gray-200'
+                                }`}
+                            >
+                                <item.icon size={15} /> {item.label}
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
+
+            {/* İki-pano: masaüstünde ekran yüksekliğine oranlı, her pano kendi içinde kayar */}
+            <div className="flex gap-6 lg:h-[calc(100vh-9.5rem)]">
+                {/* Sol Menü (masaüstü) */}
+                <aside className="hidden lg:flex lg:flex-col w-64 shrink-0 bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+                    <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2.5 shrink-0">
+                        <div className="w-8 h-8 bg-[#1d1d1f] text-white rounded-lg flex items-center justify-center">
+                            <Settings2 size={16} />
                         </div>
-                        <nav className="p-2 space-y-0.5 max-h-[calc(100vh-200px)] overflow-y-auto custom-scrollbar">
-                            {[
-                                { id: 'general', label: 'Kurumsal Kimlik', icon: Building },
-                                { id: 'locations', label: 'Mağaza Ağı', icon: MapPin },
-                                { id: 'users', label: 'Ekip & Erişim', icon: Users },
-                                { id: 'warehouse_management', label: 'Ambar Yönetimi', icon: Package },
-                                { id: 'kbb_history', label: 'KBB Arşivi', icon: Store },
-                                { id: 'device_models', label: 'Cihaz Modelleri', icon: Smartphone },
-                                { id: 'earnings', label: 'Hakediş Kayıtları', icon: CreditCard },
-                                { id: 'notifications', label: 'E-Posta & SMTP', icon: Mail },
-                                { id: 'service_terms', label: 'Servis Metinleri', icon: MessageSquare },
-                                { id: 'security', label: 'Sistem Güvenliği', icon: Shield },
-                                { id: 'audit_logs', label: 'Sistem Günlükleri', icon: Clock },
-                                { id: 'roles', label: 'Yetki ve İzinler', icon: Key },
-                                { id: 'updates', label: 'Yazılım Güncelleme', icon: RefreshCw },
-                            ].map((item) => {
-                                const active = activeTab === item.id;
-                                return (
-                                    <button
-                                        key={item.id}
-                                        onClick={() => setActiveTab(item.id)}
-                                        className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[13px] font-semibold transition-all group ${
-                                            active
-                                            ? 'bg-[#0071e3]/10 text-[#0071e3]'
-                                            : 'text-gray-600 hover:bg-[#f5f5f7] hover:text-[#1d1d1f]'
-                                        }`}
-                                    >
-                                        <item.icon size={17} className={active ? 'text-[#0071e3]' : 'text-gray-400 group-hover:text-gray-600'} />
-                                        <span className="flex-1 text-left truncate">{item.label}</span>
-                                        {active && <div className="w-1.5 h-1.5 rounded-full bg-[#0071e3] shrink-0"></div>}
-                                    </button>
-                                );
-                            })}
-                        </nav>
+                        <div>
+                            <h3 className="text-[13px] font-bold text-[#1d1d1f] leading-none">Sistem Ayarları</h3>
+                            <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Yönetim Menüsü</span>
+                        </div>
                     </div>
+                    <nav className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-0.5">
+                        {settingsTabs.map((item) => {
+                            const active = activeTab === item.id;
+                            return (
+                                <button
+                                    key={item.id}
+                                    onClick={() => setActiveTab(item.id)}
+                                    className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[13px] font-semibold transition-all group ${
+                                        active ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-gray-600 hover:bg-[#f5f5f7] hover:text-[#1d1d1f]'
+                                    }`}
+                                >
+                                    <item.icon size={17} className={active ? 'text-[#0071e3]' : 'text-gray-400 group-hover:text-gray-600'} />
+                                    <span className="flex-1 text-left truncate">{item.label}</span>
+                                    {active && <div className="w-1.5 h-1.5 rounded-full bg-[#0071e3] shrink-0"></div>}
+                                </button>
+                            );
+                        })}
+                    </nav>
                 </aside>
 
-                {/* Sağ İçerik Alanı */}
-                <div className="flex-1 min-w-0 w-full">
-                    <div className="mb-6">
-                        <div className="flex items-center gap-2 mb-1.5">
-                            <span className="text-[10px] font-bold text-[#0071e3] uppercase tracking-widest bg-[#0071e3]/10 px-2 py-0.5 rounded">GSX Portal</span>
+                {/* İçerik: sabit başlık + kayan gövde */}
+                <main className="flex-1 min-w-0 flex flex-col bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden min-h-[60vh]">
+                    <div className="px-6 md:px-8 py-5 border-b border-gray-100 shrink-0">
+                        <div className="flex items-center gap-2 mb-1">
+                            <span className="text-[10px] font-bold text-[#0071e3] uppercase tracking-widest">GSX Portal</span>
                             <ChevronRight size={12} className="text-gray-300" />
                             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Sistem Ayarları</span>
                         </div>
-                        <h2 className="text-3xl font-bold text-[#1d1d1f] tracking-tight">
-                            {activeTab === 'users' ? 'Personel & Rol Yönetimi' :
-                             activeTab === 'locations' ? 'Mağaza & Lokasyon Ağı' :
-                             activeTab === 'notifications' ? 'E-Posta & SMTP Yapısı' :
-                             activeTab === 'warehouse_management' ? 'Ambar & Lojistik Yönetimi' :
-                             activeTab === 'stock' ? 'Envanter Veritabanı' :
-                             activeTab === 'device_models' ? 'Cihaz Modelleri Veritabanı' :
-                             activeTab === 'updates' ? 'Yazılım Güncelleme' :
-                             activeTab === 'roles' ? 'Yetki ve Rol Yönetimi' :
-                             activeTab === 'service_terms' ? 'Servis Onay & Gizlilik' :
-                             'Genel Sistem Ayarları'}
-                        </h2>
+                        <h2 className="text-2xl font-bold text-[#1d1d1f] tracking-tight">{activeTitle}</h2>
                     </div>
-
-                    <div className="bg-white border border-gray-200 rounded-2xl shadow-sm min-h-[calc(100vh-190px)] overflow-hidden">
-                        <div className="p-6 md:p-8">
-                            {renderTabContent()}
-                        </div>
+                    <div className="flex-1 overflow-y-auto custom-scrollbar p-6 md:p-8">
+                        {renderTabContent()}
                     </div>
-                </div>
+                </main>
             </div>
             {showTransferModal && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-xl z-[100] flex items-center justify-center p-4 overflow-hidden">
