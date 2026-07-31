@@ -372,8 +372,8 @@ const RepairHistoryModal = ({ repair: initialRepair, onClose, onDiagnose }) => {
                 <div className="bg-white/95 backdrop-blur-md border-b border-gray-100 shrink-0 z-30">
                     <div className="p-6 flex justify-between items-center">
                         <div className="flex items-center gap-5">
-                            <div className="w-14 h-14 bg-gray-50 rounded-md flex items-center justify-center text-3xl shadow-sm border border-gray-100">
-                                {repair.device.includes('iPhone') ? '📱' : '💻'}
+                            <div className="w-12 h-12 bg-[#1d1d1f] text-white rounded-xl flex items-center justify-center shrink-0 shadow-sm">
+                                <Wrench size={22} />
                             </div>
                             <div>
                                 <div className="flex items-center gap-3">
@@ -418,23 +418,21 @@ const RepairHistoryModal = ({ repair: initialRepair, onClose, onDiagnose }) => {
                         </div>
                     </div>
 
-                    {/* Progress Tracker Widget */}
-                    <div className="px-10 pb-6 pt-2">
-                        <div className="relative flex justify-between items-center w-full max-w-4xl mx-auto">
-                            {/* Connecting Line Backdrop */}
-                            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-gray-100 rounded-full"></div>
-                            {/* Progress Connecting Line */}
-                            <div className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-apple-blue rounded-full transition-all duration-700" style={{ width: `${(currentStepIndex / (STATUS_STEPS.length - 1)) * 100}%` }}></div>
-                            
+                    {/* Progress Tracker (GSX) */}
+                    <div className="px-10 pb-7 pt-1">
+                        <div className="relative flex justify-between items-start w-full max-w-4xl mx-auto">
+                            <div className="absolute left-0 top-[11px] w-full h-0.5 bg-gray-100 rounded-full"></div>
+                            <div className="absolute left-0 top-[11px] h-0.5 bg-[#0071e3] rounded-full transition-all duration-700" style={{ width: `${(currentStepIndex / (STATUS_STEPS.length - 1)) * 100}%` }}></div>
+
                             {STATUS_STEPS.map((step, idx) => {
                                 const isCompleted = idx < currentStepIndex;
                                 const isActive = idx === currentStepIndex;
                                 return (
-                                    <div key={idx} className="relative z-10 flex flex-col items-center gap-2 group">
-                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center border-4 transition-all duration-300 shadow-md ${isActive ? 'bg-apple-blue border-blue-200 text-white scale-125' : isCompleted ? 'bg-green-500 border-green-200 text-white' : 'bg-white border-gray-200 text-gray-300'}`}>
-                                            {isCompleted ? <CheckCircle size={14} /> : <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-white' : 'bg-gray-300'}`}></div>}
+                                    <div key={idx} className="relative z-10 flex flex-col items-center gap-2 w-full">
+                                        <div className={`w-6 h-6 rounded-full flex items-center justify-center transition-all ${isActive || isCompleted ? 'bg-[#0071e3] text-white' : 'bg-white border-2 border-gray-200 text-gray-300'}`}>
+                                            {isCompleted ? <CheckCircle size={13} /> : <div className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-white' : 'bg-gray-300'}`}></div>}
                                         </div>
-                                        <span className={`text-[10px] uppercase tracking-wide font-bold absolute -bottom-6 whitespace-nowrap transition-colors ${isActive ? 'text-apple-blue' : isCompleted ? 'text-gray-700' : 'text-gray-400'}`}>
+                                        <span className={`text-[9px] uppercase tracking-wide font-bold whitespace-nowrap text-center ${isActive ? 'text-[#0071e3]' : isCompleted ? 'text-[#1d1d1f]' : 'text-gray-400'}`}>
                                             {step.label}
                                         </span>
                                     </div>
@@ -453,7 +451,7 @@ const RepairHistoryModal = ({ repair: initialRepair, onClose, onDiagnose }) => {
                             {/* ÜST BİLGİ KARTLARI */}
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 {/* Müşteri */}
-                                <div onClick={() => setShowCustomerModal(true)} className="bg-white p-6 rounded-lg border border-gray-100 shadow-sm flex flex-col gap-3 transition-transform hover:-translate-y-1 hover:shadow-md cursor-pointer relative group">
+                                <div onClick={() => setShowCustomerModal(true)} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col gap-3 transition-transform hover:-translate-y-1 hover:shadow-md cursor-pointer relative group">
                                     <div className="absolute top-6 right-6 opacity-0 group-hover:opacity-100 transition-opacity text-apple-blue bg-blue-50 p-2 rounded-md">
                                         <Eye size={16} />
                                     </div>
@@ -489,7 +487,7 @@ const RepairHistoryModal = ({ repair: initialRepair, onClose, onDiagnose }) => {
                                 </div>
 
                                 {/* Cihaz & Garanti */}
-                                <div onClick={() => setShowDeviceModal(true)} className="bg-white p-6 rounded-lg border border-gray-100 shadow-sm flex flex-col gap-3 transition-transform hover:-translate-y-1 hover:shadow-md cursor-pointer relative group">
+                                <div onClick={() => setShowDeviceModal(true)} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col gap-3 transition-transform hover:-translate-y-1 hover:shadow-md cursor-pointer relative group">
                                     <div className="absolute top-6 right-6 opacity-0 group-hover:opacity-100 transition-opacity text-apple-blue bg-blue-50 p-2 rounded-md">
                                         <Pencil size={16} />
                                     </div>
@@ -520,7 +518,7 @@ const RepairHistoryModal = ({ repair: initialRepair, onClose, onDiagnose }) => {
                                 </div>
 
                                 {/* FMI & Yedek */}
-                                <div className="bg-white p-6 rounded-lg border border-gray-100 shadow-sm flex flex-col justify-center gap-4 transition-transform hover:-translate-y-1 hover:shadow-md">
+                                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-center gap-4 transition-transform hover:-translate-y-1 hover:shadow-md">
                                     <div className={`flex items-center gap-4 p-3 rounded-md border ${repair.findMyOff ? 'bg-green-50 border-green-100 text-green-700' : 'bg-red-50 border-red-100 text-red-700'}`}>
                                         <div className={`w-10 h-10 rounded-md flex items-center justify-center shrink-0 ${repair.findMyOff ? 'bg-green-500 text-white shadow-md' : 'bg-red-500 text-white shadow-md'}`}>
                                             {repair.findMyOff ? <CheckCircle size={20}/> : <AlertCircle size={20}/>}
@@ -543,7 +541,7 @@ const RepairHistoryModal = ({ repair: initialRepair, onClose, onDiagnose }) => {
                             </div>
 
                             {/* ŞİKAYET VE DURUM ANALİZİ */}
-                            <div className="bg-white p-8 rounded-lg border border-gray-100 shadow-sm">
+                            <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm">
                                 <h4 className="text-[10px] font-semibold text-gray-400 text-xs uppercase tracking-wide flex items-center gap-2 mb-4">
                                     <AlertCircle size={16} className="text-orange-500"/> Müşteri Şikayeti & Fiziksel Durum
                                 </h4>
@@ -567,8 +565,71 @@ const RepairHistoryModal = ({ repair: initialRepair, onClose, onDiagnose }) => {
                                 )}
                             </div>
 
+                            {/* TEKNİK RAPORLAR (Tanı / Teklif / Onarım Sonucu) */}
+                            {(repair.technicianNote || repair.tests || repair.diagnosisNotes || repair.quoteAmount || (Array.isArray(repair.quotationDetails) && repair.quotationDetails.length > 0) || repair.repairClosingNote) && (
+                                <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm">
+                                    <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2 mb-6">
+                                        <FileText size={16} className="text-[#0071e3]" /> Teknik Raporlar
+                                    </h4>
+                                    <div className="space-y-4">
+                                        {repair.technicianNote && (
+                                            <div className="rounded-xl border border-gray-100 bg-[#f5f5f7] p-5 border-l-[3px] border-l-indigo-400">
+                                                <div className="flex items-center gap-2 mb-2 text-indigo-600">
+                                                    <User size={14} />
+                                                    <span className="text-[10px] font-bold uppercase tracking-widest">İlk Giriş Teknisyen Notu</span>
+                                                </div>
+                                                <p className="text-sm text-gray-700 font-medium leading-relaxed whitespace-pre-wrap">{repair.technicianNote}</p>
+                                            </div>
+                                        )}
+                                        {(repair.tests || repair.diagnosisNotes) && (
+                                            <div className="rounded-xl border border-gray-100 bg-[#f5f5f7] p-5 border-l-[3px] border-l-orange-400">
+                                                <div className="flex items-center gap-2 mb-2 text-orange-600">
+                                                    <AlertCircle size={14} />
+                                                    <span className="text-[10px] font-bold uppercase tracking-widest">Arıza Tanı Raporu</span>
+                                                </div>
+                                                {repair.tests && <p className="text-sm text-gray-700 font-medium leading-relaxed whitespace-pre-wrap mb-2"><span className="text-[10px] font-bold text-gray-400 uppercase block mb-0.5">Testler & Gözlemler</span>{repair.tests}</p>}
+                                                {repair.diagnosisNotes && <p className="text-sm text-gray-700 font-medium leading-relaxed whitespace-pre-wrap"><span className="text-[10px] font-bold text-gray-400 uppercase block mb-0.5">Tanı Notları</span>{repair.diagnosisNotes}</p>}
+                                            </div>
+                                        )}
+                                        {(repair.quoteAmount || (Array.isArray(repair.quotationDetails) && repair.quotationDetails.length > 0)) && (
+                                            <div className="rounded-xl border border-gray-100 bg-[#f5f5f7] p-5 border-l-[3px] border-l-emerald-400">
+                                                <div className="flex items-center justify-between mb-3">
+                                                    <div className="flex items-center gap-2 text-emerald-600">
+                                                        <Coins size={14} />
+                                                        <span className="text-[10px] font-bold uppercase tracking-widest">Fiyat Teklifi</span>
+                                                    </div>
+                                                    {repair.quoteAmount && <span className="text-lg font-black text-[#1d1d1f]">{fmtMoney(repair.quoteAmount) || `${repair.quoteAmount} ₺`}</span>}
+                                                </div>
+                                                {Array.isArray(repair.quotationDetails) && repair.quotationDetails.length > 0 && (
+                                                    <div className="divide-y divide-gray-100 border-t border-gray-100">
+                                                        {repair.quotationDetails.map((q, i) => (
+                                                            <div key={i} className="flex items-center justify-between py-2 text-sm">
+                                                                <span className="text-gray-700 font-medium">{q.name || q.description || `Kalem ${i + 1}`}</span>
+                                                                <span className="text-gray-900 font-bold">{fmtMoney(q.price) || (q.price ? `${q.price} ₺` : '—')}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                        {repair.repairClosingNote && (
+                                            <div className="rounded-xl border border-gray-100 bg-[#f5f5f7] p-5 border-l-[3px] border-l-teal-400">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <div className="flex items-center gap-2 text-teal-600">
+                                                        <CheckCircle size={14} />
+                                                        <span className="text-[10px] font-bold uppercase tracking-widest">Onarım Sonucu Raporu</span>
+                                                    </div>
+                                                    {repair.repairDuration && <span className="text-[10px] font-bold text-gray-400">Süre: {repair.repairDuration}</span>}
+                                                </div>
+                                                <p className="text-sm text-gray-700 font-medium leading-relaxed whitespace-pre-wrap">{repair.repairClosingNote}</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
                             {/* ONARIM DETAYLARI / KAYIT KÜNYESİ */}
-                            <div className="bg-white p-8 rounded-lg border border-gray-100 shadow-sm">
+                            <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm">
                                 <h4 className="text-[10px] font-semibold text-gray-400 text-xs uppercase tracking-wide flex items-center gap-2 mb-6">
                                     <Info size={16} className="text-apple-blue"/> Onarım Detayları & Kayıt Künyesi
                                 </h4>
@@ -673,7 +734,7 @@ const RepairHistoryModal = ({ repair: initialRepair, onClose, onDiagnose }) => {
                                 {/* Evraklar ve Raporlar */}
                                 <div className="space-y-4">
                                     <h4 className="text-[10px] font-semibold text-gray-400 text-xs uppercase tracking-wide pl-2">Raporlar & Belgeler</h4>
-                                    <div className="bg-white p-6 rounded-lg border border-gray-100 shadow-sm flex flex-col gap-4">
+                                    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col gap-4">
                                         <button onClick={() => setShowAcceptancePrint(true)} className="flex items-center justify-between p-4 bg-gray-50 rounded-md border border-gray-100 hover:border-apple-blue hover:bg-blue-50 transition-all group shadow-sm">
                                             <div className="flex items-center gap-4">
                                                 <div className="w-12 h-12 bg-white text-apple-blue rounded-[14px] flex items-center justify-center shadow-[0_4px_10px_rgba(0,0,0,0.05)] border border-gray-100 group-hover:border-blue-200"><Printer size={20} /></div>
@@ -699,7 +760,7 @@ const RepairHistoryModal = ({ repair: initialRepair, onClose, onDiagnose }) => {
                                     </div>
                                     
                                     {/* Fatura Bloğu */}
-                                    <div className="bg-white p-6 rounded-lg border border-gray-100 shadow-sm">
+                                    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
                                         <h4 className="flex items-center gap-2 text-sm font-semibold text-gray-900 mb-5"><Receipt size={18} className="text-gray-400"/> Vergi & Fatura</h4>
                                         <div className="flex gap-2">
                                             <input type="text" value={invoiceNo} onChange={(e) => setInvoiceNo(e.target.value)} placeholder="Fatura No girin..." className="flex-1 px-5 py-4 bg-gray-50 border border-gray-200 rounded-md text-sm font-bold font-mono focus:bg-white focus:border-blue-500 outline-none uppercase transition-all shadow-inner" />
@@ -711,7 +772,7 @@ const RepairHistoryModal = ({ repair: initialRepair, onClose, onDiagnose }) => {
                                 {/* VMI ve Medya */}
                                 <div className="space-y-4">
                                     <h4 className="text-[10px] font-semibold text-gray-400 text-xs uppercase tracking-wide pl-2">Görsel VMI Kayıtları</h4>
-                                    <div className="bg-white p-6 rounded-lg border border-gray-100 shadow-sm flex flex-col gap-8 h-full">
+                                    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col gap-8 h-full">
                                         {/* Öncesi */}
                                         <div>
                                             <div className="flex justify-between items-center mb-4 border-b border-gray-50 pb-2">
@@ -767,15 +828,15 @@ const RepairHistoryModal = ({ repair: initialRepair, onClose, onDiagnose }) => {
                         </div>
 
                         {/* ---------------- SAĞ / TİMELİNE (4 KOLON) ---------------- */}
-                        <div className="lg:col-span-4 flex flex-col h-[60vh] lg:h-[calc(100vh-300px)] bg-white rounded-lg border border-gray-100 shadow-2xl overflow-hidden sticky top-0">
-                            <div className="px-8 py-8 bg-gray-900 flex items-center justify-between shrink-0 z-10 shadow-md">
-                                <h4 className="text-sm font-semibold tracking-widest text-white flex items-center gap-3"><Clock size={18} className="text-blue-400" /> SERVİS AKIŞI</h4>
-                                <button onClick={handleAddProcess} className="w-10 h-10 flex items-center justify-center bg-white/10 text-white rounded-md hover:bg-white/20 transition-colors shadow-sm border border-white/10">
-                                    <PlusCircle size={20} />
+                        <div className="lg:col-span-4 flex flex-col h-[60vh] lg:h-[calc(100vh-300px)] bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden sticky top-0">
+                            <div className="px-6 py-5 bg-white border-b border-gray-100 flex items-center justify-between shrink-0 z-10">
+                                <h4 className="text-[10px] font-bold tracking-widest text-gray-400 uppercase flex items-center gap-2"><Clock size={16} className="text-[#0071e3]" /> Servis Akışı</h4>
+                                <button onClick={handleAddProcess} className="w-9 h-9 flex items-center justify-center bg-[#f5f5f7] text-gray-500 rounded-lg hover:bg-gray-100 hover:text-[#0071e3] transition-colors">
+                                    <PlusCircle size={18} />
                                 </button>
                             </div>
-                            
-                            <div className="flex-1 overflow-y-auto custom-scrollbar p-8 bg-gray-50/50">
+
+                            <div className="flex-1 overflow-y-auto custom-scrollbar p-6 bg-[#f5f5f7]">
                                 <div className="relative pl-6">
                                     <div className="absolute left-[11px] top-6 bottom-6 w-[3px] bg-gradient-to-b from-gray-300 via-gray-200 to-transparent rounded-full opacity-50"></div>
                                     <div className="space-y-10">
