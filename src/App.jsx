@@ -84,6 +84,10 @@ function App() {
       <TopNav activeTab={activeTab} setActiveTab={setActiveTab} />
 
       <main className="flex-1 w-full pt-20 pb-20 px-6 transition-all duration-300 relative">
+        {activeTab === 'settings' && hasPermission(currentUser, 'manage_settings') ? (
+          /* Sistem Ayarları tam genişlik: sol menü ekranın solunda, içerik kalan alanı doldurur */
+          <Settings />
+        ) : (
         <div className="max-w-[1200px] mx-auto">
           {/* Top Header with Notifications removed */}
           {activeTab === 'dashboard' && <Dashboard />}
@@ -101,7 +105,6 @@ function App() {
           {activeTab === 'technicians' && <Technicians />}
           {activeTab === 'store-operations' && <StoreOperations />}
           {activeTab === 'store-management' && <StoreManagement />}
-          {activeTab === 'settings' && hasPermission(currentUser, 'manage_settings') && <Settings />}
           {activeTab !== 'dashboard' && activeTab !== 'service' && activeTab !== 'in-store' && activeTab !== 'ready-pickup' && activeTab !== 'archive' && activeTab !== 'apple-center' && activeTab !== 'pending-repairs' && activeTab !== 'approval-pending' && activeTab !== 'stock' && activeTab !== 'reports' && activeTab !== 'technicians' && activeTab !== 'store-operations' && activeTab !== 'store-management' && activeTab !== 'settings' && activeTab !== 'customers' && activeTab !== 'marketing' && (
             <div className="flex flex-col items-center justify-center h-[70vh] text-center">
               <h2 className="text-2xl font-bold text-gray-400 mb-2">Sayfa Yapım Aşamasında</h2>
@@ -109,6 +112,7 @@ function App() {
             </div>
           )}
         </div>
+        )}
       </main>
 
       {/* Unified Bottom Bar */}
