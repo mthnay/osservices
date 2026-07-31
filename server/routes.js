@@ -1,11 +1,5 @@
 import express from 'express';
-const mongoose = {
-  Types: {
-    ObjectId: {
-      isValid: (id) => typeof id === 'string' && id.length > 0
-    }
-  }
-};
+import mongoose from 'mongoose';
 
 import Repair from './models/Repair.js';
 import User from './models/User.js';
@@ -963,17 +957,7 @@ router.get('/media/:id', async (req, res) => {
         const media = await Media.findById(req.params.id);
         if (!media) return res.status(404).send('Bulunamadı');
         res.set('Content-Type', media.contentType);
-        
-        let bufferData = media.data;
-        // Firestore Bytes nesnesini Node Buffer'a çevir
-        if (bufferData && typeof bufferData.toUint8Array === 'function') {
-            bufferData = Buffer.from(bufferData.toUint8Array());
-        } else if (bufferData && bufferData._bsontype === 'Binary') {
-            // Eski MongoDB verisi
-            bufferData = Buffer.from(bufferData.buffer);
-        }
-        
-        res.send(bufferData);
+        res.send(media.data);
     } catch (err) {
         res.status(500).send(err.message);
     }
