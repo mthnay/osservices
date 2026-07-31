@@ -96,6 +96,27 @@ export const canManageSuperAdmins = (currentUser) => {
     return isSuperAdmin(currentUser) && !isYonetici(currentUser);
 };
 
+// Kullanıcının erişebildiği mağaza id'leri (birincil storeId + storeIds birleşimi)
+export const getAccessibleStoreIds = (user) => {
+    if (!user) return [];
+    const ids = new Set();
+    const add = (v) => {
+        if (v === null || v === undefined || v === '') return;
+        const n = Number(v);
+        if (!Number.isNaN(n)) ids.add(n);
+    };
+    add(user.storeId);
+    (user.storeIds || []).forEach(add);
+    return [...ids];
+};
+
+// Kullanıcı belirtilen mağazaya erişebilir mi? (yetkili hesaplar tümüne erişir)
+export const canAccessStore = (user, storeId) => {
+    if (!user) return false;
+    if (hasPermission(user, 'view_all_stores')) return true;
+    return getAccessibleStoreIds(user).map(String).includes(String(storeId));
+};
+
 export const hasPermission = (user, permission) => {
     if (!user || !user.role) return false;
     

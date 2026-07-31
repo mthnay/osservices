@@ -1,7 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import Toast from '../components/Toast';
-import { hasPermission, ROLES, setGlobalRoles } from '../utils/permissions';
+import { hasPermission, ROLES, setGlobalRoles, getAccessibleStoreIds } from '../utils/permissions';
 
 const AppContext = createContext();
 
@@ -1316,7 +1316,13 @@ export const AppProvider = ({ children }) => {
             if (String(selectedStoreId) === '0') return repairs;
             return repairs.filter(r => String(r.storeId) === String(selectedStoreId));
         }
-        return repairs.filter(r => String(r.storeId) === String(currentUser.storeId));
+        // Erişim yetkisi olan mağazalar (tek veya çoklu)
+        const allowed = getAccessibleStoreIds(currentUser).map(String);
+        // Çoklu mağazalı kullanıcı kendi mağazalarından birini seçtiyse ona daralt
+        if (selectedStoreId && String(selectedStoreId) !== '0' && allowed.includes(String(selectedStoreId))) {
+            return repairs.filter(r => String(r.storeId) === String(selectedStoreId));
+        }
+        return repairs.filter(r => allowed.includes(String(r.storeId)));
     };
 
     const [toast, setToast] = useState({ id: 0, message: '', type: 'info', isVisible: false });
@@ -1362,7 +1368,9 @@ export const AppProvider = ({ children }) => {
         if ((isAdmin || hasViewAllPerm) && !isStaff) {
             return servicePoints;
         }
-        return servicePoints.filter(sp => String(sp.id) === String(currentUser.storeId));
+        // Erişim yetkisi olan mağazalar (çoklu destekli)
+        const allowed = getAccessibleStoreIds(currentUser).map(String);
+        return servicePoints.filter(sp => allowed.includes(String(sp.id)));
     }, [servicePoints, currentUser, isAdmin, isStaff]);
 
     const filterByStore = React.useCallback((list, storeIdKey = 'storeId') => {
@@ -1371,7 +1379,12 @@ export const AppProvider = ({ children }) => {
         if ((isAdmin || hasViewAllPerm) && !isStaff) {
             return selectedStoreId === 0 ? list : list.filter(item => String(item[storeIdKey]) === String(selectedStoreId));
         }
-        return list.filter(item => String(item[storeIdKey]) === String(currentUser.storeId));
+        // Erişim yetkisi olan mağazalar (tek veya çoklu)
+        const allowed = getAccessibleStoreIds(currentUser).map(String);
+        if (selectedStoreId && String(selectedStoreId) !== '0' && allowed.includes(String(selectedStoreId))) {
+            return list.filter(item => String(item[storeIdKey]) === String(selectedStoreId));
+        }
+        return list.filter(item => allowed.includes(String(item[storeIdKey])));
     }, [currentUser, isAdmin, isStaff, selectedStoreId]);
 
     return (

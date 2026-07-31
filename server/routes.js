@@ -51,6 +51,20 @@ const createLog = async (req, action, module, details = '', storeId = undefined)
     }
 };
 
+// Kullanıcının erişebildiği mağaza id'leri (birincil storeId + storeIds)
+const accessibleStoreIds = (user) => {
+    const ids = new Set();
+    const add = (v) => {
+        if (v === null || v === undefined || v === '') return;
+        const n = Number(v);
+        if (!Number.isNaN(n)) ids.add(n);
+    };
+    add(user?.storeId);
+    (user?.storeIds || []).forEach(add);
+    return [...ids];
+};
+const canViewAllStores = (user) => ['superadmin', 'admin', 'yonetici'].includes((user?.role || '').toLowerCase());
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -508,7 +522,7 @@ router.post('/login', async (req, res) => {
         await createLog(req, 'LOGIN', 'AUTH', `Kullanıcı sisteme giriş yaptı: ${user.email}`);
 
         const token = jwt.sign(
-            { id: user._id || user.id, name: user.name, email: user.email, role: user.role, storeId: user.storeId },
+            { id: user._id || user.id, name: user.name, email: user.email, role: user.role, storeId: user.storeId, storeIds: user.storeIds || [] },
             JWT_SECRET,
             { expiresIn: '24h' }
         );
@@ -1709,11 +1723,10 @@ router.delete('/store-shifts/:id', requireRole(['superadmin', 'storemanager']), 
 // --- Müşteri Memnuniyeti (günlük, mağaza bazlı) ---
 router.get('/satisfaction', async (req, res) => {
     try {
-        const role = (req.user?.role || '').toLowerCase();
-        const canViewAll = ['superadmin', 'admin', 'yonetici'].includes(role);
+        const canViewAll = canViewAllStores(req.user);
         const query = {};
         if (!canViewAll) {
-            query.storeId = req.user?.storeId ?? null;
+            query.storeId = { $in: accessibleStoreIds(req.user) };
         } else if (req.query.storeId && req.query.storeId !== '0') {
             query.storeId = Number(req.query.storeId);
         }
@@ -1731,10 +1744,16 @@ router.get('/satisfaction', async (req, res) => {
 
 router.post('/satisfaction', async (req, res) => {
     try {
-        const role = (req.user?.role || '').toLowerCase();
-        const canViewAll = ['superadmin', 'admin', 'yonetici'].includes(role);
-        // Herkes yalnızca kendi mağazasına girer; yönetici belirli bir mağaza seçebilir
-        let storeId = canViewAll ? Number(req.body.storeId) : Number(req.user?.storeId);
+        const canViewAll = canViewAllStores(req.user);
+        // Yönetici herhangi bir mağaza seçebilir; diğerleri yalnızca erişimli mağazalarına girer
+        let storeId = Number(req.body.storeId);
+        const allowed = accessibleStoreIds(req.user);
+        if (!canViewAll) {
+            // Seçilen mağaza erişim kümesinde değilse birincil mağazaya düş
+            if (!storeId || !allowed.map(String).includes(String(storeId))) {
+                storeId = Number(req.user?.storeId) || allowed[0];
+            }
+        }
         if (!storeId || Number.isNaN(storeId)) {
             return res.status(400).json({ message: 'Geçerli bir mağaza bilgisi bulunamadı.' });
         }
@@ -1765,15 +1784,14 @@ router.post('/satisfaction', async (req, res) => {
 // --- Recent Activity Feed (mağaza bazlı son eklenen/çıkarılan/güncellenen) ---
 router.get('/system/recent-activity', async (req, res) => {
     try {
-        const role = (req.user?.role || '').toLowerCase();
-        const canViewAll = ['superadmin', 'admin', 'yonetici'].includes(role);
+        const canViewAll = canViewAllStores(req.user);
 
         // Sadece veri hareketlerini göster (LOGIN gibi oturum olaylarını hariç tut)
         const query = { module: { $in: ['REPAIR', 'INVENTORY', 'CUSTOMER', 'STORE_MANAGEMENT'] } };
 
         if (!canViewAll) {
-            // Yönetici olmayan kullanıcı sadece kendi mağazasını görür
-            query.storeId = req.user?.storeId ?? null;
+            // Yönetici olmayan kullanıcı yalnızca erişimli mağazalarını görür
+            query.storeId = { $in: accessibleStoreIds(req.user) };
         } else if (req.query.storeId && req.query.storeId !== '0') {
             // Yönetici belirli bir mağazaya filtrelemek isterse
             query.storeId = Number(req.query.storeId);

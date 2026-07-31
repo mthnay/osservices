@@ -11,7 +11,7 @@ import { isSuperAdmin, isYonetici, ROLE_DISPLAY_NAMES } from '../utils/permissio
 const Settings = () => {
     const {
         servicePoints, allServicePoints, addServicePoint, removeServicePoint, updateServicePoint,
-        users, addUser, updateUser, removeUser, currentUser,
+        users, addUser, updateUser, removeUser, currentUser, showToast,
         // eslint-disable-next-line no-unused-vars
         updateCustomer, removeCustomer,
         emailSettings, setEmailSettings,
@@ -456,7 +456,14 @@ const Settings = () => {
     };
 
     // --- User Form ---
-    const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'technician', storeId: 1 });
+    const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'technician', storeId: 1, storeIds: [] });
+
+    // Çoklu mağaza seçimi yardımcıları (add/edit ortak)
+    const toggleStoreId = (list, sid) => {
+        const s = Number(sid);
+        const arr = (list || []).map(Number);
+        return arr.includes(s) ? arr.filter(x => x !== s) : [...arr, s];
+    };
     
     // Role change handler for new users
     const handleNewUserRoleChange = (e) => {
@@ -485,12 +492,21 @@ const Settings = () => {
 
     const handleAddUser = () => {
         if (!newUser.name || !newUser.email || !newUser.password) return;
+        const isPrivileged = ['superadmin', 'admin', 'yonetici'].includes(newUser.role?.toLowerCase());
+        if (!isPrivileged && (!newUser.storeIds || newUser.storeIds.length === 0)) {
+            showToast('Lütfen kullanıcının erişebileceği en az bir mağaza seçin.', 'warning');
+            return;
+        }
+        const stores = (newUser.storeIds && newUser.storeIds.length > 0)
+            ? newUser.storeIds.map(Number)
+            : [parseInt(newUser.storeId)];
         addUser({
             ...newUser,
-            storeId: parseInt(newUser.storeId),
+            storeId: stores[0],          // Birincil mağaza
+            storeIds: stores,            // Erişimli mağazalar
             avatar: newUser.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2)
         });
-        setNewUser({ name: '', email: '', password: '', role: 'technician', storeId: 1 });
+        setNewUser({ name: '', email: '', password: '', role: 'technician', storeId: 1, storeIds: [] });
     };
 
     const handleUpdateUser = async () => {
@@ -502,9 +518,13 @@ const Settings = () => {
             const { _id, id, ...cleanProfile } = editUserData;
             const targetId = _id || id;
             
+            const stores = (editUserData.storeIds && editUserData.storeIds.length > 0)
+                ? editUserData.storeIds.map(Number)
+                : [Number(editUserData.storeId)];
             const finalData = {
                 ...cleanProfile,
-                storeId: Number(editUserData.storeId)
+                storeId: stores[0],
+                storeIds: stores
             };
 
             const success = await updateUser(targetId, finalData);
@@ -1302,7 +1322,7 @@ const Settings = () => {
                                     />
                                 </div>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-5 items-start">
                                 <div className="relative">
                                     <select
                                         className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-md focus:bg-white focus:border-blue-500 outline-none transition-all appearance-none font-medium text-gray-700"
@@ -1324,19 +1344,29 @@ const Settings = () => {
                                     <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 rotate-90 text-gray-400 pointer-events-none" size={16} />
                                 </div>
 
-                                <div className="relative">
-                                    <select
-                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-md focus:bg-white focus:border-blue-500 outline-none transition-all appearance-none font-medium text-gray-700"
-                                        value={newUser.storeId} onChange={e => setNewUser({ ...newUser, storeId: e.target.value })}
-                                    >
-                                        {allServicePoints.map(sp => (
-                                            <option key={sp.id} value={sp.id}>{sp.name}</option>
-                                        ))}
-                                    </select>
-                                    <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 rotate-90 text-gray-400 pointer-events-none" size={16} />
+                                <div className="border border-gray-200 rounded-md bg-gray-50 p-3 max-h-[132px] overflow-y-auto custom-scrollbar">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Erişilebilir Mağazalar</p>
+                                        <span className="text-[9px] font-bold text-blue-600">{(newUser.storeIds || []).length} seçili</span>
+                                    </div>
+                                    {['superadmin', 'admin', 'yonetici'].includes(newUser.role?.toLowerCase()) ? (
+                                        <p className="text-[11px] text-gray-500 font-medium py-1">Bu rol tüm mağazalara erişir (yetkili hesap).</p>
+                                    ) : (
+                                        <div className="space-y-1.5">
+                                            {allServicePoints.map(sp => {
+                                                const checked = (newUser.storeIds || []).map(String).includes(String(sp.id));
+                                                return (
+                                                    <label key={sp.id} className="flex items-center gap-2 cursor-pointer text-[12px] font-medium text-gray-700 hover:text-gray-900">
+                                                        <input type="checkbox" checked={checked} onChange={() => setNewUser({ ...newUser, storeIds: toggleStoreId(newUser.storeIds, sp.id) })} className="w-3.5 h-3.5 rounded border-gray-300 text-blue-600" />
+                                                        {sp.name}
+                                                    </label>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
                                 </div>
 
-                                <button onClick={handleAddUser} className="bg-gray-900 text-white px-6 py-3 rounded-md font-bold hover:bg-black transition-all shadow-lg hover:shadow-xl">Hesap Oluştur</button>
+                                <button onClick={handleAddUser} className="bg-gray-900 text-white px-6 py-3 rounded-md font-bold hover:bg-black transition-all shadow-lg hover:shadow-xl h-12">Hesap Oluştur</button>
                             </div>
                         </div>
 
@@ -1399,12 +1429,28 @@ const Settings = () => {
                                                                 ))
                                                             }
                                                         </select>
-                                                        <select className="w-full px-4 py-2 bg-white rounded-md border border-gray-200 outline-none font-semibold text-[10px] uppercase" value={editUserData.storeId} onChange={e => setEditUserData({ ...editUserData, storeId: Number(e.target.value) })}>
-                                                            <option value="0">GENEL MERKEZ</option>
-                                                            {allServicePoints.map(sp => (
-                                                                <option key={sp.id} value={sp.id}>{sp.name.toUpperCase()}</option>
-                                                            ))}
-                                                        </select>
+                                                        <div className="border border-gray-200 rounded-md bg-white p-2 max-h-[110px] overflow-y-auto custom-scrollbar">
+                                                            <div className="flex items-center justify-between mb-1">
+                                                                <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">Erişilebilir Mağazalar</p>
+                                                                <span className="text-[8px] font-bold text-indigo-600">{((editUserData.storeIds && editUserData.storeIds.length) ? editUserData.storeIds : [editUserData.storeId]).length} seçili</span>
+                                                            </div>
+                                                            {['superadmin', 'admin', 'yonetici'].includes(editUserData.role?.toLowerCase()) ? (
+                                                                <p className="text-[10px] text-gray-500 font-medium py-0.5">Tüm mağazalar (yetkili hesap)</p>
+                                                            ) : (
+                                                                <div className="space-y-1">
+                                                                    {allServicePoints.map(sp => {
+                                                                        const list = (editUserData.storeIds && editUserData.storeIds.length) ? editUserData.storeIds : [editUserData.storeId];
+                                                                        const checked = list.map(String).includes(String(sp.id));
+                                                                        return (
+                                                                            <label key={sp.id} className="flex items-center gap-1.5 cursor-pointer text-[10px] font-semibold text-gray-700 uppercase">
+                                                                                <input type="checkbox" checked={checked} onChange={() => setEditUserData({ ...editUserData, storeIds: toggleStoreId(list, sp.id) })} className="w-3 h-3 rounded border-gray-300 text-indigo-600" />
+                                                                                {sp.name}
+                                                                            </label>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </div>
                                                 <div className="flex items-center gap-2 pt-4 md:pt-0">
@@ -1426,9 +1472,19 @@ const Settings = () => {
                                                             }`}>
                                                                 {ROLE_DISPLAY_NAMES[u.role?.toLowerCase()] || u.role}
                                                             </span>
-                                                            <span className="text-[9px] font-semibold bg-gray-50 text-gray-500 px-2.5 py-1 rounded-lg border border-gray-100 uppercase tracking-wider">
-                                                                {store ? store.name : 'Genel Merkez'}
-                                                            </span>
+                                                            {(u.role?.toLowerCase() === 'superadmin' || u.role?.toLowerCase() === 'admin' || u.role?.toLowerCase() === 'yonetici') ? (
+                                                                <span className="text-[9px] font-semibold bg-blue-50 text-blue-600 px-2.5 py-1 rounded-lg border border-blue-100 uppercase tracking-wider">
+                                                                    Tüm Mağazalar
+                                                                </span>
+                                                            ) : (u.storeIds && u.storeIds.length > 1) ? (
+                                                                <span className="text-[9px] font-semibold bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-lg border border-indigo-100 uppercase tracking-wider" title={u.storeIds.map(sid => allServicePoints.find(sp => Number(sp.id) === Number(sid))?.name).filter(Boolean).join(', ')}>
+                                                                    {u.storeIds.length} Mağaza
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-[9px] font-semibold bg-gray-50 text-gray-500 px-2.5 py-1 rounded-lg border border-gray-100 uppercase tracking-wider">
+                                                                    {store ? store.name : 'Genel Merkez'}
+                                                                </span>
+                                                            )}
                                                         </div>
                                                     </div>
                                                     <p className="text-xs text-gray-400 font-bold mt-1 tracking-tight">{u.email}</p>
