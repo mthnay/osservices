@@ -235,6 +235,7 @@ export const AppProvider = ({ children }) => {
     const [announcements, setAnnouncements] = useState([]);
     const [tasks, setTasks] = useState([]);
     const [recentActivity, setRecentActivity] = useState([]);
+    const [satisfactionEntries, setSatisfactionEntries] = useState([]);
 
     const fetchStoreUpdates = async () => {
         if (!currentUser) return;
@@ -244,15 +245,21 @@ export const AppProvider = ({ children }) => {
                 queryParams = `?storeId=${currentUser.storeId}`;
             }
 
-            const [annRes, taskRes, actRes] = await Promise.all([
+            const [annRes, taskRes, actRes, satRes] = await Promise.all([
                 apiFetch(`${API_URL}/store-announcements${queryParams}`),
                 apiFetch(`${API_URL}/store-tasks${queryParams}`),
-                apiFetch(`${API_URL}/system/recent-activity?limit=30`)
+                apiFetch(`${API_URL}/system/recent-activity?limit=30`),
+                apiFetch(`${API_URL}/satisfaction`)
             ]);
 
             if (actRes.ok) {
                 const data = await actRes.json();
                 setRecentActivity(Array.isArray(data) ? data : []);
+            }
+
+            if (satRes.ok) {
+                const data = await satRes.json();
+                setSatisfactionEntries(Array.isArray(data) ? data : []);
             }
 
             if (annRes.ok) {
@@ -1076,6 +1083,32 @@ export const AppProvider = ({ children }) => {
         }
     };
 
+    // Günlük müşteri memnuniyeti verisi kaydet (mağaza + gün başına upsert)
+    const addSatisfactionEntry = async (entry) => {
+        try {
+            const res = await apiFetch(`${API_URL}/satisfaction`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(entry)
+            });
+            if (res.ok) {
+                const saved = await res.json();
+                setSatisfactionEntries(prev => {
+                    const rest = prev.filter(e => !(String(e.storeId) === String(saved.storeId) && e.date === saved.date));
+                    return [saved, ...rest];
+                });
+                return true;
+            }
+            const err = await res.json().catch(() => ({}));
+            showToast(err.message || 'Memnuniyet verisi kaydedilemedi.', 'error');
+            return false;
+        } catch (error) {
+            console.error('Error saving satisfaction entry:', error);
+            showToast('Bağlantı hatası.', 'error');
+            return false;
+        }
+    };
+
     // KBB iade edildiğinde ilgili mağazanın KBB ambarından düş
     const returnKbbStock = async (parts, returnCode = '') => {
         if (!parts || parts.length === 0) return true;
@@ -1400,7 +1433,7 @@ export const AppProvider = ({ children }) => {
             roles, addRole, updateRole, deleteRole,
             deviceModels, addDeviceModel, updateDeviceModel, removeDeviceModel,
             selectedStoreId, setSelectedStoreId, showToast, alerts: alerts.filter(a => !clearedAlertIds.includes(a.id)), checkSLA, sendWhatsApp, uploadMedia, clearAllAlerts,
-            recentActivity
+            recentActivity, satisfactionEntries, addSatisfactionEntry
         }}>
             {children}
             {toast.isVisible && <Toast key={toast.id} message={toast.message} type={toast.type} onClose={hideToast} />}

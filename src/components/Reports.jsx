@@ -1,19 +1,107 @@
 import React, { useState, useMemo } from 'react';
-import { 
-    BarChart2, Smile, Star, Users, Award, Calendar, 
-    ChevronDown, Download, Heart, MessageSquare, 
-    AlertTriangle, Clock, TrendingUp, DollarSign, 
-    PieChart, Wallet, ShoppingCart, ArrowUpRight, 
-    ArrowDownRight, MapPin, Briefcase
+import {
+    BarChart2, Smile, Star, Users, Award, Calendar,
+    ChevronDown, Download, Heart, MessageSquare,
+    AlertTriangle, Clock, TrendingUp, DollarSign,
+    PieChart, Wallet, ShoppingCart, ArrowUpRight,
+    ArrowDownRight, MapPin, Briefcase, Meh, Frown, Save, Store
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
+import { hasPermission } from '../utils/permissions';
+
+// Memnuniyet yüzdesine göre renk (>=90 yeşil, 80-90 sarı, <80 kırmızı)
+const getSatisfactionTheme = (pct) => {
+    if (pct === null || pct === undefined) return { text: 'text-gray-400', bg: 'bg-gray-50', border: 'border-gray-200', bar: 'bg-gray-300', label: '—' };
+    if (pct >= 90) return { text: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200', bar: 'bg-emerald-500', label: 'İYİ' };
+    if (pct >= 80) return { text: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200', bar: 'bg-amber-500', label: 'DİKKAT' };
+    return { text: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200', bar: 'bg-red-500', label: 'KRİTİK' };
+};
+
+const calcRate = (s, n, d) => {
+    const total = (Number(s) || 0) + (Number(n) || 0) + (Number(d) || 0);
+    if (total === 0) return null;
+    return Math.round(((Number(s) || 0) / total) * 100);
+};
 
 const Reports = () => {
     // eslint-disable-next-line no-unused-vars
-    const { repairs, allTechnicians, earnings, servicePoints, allRepairs } = useAppContext();
+    const { repairs, allTechnicians, earnings, servicePoints, allRepairs, currentUser, visibleServicePoints, satisfactionEntries, addSatisfactionEntry, showToast, selectedStoreId } = useAppContext();
     // eslint-disable-next-line no-unused-vars
     const [timeRange, setTimeRange] = useState('monthly');
-    const [activeTab, setActiveTab] = useState('performance'); // 'performance' or 'financial'
+    const [activeTab, setActiveTab] = useState('performance'); // 'performance' | 'financial' | 'satisfaction'
+
+    const canViewAllStores = hasPermission(currentUser, 'view_all_stores');
+    const todayKey = new Date().toISOString().slice(0, 10);
+
+    // Memnuniyet giriş formu
+    const [satForm, setSatForm] = useState({
+        storeId: (selectedStoreId && selectedStoreId !== 0) ? selectedStoreId : (currentUser?.storeId || ''),
+        date: todayKey,
+        satisfied: '',
+        neutral: '',
+        dissatisfied: ''
+    });
+    const [savingSat, setSavingSat] = useState(false);
+
+    const liveRate = calcRate(satForm.satisfied, satForm.neutral, satForm.dissatisfied);
+    const liveTheme = getSatisfactionTheme(liveRate);
+
+    const handleSaveSatisfaction = async () => {
+        const store = canViewAllStores ? satForm.storeId : (currentUser?.storeId || '');
+        if (!store || Number(store) === 0) {
+            showToast('Lütfen mağaza seçin.', 'warning');
+            return;
+        }
+        if (!satForm.date) {
+            showToast('Lütfen tarih seçin.', 'warning');
+            return;
+        }
+        const total = (Number(satForm.satisfied) || 0) + (Number(satForm.neutral) || 0) + (Number(satForm.dissatisfied) || 0);
+        if (total === 0) {
+            showToast('En az bir müşteri adedi girmelisiniz.', 'warning');
+            return;
+        }
+        setSavingSat(true);
+        const ok = await addSatisfactionEntry({
+            storeId: Number(store),
+            date: satForm.date,
+            satisfied: Number(satForm.satisfied) || 0,
+            neutral: Number(satForm.neutral) || 0,
+            dissatisfied: Number(satForm.dissatisfied) || 0
+        });
+        setSavingSat(false);
+        if (ok) {
+            showToast('Günlük memnuniyet verisi kaydedildi.', 'success');
+            setSatForm(f => ({ ...f, satisfied: '', neutral: '', dissatisfied: '' }));
+        }
+    };
+
+    // Memnuniyet özeti (dönem geneli + mağaza bazlı)
+    const satisfactionSummary = useMemo(() => {
+        const list = satisfactionEntries || [];
+        const totals = list.reduce((acc, e) => {
+            acc.s += e.satisfied || 0; acc.n += e.neutral || 0; acc.d += e.dissatisfied || 0;
+            return acc;
+        }, { s: 0, n: 0, d: 0 });
+        const overallRate = calcRate(totals.s, totals.n, totals.d);
+
+        // Mağaza bazlı ortalama
+        const byStore = {};
+        list.forEach(e => {
+            if (!byStore[e.storeId]) byStore[e.storeId] = { s: 0, n: 0, d: 0 };
+            byStore[e.storeId].s += e.satisfied || 0;
+            byStore[e.storeId].n += e.neutral || 0;
+            byStore[e.storeId].d += e.dissatisfied || 0;
+        });
+        const storeRates = Object.entries(byStore).map(([sid, t]) => ({
+            storeId: sid,
+            name: servicePoints.find(sp => String(sp.id) === String(sid))?.name || `Mağaza ${sid}`,
+            rate: calcRate(t.s, t.n, t.d),
+            total: t.s + t.n + t.d
+        })).sort((a, b) => (b.rate ?? -1) - (a.rate ?? -1));
+
+        return { totals, overallRate, storeRates };
+    }, [satisfactionEntries, servicePoints]);
 
     // --- FINANCIAL CALCULATIONS ---
     const financialStats = useMemo(() => {
@@ -105,11 +193,17 @@ const Reports = () => {
                         >
                             Performans
                         </button>
-                        <button 
+                        <button
                             onClick={() => setActiveTab('financial')}
                             className={`px-6 py-2 rounded-lg text-[11px] font-bold uppercase transition-all ${activeTab === 'financial' ? 'bg-white text-[#1d1d1f] shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
                         >
                             Finansal
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('satisfaction')}
+                            className={`px-6 py-2 rounded-lg text-[11px] font-bold uppercase transition-all ${activeTab === 'satisfaction' ? 'bg-white text-[#1d1d1f] shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                        >
+                            Memnuniyet
                         </button>
                     </div>
                     <button className="h-10 px-4 bg-[#1d1d1f] text-white rounded-xl text-[11px] font-bold uppercase tracking-wider hover:bg-black transition-all flex items-center gap-2 shadow-lg shadow-black/10">
@@ -118,7 +212,7 @@ const Reports = () => {
                 </div>
             </div>
 
-            {activeTab === 'performance' ? (
+            {activeTab === 'performance' && (
                 <>
                     {/* Performance Summary */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -181,7 +275,9 @@ const Reports = () => {
                         </div>
                     </div>
                 </>
-            ) : (
+            )}
+
+            {activeTab === 'financial' && (
                 <>
                     {/* Financial Summary */}
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -280,6 +376,187 @@ const Reports = () => {
                                     </div>
                                 </div>
                             ))}
+                        </div>
+                    </div>
+                </>
+            )}
+
+            {activeTab === 'satisfaction' && (
+                <>
+                    <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-8">
+                        {/* Veri Girişi */}
+                        <div className="bg-white rounded-[32px] border border-gray-200 p-8 shadow-sm">
+                            <div className="flex items-center gap-4 mb-8">
+                                <div className="p-3 bg-[#f5f5f7] rounded-xl text-[#0071e3]"><Smile size={24} /></div>
+                                <div>
+                                    <h3 className="text-lg font-bold text-[#1d1d1f]">Günlük Memnuniyet Girişi</h3>
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Kendi mağazanızın günlük verisi</p>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                                <div>
+                                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Mağaza</label>
+                                    {canViewAllStores ? (
+                                        <select
+                                            className="w-full px-4 py-3 bg-[#f5f5f7] border border-transparent rounded-xl text-sm font-semibold text-[#1d1d1f] focus:bg-white focus:ring-2 focus:ring-[#0071e3]/10 focus:border-[#0071e3] outline-none transition-all appearance-none"
+                                            value={satForm.storeId}
+                                            onChange={(e) => setSatForm({ ...satForm, storeId: e.target.value })}
+                                        >
+                                            <option value="">Mağaza Seçiniz...</option>
+                                            {visibleServicePoints.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                        </select>
+                                    ) : (
+                                        <div className="w-full px-4 py-3 bg-[#f5f5f7] rounded-xl text-sm font-bold text-[#1d1d1f] flex items-center gap-2">
+                                            <Store size={14} className="text-gray-400" />
+                                            {servicePoints.find(s => String(s.id) === String(currentUser?.storeId))?.name || 'Mağazanız'}
+                                        </div>
+                                    )}
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Tarih</label>
+                                    <input
+                                        type="date" max={todayKey}
+                                        className="w-full px-4 py-3 bg-[#f5f5f7] border border-transparent rounded-xl text-sm font-semibold text-[#1d1d1f] focus:bg-white focus:ring-2 focus:ring-[#0071e3]/10 focus:border-[#0071e3] outline-none transition-all"
+                                        value={satForm.date}
+                                        onChange={(e) => setSatForm({ ...satForm, date: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-4 mb-6">
+                                {[
+                                    { key: 'satisfied', label: 'Memnun', icon: Smile, color: 'text-emerald-600', ring: 'focus:ring-emerald-500/20 focus:border-emerald-500' },
+                                    { key: 'neutral', label: 'Nötr', icon: Meh, color: 'text-amber-600', ring: 'focus:ring-amber-500/20 focus:border-amber-500' },
+                                    { key: 'dissatisfied', label: 'Memnun Değil', icon: Frown, color: 'text-red-600', ring: 'focus:ring-red-500/20 focus:border-red-500' }
+                                ].map(f => (
+                                    <div key={f.key} className="bg-[#f5f5f7] rounded-2xl p-4 border border-gray-100">
+                                        <div className={`flex items-center gap-1.5 mb-2 ${f.color}`}>
+                                            <f.icon size={16} />
+                                            <span className="text-[10px] font-bold uppercase tracking-tight">{f.label}</span>
+                                        </div>
+                                        <input
+                                            type="number" min="0" placeholder="0"
+                                            className={`w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-2xl font-black text-[#1d1d1f] outline-none transition-all ${f.ring}`}
+                                            value={satForm[f.key]}
+                                            onChange={(e) => setSatForm({ ...satForm, [f.key]: e.target.value })}
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className={`flex items-center justify-between p-4 rounded-2xl border ${liveTheme.bg} ${liveTheme.border} mb-6`}>
+                                <div className="flex items-center gap-3">
+                                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Hesaplanan Memnuniyet</span>
+                                    {liveRate !== null && <span className={`text-[9px] font-black px-2 py-0.5 rounded uppercase ${liveTheme.bg} ${liveTheme.text} border ${liveTheme.border}`}>{liveTheme.label}</span>}
+                                </div>
+                                <span className={`text-3xl font-black ${liveTheme.text}`}>{liveRate !== null ? `%${liveRate}` : '—'}</span>
+                            </div>
+
+                            <button
+                                onClick={handleSaveSatisfaction}
+                                disabled={savingSat}
+                                className="w-full bg-[#0071e3] hover:bg-[#0077ed] text-white font-bold py-3.5 rounded-2xl shadow-lg shadow-[#0071e3]/20 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
+                            >
+                                <Save size={18} /> {savingSat ? 'Kaydediliyor...' : 'Günlük Veriyi Kaydet'}
+                            </button>
+                            <p className="text-[10px] text-gray-400 font-medium mt-3 text-center">Aynı gün için tekrar kayıt, o günün verisini günceller. Eşik: %90 altı sarı, %80 altı kırmızı.</p>
+                        </div>
+
+                        {/* Dönem Özeti */}
+                        <div className="flex flex-col gap-6">
+                            <div className={`rounded-[32px] p-8 border shadow-sm ${getSatisfactionTheme(satisfactionSummary.overallRate).bg} ${getSatisfactionTheme(satisfactionSummary.overallRate).border}`}>
+                                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">
+                                    {canViewAllStores ? 'Genel Memnuniyet (Tüm Kayıtlar)' : 'Mağaza Memnuniyeti (Dönem)'}
+                                </p>
+                                <div className="flex items-baseline gap-3">
+                                    <h3 className={`text-5xl font-black ${getSatisfactionTheme(satisfactionSummary.overallRate).text}`}>
+                                        {satisfactionSummary.overallRate !== null ? `%${satisfactionSummary.overallRate}` : '—'}
+                                    </h3>
+                                    <span className={`text-[10px] font-black px-2 py-1 rounded uppercase border ${getSatisfactionTheme(satisfactionSummary.overallRate).text} ${getSatisfactionTheme(satisfactionSummary.overallRate).border}`}>
+                                        {getSatisfactionTheme(satisfactionSummary.overallRate).label}
+                                    </span>
+                                </div>
+                                <div className="mt-6 grid grid-cols-3 gap-3 text-center">
+                                    <div><p className="text-lg font-black text-emerald-600">{satisfactionSummary.totals.s}</p><p className="text-[9px] font-bold text-gray-400 uppercase">Memnun</p></div>
+                                    <div><p className="text-lg font-black text-amber-600">{satisfactionSummary.totals.n}</p><p className="text-[9px] font-bold text-gray-400 uppercase">Nötr</p></div>
+                                    <div><p className="text-lg font-black text-red-600">{satisfactionSummary.totals.d}</p><p className="text-[9px] font-bold text-gray-400 uppercase">Memnun Değil</p></div>
+                                </div>
+                            </div>
+
+                            {canViewAllStores && satisfactionSummary.storeRates.length > 0 && (
+                                <div className="bg-white rounded-[32px] border border-gray-200 p-6 shadow-sm">
+                                    <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-5">Mağaza Bazlı Memnuniyet</h3>
+                                    <div className="space-y-4">
+                                        {satisfactionSummary.storeRates.map(sr => {
+                                            const t = getSatisfactionTheme(sr.rate);
+                                            return (
+                                                <div key={sr.storeId} className="space-y-1.5">
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-xs font-bold text-[#1d1d1f] flex items-center gap-1.5"><MapPin size={11} className="text-gray-400" /> {sr.name}</span>
+                                                        <span className={`text-xs font-black ${t.text}`}>{sr.rate !== null ? `%${sr.rate}` : '—'}</span>
+                                                    </div>
+                                                    <div className="h-2 bg-[#f5f5f7] rounded-full overflow-hidden">
+                                                        <div className={`h-full ${t.bar} rounded-full transition-all`} style={{ width: `${sr.rate || 0}%` }}></div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Geçmiş Kayıtlar */}
+                    <div className="bg-white rounded-[32px] border border-gray-200 shadow-sm overflow-hidden">
+                        <div className="px-8 py-6 border-b border-gray-50 flex items-center justify-between">
+                            <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest">Günlük Memnuniyet Geçmişi</h3>
+                            <span className="text-[10px] font-bold text-gray-400">{(satisfactionEntries || []).length} kayıt</span>
+                        </div>
+                        <div className="overflow-x-auto max-h-[420px] overflow-y-auto custom-scrollbar">
+                            <table className="w-full text-left border-collapse">
+                                <thead className="sticky top-0 z-10">
+                                    <tr className="bg-[#f5f5f7] text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                                        <th className="px-6 py-4">Tarih</th>
+                                        {canViewAllStores && <th className="px-6 py-4">Mağaza</th>}
+                                        <th className="px-6 py-4 text-center">Memnun</th>
+                                        <th className="px-6 py-4 text-center">Nötr</th>
+                                        <th className="px-6 py-4 text-center">Memnun Değil</th>
+                                        <th className="px-6 py-4 text-center">Toplam</th>
+                                        <th className="px-6 py-4 text-right">Memnuniyet</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-50">
+                                    {(satisfactionEntries || []).map((e) => {
+                                        const total = (e.satisfied || 0) + (e.neutral || 0) + (e.dissatisfied || 0);
+                                        const rate = calcRate(e.satisfied, e.neutral, e.dissatisfied);
+                                        const t = getSatisfactionTheme(rate);
+                                        return (
+                                            <tr key={e._id || `${e.storeId}-${e.date}`} className="hover:bg-gray-50/60 transition-colors">
+                                                <td className="px-6 py-4 text-sm font-bold text-[#1d1d1f]">{new Date(e.date).toLocaleDateString('tr-TR')}</td>
+                                                {canViewAllStores && <td className="px-6 py-4 text-xs font-semibold text-gray-500">{servicePoints.find(s => String(s.id) === String(e.storeId))?.name || `Mağaza ${e.storeId}`}</td>}
+                                                <td className="px-6 py-4 text-center text-sm font-bold text-emerald-600">{e.satisfied || 0}</td>
+                                                <td className="px-6 py-4 text-center text-sm font-bold text-amber-600">{e.neutral || 0}</td>
+                                                <td className="px-6 py-4 text-center text-sm font-bold text-red-600">{e.dissatisfied || 0}</td>
+                                                <td className="px-6 py-4 text-center text-sm font-black text-[#1d1d1f]">{total}</td>
+                                                <td className="px-6 py-4 text-right">
+                                                    <span className={`inline-flex items-center gap-1.5 text-xs font-black px-3 py-1 rounded-lg border ${t.bg} ${t.text} ${t.border}`}>
+                                                        {rate !== null ? `%${rate}` : '—'}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                            {(satisfactionEntries || []).length === 0 && (
+                                <div className="py-16 text-center">
+                                    <Smile className="mx-auto text-gray-200 mb-3" size={40} />
+                                    <p className="text-sm font-bold text-[#1d1d1f]">Henüz memnuniyet verisi yok</p>
+                                    <p className="text-xs text-gray-500 mt-1">Yukarıdan günlük veriyi girerek başlayın.</p>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </>

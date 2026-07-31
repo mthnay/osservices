@@ -41,7 +41,7 @@ const StockManagement = () => {
     // eslint-disable-next-line no-unused-vars
     const [transferPart, setTransferPart] = useState(null);
     
-    const [newPart, setNewPart] = useState({ name: '', partNumber: '', kgbSerial: '', category: 'iPhone', storeId: (selectedStoreId && selectedStoreId !== 0) ? selectedStoreId : (currentUser?.storeId || ''), quantity: 1, minLevel: 5, warehouseType: 'KGB' });
+    const [newPart, setNewPart] = useState({ name: '', partNumber: '', kgbSerial: '', category: 'iPhone', storeId: (selectedStoreId && selectedStoreId !== 0) ? selectedStoreId : (currentUser?.storeId || ''), quantity: 1, minLevel: 5, price: 0, location: '', warehouseType: 'KGB' });
 
     // Detailed Part Modal editing and search states
     const [isEditingDetails, setIsEditingDetails] = useState(false);
@@ -735,53 +735,120 @@ const StockManagement = () => {
             )}
 
             {/* Selected Stock Detail Modal (KBB) removed and unified */}
-            {/* Add Part Modal */}
-            {showAddModal && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[110] flex items-center justify-center p-4">
-                    <div className="bg-white rounded-[28px] w-full max-w-lg shadow-2xl animate-scale-up overflow-hidden">
-                        <div className="p-8 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+            {/* Add Part Modal — GSX */}
+            {showAddModal && (() => {
+                const kgbCount = newPart.kgbSerial ? newPart.kgbSerial.split(/[\n,]+/).map(s => s.trim()).filter(Boolean).length : 0;
+                const effectiveQty = kgbCount > 0 ? kgbCount : 1;
+                const storeName = visibleServicePoints.find(s => String(s.id) === String(newPart.storeId))?.name;
+                const inputCls = "w-full px-4 py-3 bg-[#f5f5f7] border border-transparent rounded-xl text-sm font-semibold text-[#1d1d1f] focus:bg-white focus:ring-2 focus:ring-[#0071e3]/10 focus:border-[#0071e3] outline-none transition-all";
+                const labelCls = "block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1";
+                const handleSaveNewPart = async () => {
+                    if (!newPart.name || !newPart.partNumber) {
+                        showToast('Lütfen Tanım ve Parça Kodu alanlarını doldurun', 'warning');
+                        return;
+                    }
+                    if (!newPart.storeId || Number(newPart.storeId) === 0) {
+                        showToast('Lütfen parçanın ekleneceği mağaza ambarını seçin', 'warning');
+                        return;
+                    }
+                    const serials = newPart.kgbSerial
+                        ? newPart.kgbSerial.split(/[\n,]+/).map(s => s.trim().toUpperCase()).filter(Boolean)
+                        : [];
+                    const partToSave = {
+                        ...newPart,
+                        storeId: Number(newPart.storeId),
+                        price: Number(newPart.price) || 0,
+                        minLevel: Number(newPart.minLevel) || 0,
+                        kgbSerials: serials,
+                        quantity: serials.length > 0 ? serials.length : 1
+                    };
+                    const success = await addInventoryItem(partToSave);
+                    if (success) {
+                        showToast('Yeni parça başarıyla eklendi', 'success');
+                        setShowAddModal(false);
+                        setNewPart({ name: '', partNumber: '', kgbSerial: '', category: 'iPhone', storeId: (selectedStoreId && selectedStoreId !== 0) ? selectedStoreId : (currentUser?.storeId || ''), quantity: 1, minLevel: 5, price: 0, location: '', warehouseType: 'KGB' });
+                    }
+                };
+
+                return (
+                <div className="fixed inset-0 bg-[#1d1d1f]/60 backdrop-blur-md z-[110] flex items-center justify-center p-4">
+                    <div className="bg-white rounded-[24px] w-full max-w-3xl shadow-2xl animate-scale-up overflow-hidden flex flex-col max-h-[92vh]">
+                        {/* Header */}
+                        <div className="px-8 py-6 border-b border-gray-100 flex items-center justify-between bg-white shrink-0">
                             <div className="flex items-center gap-4">
                                 <div className="w-12 h-12 bg-[#0071e3] rounded-2xl flex items-center justify-center shadow-lg shadow-[#0071e3]/20">
                                     <Plus size={24} className="text-white" />
                                 </div>
                                 <div>
+                                    <nav className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">
+                                        <span>Envanter</span>
+                                        <ChevronRight size={10} />
+                                        <span className="text-[#0071e3]">KGB · Yeni Parça</span>
+                                    </nav>
                                     <h3 className="text-xl font-bold text-[#1d1d1f] tracking-tight">Yeni Parça Kaydı</h3>
-                                    <p className="text-sm text-gray-500 font-medium">Envantere yeni ürün ekleyin.</p>
                                 </div>
                             </div>
-                            <button onClick={() => setShowAddModal(false)} className="w-10 h-10 flex items-center justify-center hover:bg-gray-200 rounded-full transition-all">
-                                <X size={20} className="text-gray-400" />
+                            <button onClick={() => setShowAddModal(false)} className="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-[#1d1d1f] hover:bg-gray-100 rounded-full transition-all">
+                                <X size={20} />
                             </button>
                         </div>
-                        
-                        <div className="p-8 space-y-6">
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2 ml-1">Parça Tanımı (Açıklama)</label>
-                                    <input 
-                                        type="text" 
-                                        className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#0071e3]/10 focus:border-[#0071e3] transition-all outline-none font-medium"
-                                        placeholder="Örn: iPhone 13 Pro Ekran"
-                                        value={newPart.name}
-                                        onChange={(e) => setNewPart({...newPart, name: e.target.value})}
-                                    />
-                                </div>
-                                
-                                <div className="grid grid-cols-2 gap-4">
+
+                        {/* Body */}
+                        <div className="p-8 space-y-8 overflow-y-auto custom-scrollbar">
+                            {/* Bölüm 1: Parça Bilgileri */}
+                            <div>
+                                <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                    <Package size={13} className="text-[#0071e3]" /> Parça Bilgileri
+                                </h4>
+                                <div className="space-y-4">
                                     <div>
-                                        <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2 ml-1">Parça Kodu (P/N)</label>
-                                        <input 
-                                            type="text" 
-                                            className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#0071e3]/10 focus:border-[#0071e3] transition-all outline-none font-mono font-bold"
-                                            placeholder="661-XXXXX"
-                                            value={newPart.partNumber}
-                                            onChange={(e) => setNewPart({...newPart, partNumber: e.target.value})}
-                                        />
+                                        <label className={labelCls}>Parça Tanımı (Açıklama)</label>
+                                        <input type="text" className={inputCls} placeholder="Örn: iPhone 13 Pro Ekran"
+                                            value={newPart.name} onChange={(e) => setNewPart({...newPart, name: e.target.value})} />
                                     </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className={labelCls}>Parça Kodu (P/N)</label>
+                                            <input type="text" className={`${inputCls} font-mono`} placeholder="661-XXXXX"
+                                                value={newPart.partNumber} onChange={(e) => setNewPart({...newPart, partNumber: e.target.value})} />
+                                        </div>
+                                        <div>
+                                            <label className={labelCls}>Kategori</label>
+                                            <select className={`${inputCls} appearance-none`} value={newPart.category}
+                                                onChange={(e) => setNewPart({...newPart, category: e.target.value})}>
+                                                <option value="iPhone">iPhone</option>
+                                                <option value="iPad">iPad</option>
+                                                <option value="Mac">Mac</option>
+                                                <option value="Watch">Watch</option>
+                                                <option value="Aksesuar">Aksesuar</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className={labelCls}>Birim Fiyat (₺)</label>
+                                            <input type="number" min="0" className={inputCls} placeholder="0"
+                                                value={newPart.price} onChange={(e) => setNewPart({...newPart, price: e.target.value})} />
+                                        </div>
+                                        <div>
+                                            <label className={labelCls}>Raf / Konum</label>
+                                            <input type="text" className={inputCls} placeholder="Örn: A-3 Rafı"
+                                                value={newPart.location} onChange={(e) => setNewPart({...newPart, location: e.target.value})} />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Bölüm 2: Ambar & Stok */}
+                            <div className="pt-2 border-t border-gray-50">
+                                <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                    <Box size={13} className="text-[#0071e3]" /> Mağaza Ambarı & Stok
+                                </h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2 ml-1">Mağaza Ambarı</label>
+                                        <label className={labelCls}>Mağaza Ambarı <span className="text-red-400">*</span></label>
                                         <select
-                                            className={`w-full p-4 bg-gray-50 border rounded-xl focus:ring-2 focus:ring-blue-500/20 outline-none font-medium appearance-none ${!newPart.storeId ? 'border-red-300 text-red-500' : 'border-gray-200'}`}
+                                            className={`${inputCls} appearance-none ${!newPart.storeId ? 'ring-2 ring-red-200 text-red-500' : ''}`}
                                             value={newPart.storeId}
                                             onChange={(e) => setNewPart({...newPart, storeId: e.target.value})}
                                         >
@@ -791,96 +858,56 @@ const StockManagement = () => {
                                             ))}
                                         </select>
                                     </div>
+                                    <div>
+                                        <label className={labelCls}>Kritik Stok Seviyesi</label>
+                                        <input type="number" min="0" className={inputCls}
+                                            value={newPart.minLevel} onChange={(e) => setNewPart({...newPart, minLevel: parseInt(e.target.value) || 0})} />
+                                    </div>
                                 </div>
 
-                                <div>
-                                    <div className="flex justify-between items-center mb-2">
-                                        <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest ml-1">KGB Seri Numaraları</label>
-                                        <span className="text-[10px] text-blue-500 font-bold bg-blue-50 px-2 py-0.5 rounded-full">
-                                            {newPart.kgbSerial ? newPart.kgbSerial.split(/[\n,]+/).map(s => s.trim()).filter(Boolean).length : 0} adet
-                                        </span>
+                                <div className="mt-4">
+                                    <div className="flex justify-between items-center mb-1.5">
+                                        <label className={`${labelCls} mb-0`}>KGB Seri Numaraları</label>
+                                        <span className="text-[10px] text-[#0071e3] font-bold bg-blue-50 px-2 py-0.5 rounded-full">{kgbCount} adet</span>
                                     </div>
-                                    <textarea 
-                                        rows="2"
-                                        className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#0071e3]/10 focus:border-[#0071e3] transition-all outline-none font-mono font-bold resize-none"
+                                    <textarea rows="3" className={`${inputCls} font-mono resize-none`}
                                         placeholder="Her satıra bir adet veya virgülle ayırarak girin (Örn: KGB123, KGB456)"
                                         value={newPart.kgbSerial}
                                         onChange={(e) => {
                                             const val = e.target.value;
                                             const count = val.split(/[\n,]+/).map(s => s.trim()).filter(Boolean).length;
-                                            setNewPart({
-                                                ...newPart,
-                                                kgbSerial: val,
-                                                quantity: Math.max(1, count)
-                                            });
+                                            setNewPart({ ...newPart, kgbSerial: val, quantity: Math.max(1, count) });
                                         }}
                                     />
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2 ml-1">Kategori</label>
-                                        <select 
-                                            className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl outline-none font-medium appearance-none"
-                                            value={newPart.category}
-                                            onChange={(e) => setNewPart({...newPart, category: e.target.value})}
-                                        >
-                                            <option value="iPhone">iPhone</option>
-                                            <option value="iPad">iPad</option>
-                                            <option value="Mac">Mac</option>
-                                            <option value="Watch">Watch</option>
-                                            <option value="Aksesuar">Aksesuar</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2 ml-1">Kritik Seviye</label>
-                                        <input 
-                                            type="number" 
-                                            className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl outline-none font-bold"
-                                            value={newPart.minLevel}
-                                            onChange={(e) => setNewPart({...newPart, minLevel: parseInt(e.target.value) || 0})}
-                                        />
-                                    </div>
+                                    <p className="text-[10px] text-gray-400 font-medium mt-1.5 ml-1">Seri no girilirse stok adedi otomatik hesaplanır; boş bırakılırsa 1 adet eklenir.</p>
                                 </div>
                             </div>
+                        </div>
 
-                            <button 
-                                onClick={async () => {
-                                    if (!newPart.name || !newPart.partNumber) {
-                                        showToast('Lütfen Tanım ve Kod alanlarını doldurun', 'warning');
-                                        return;
-                                    }
-                                    if (!newPart.storeId || Number(newPart.storeId) === 0) {
-                                        showToast('Lütfen parçanın ekleneceği mağaza ambarını seçin', 'warning');
-                                        return;
-                                    }
-
-                                    const serials = newPart.kgbSerial
-                                        ? newPart.kgbSerial.split(/[\n,]+/).map(s => s.trim().toUpperCase()).filter(Boolean)
-                                        : [];
-                                    const qty = serials.length > 0 ? serials.length : 1;
-
-                                    const partToSave = {
-                                        ...newPart,
-                                        storeId: Number(newPart.storeId),
-                                        kgbSerials: serials,
-                                        quantity: qty
-                                    };
-                                    const success = await addInventoryItem(partToSave);
-                                    if (success) {
-                                        showToast('Yeni parça başarıyla eklendi', 'success');
-                                        setShowAddModal(false);
-                                        setNewPart({ name: '', partNumber: '', kgbSerial: '', category: 'iPhone', storeId: (selectedStoreId && selectedStoreId !== 0) ? selectedStoreId : (currentUser?.storeId || ''), quantity: 1, minLevel: 5, warehouseType: 'KGB' });
-                                    }
-                                }}
-                                className="w-full bg-[#0071e3] hover:bg-[#0077ed] text-white font-bold py-4 rounded-2xl shadow-xl shadow-[#0071e3]/20 transition-all active:scale-95 flex items-center justify-center gap-2"
-                            >
-                                <CheckCircle size={20} /> Kaydı Tamamla
-                            </button>
+                        {/* Footer */}
+                        <div className="px-8 py-5 bg-[#f5f5f7] border-t border-gray-100 flex items-center justify-between shrink-0">
+                            <div className="flex items-center gap-4 text-sm">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Eklenecek</span>
+                                    <span className="text-lg font-bold text-[#1d1d1f]">{effectiveQty} adet</span>
+                                </div>
+                                {storeName && (
+                                    <span className="text-[11px] font-bold text-[#0071e3] bg-blue-50 border border-blue-100 px-2.5 py-1 rounded-lg flex items-center gap-1">
+                                        <Store size={11} /> {storeName}
+                                    </span>
+                                )}
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <button onClick={() => setShowAddModal(false)} className="px-6 py-3 bg-white text-gray-600 font-bold text-sm rounded-xl border border-gray-200 hover:bg-gray-50 transition-all">Vazgeç</button>
+                                <button onClick={handleSaveNewPart} className="px-8 py-3 bg-[#0071e3] hover:bg-[#0077ed] text-white font-bold text-sm rounded-xl shadow-lg shadow-[#0071e3]/20 transition-all active:scale-95 flex items-center gap-2">
+                                    <CheckCircle size={18} /> Kaydı Tamamla
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
-            )}
+                );
+            })()}
 
             {/* Part Detail Modal */}
             {selectedPartDetails && (

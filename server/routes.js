@@ -14,6 +14,7 @@ import Earning from './models/Earning.js';
 import Notification from './models/Notification.js';
 import Role from './models/Role.js';
 import AuditLog from './models/AuditLog.js';
+import Satisfaction from './models/Satisfaction.js';
 import StoreAnnouncement from './models/StoreAnnouncement.js';
 import StoreTask from './models/StoreTask.js';
 import StoreShift from './models/StoreShift.js';
@@ -1700,6 +1701,62 @@ router.delete('/store-shifts/:id', requireRole(['superadmin', 'storemanager']), 
         await shift.deleteOne();
         await createLog(req, 'DELETE_SHIFT', 'STORE_MANAGEMENT', `Vardiya silindi: ${shift.userName} - ${shift.shiftType}`);
         res.json({ success: true, message: 'Vardiya silindi.' });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// --- Müşteri Memnuniyeti (günlük, mağaza bazlı) ---
+router.get('/satisfaction', async (req, res) => {
+    try {
+        const role = (req.user?.role || '').toLowerCase();
+        const canViewAll = ['superadmin', 'admin', 'yonetici'].includes(role);
+        const query = {};
+        if (!canViewAll) {
+            query.storeId = req.user?.storeId ?? null;
+        } else if (req.query.storeId && req.query.storeId !== '0') {
+            query.storeId = Number(req.query.storeId);
+        }
+        if (req.query.from || req.query.to) {
+            query.date = {};
+            if (req.query.from) query.date.$gte = req.query.from;
+            if (req.query.to) query.date.$lte = req.query.to;
+        }
+        const entries = await Satisfaction.find(query).sort({ date: -1 }).limit(500).lean();
+        res.json(entries);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+router.post('/satisfaction', async (req, res) => {
+    try {
+        const role = (req.user?.role || '').toLowerCase();
+        const canViewAll = ['superadmin', 'admin', 'yonetici'].includes(role);
+        // Herkes yalnızca kendi mağazasına girer; yönetici belirli bir mağaza seçebilir
+        let storeId = canViewAll ? Number(req.body.storeId) : Number(req.user?.storeId);
+        if (!storeId || Number.isNaN(storeId)) {
+            return res.status(400).json({ message: 'Geçerli bir mağaza bilgisi bulunamadı.' });
+        }
+        const date = req.body.date;
+        if (!date) {
+            return res.status(400).json({ message: 'Tarih (date) zorunludur.' });
+        }
+        const doc = await Satisfaction.findOneAndUpdate(
+            { storeId, date },
+            {
+                storeId,
+                date,
+                satisfied: Math.max(0, Number(req.body.satisfied) || 0),
+                neutral: Math.max(0, Number(req.body.neutral) || 0),
+                dissatisfied: Math.max(0, Number(req.body.dissatisfied) || 0),
+                createdBy: req.user?.name || 'Sistem',
+                userId: req.user?.id
+            },
+            { new: true, upsert: true, setDefaultsOnInsert: true }
+        );
+        await createLog(req, 'SET_SATISFACTION', 'STORE_MANAGEMENT', `Günlük memnuniyet verisi girildi (${date}): Memnun ${doc.satisfied} / Nötr ${doc.neutral} / Memnun değil ${doc.dissatisfied}`, storeId);
+        res.json(doc);
     } catch (err) {
         res.status(500).json({ message: err.message });
     }
