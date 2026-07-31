@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 // eslint-disable-next-line no-unused-vars
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
@@ -6,7 +5,7 @@ import {
     Tag, Recycle, Box, Clock, AlertCircle, Truck, CheckCircle, 
     Trash2, Edit3, X, ChevronRight, ArrowRightLeft, ChevronDown, 
     Check, AlertTriangle, Layers, MapPin, MoreHorizontal, CreditCard, Store,
-    Smartphone, Laptop, Tablet, Cpu, History, Calendar, ExternalLink
+    Smartphone, Laptop, Tablet, Cpu, History, Calendar, ExternalLink, Watch
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { hasPermission, ROLES } from '../utils/permissions';
@@ -42,7 +41,7 @@ const StockManagement = () => {
     // eslint-disable-next-line no-unused-vars
     const [transferPart, setTransferPart] = useState(null);
     
-    const [newPart, setNewPart] = useState({ name: '', partNumber: '', kgbSerial: '', category: 'iPhone', storeId: selectedStoreId || (currentUser?.storeId || ''), quantity: 1, minLevel: 5, warehouseType: 'KGB' });
+    const [newPart, setNewPart] = useState({ name: '', partNumber: '', kgbSerial: '', category: 'iPhone', storeId: (selectedStoreId && selectedStoreId !== 0) ? selectedStoreId : (currentUser?.storeId || ''), quantity: 1, minLevel: 5, warehouseType: 'KGB' });
 
     // Detailed Part Modal editing and search states
     const [isEditingDetails, setIsEditingDetails] = useState(false);
@@ -256,22 +255,26 @@ const StockManagement = () => {
 
     return (
         <div className="max-w-[1400px] mx-auto space-y-6 pb-24 animate-fade-in font-sans">
-            {/* Unified Top Header */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-gray-200/60 mt-4 px-2">
+            {/* GSX Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mt-4 px-1">
                 <div>
-                    <h1 className="text-[34px] font-semibold text-gray-900 tracking-tight leading-none mb-2">Stok Yönetimi</h1>
-                    <p className="text-[15px] text-gray-500">Genel envanter ve Apple iade süreçlerini tek ekrandan yönetin.</p>
+                    <nav className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
+                        <span>Envanter Yönetimi</span>
+                        <ChevronRight size={10} />
+                        <span className="text-[#0071e3]">{activeMainTab === 'inventory' ? `${warehouseType} Ambarı` : 'Apple İade / KBB'}</span>
+                    </nav>
+                    <h1 className="text-3xl font-bold text-[#1d1d1f] tracking-tight">Stok Yönetimi</h1>
                 </div>
-                
-                <div className="flex flex-col md:flex-row items-center gap-4">
-                    <div className="flex bg-gray-100/80 p-1 rounded-xl border border-gray-200/50 backdrop-blur-md">
-                        <button 
+
+                <div className="flex flex-col md:flex-row items-center gap-3">
+                    <div className="flex bg-[#f5f5f7] p-1 rounded-xl border border-gray-200/50">
+                        <button
                             onClick={() => { setActiveMainTab('inventory'); setSearchTerm(''); }}
-                            className={`px-6 py-2 rounded-lg text-[13px] font-bold transition-all duration-200 flex items-center gap-2 ${activeMainTab === 'inventory' ? 'bg-white text-blue-600 shadow-sm ring-1 ring-black/5' : 'text-gray-500 hover:text-gray-700'}`}
+                            className={`px-6 py-2 rounded-lg text-[13px] font-bold transition-all duration-200 flex items-center gap-2 ${activeMainTab === 'inventory' ? 'bg-white text-[#0071e3] shadow-sm ring-1 ring-black/5' : 'text-gray-500 hover:text-gray-700'}`}
                         >
                             <Package size={16} /> Genel Stok
                         </button>
-                        <button 
+                        <button
                             onClick={() => { setActiveMainTab('kbb'); setSearchTerm(''); }}
                             className={`px-6 py-2 rounded-lg text-[13px] font-bold transition-all duration-200 flex items-center gap-2 ${activeMainTab === 'kbb' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5' : 'text-gray-500 hover:text-gray-700'}`}
                         >
@@ -281,12 +284,12 @@ const StockManagement = () => {
 
                     {hasPermission(currentUser, 'view_all_stores') && (
                         <div className="relative">
-                            <button 
+                            <button
                                 onClick={() => setShowStoreDropdown(!showStoreDropdown)}
                                 className="h-10 px-4 bg-white border border-gray-200 rounded-xl flex items-center gap-2 hover:bg-gray-50 transition-all shadow-sm group"
                             >
-                                <Filter size={14} className="text-gray-400 group-hover:text-blue-500 transition-colors" />
-                                <span className="text-[13px] font-medium text-gray-700">
+                                <Filter size={14} className="text-gray-400 group-hover:text-[#0071e3] transition-colors" />
+                                <span className="text-[13px] font-medium text-[#1d1d1f]">
                                     {selectedStoreId === 0 ? 'Tüm Mağazalar' : (servicePoints.find(s => String(s.id) === String(selectedStoreId))?.name || 'Mağaza')}
                                 </span>
                                 <ChevronDown size={14} className={`text-gray-400 transition-transform ${showStoreDropdown ? 'rotate-180' : ''}`} />
@@ -328,37 +331,37 @@ const StockManagement = () => {
 
             {activeMainTab === 'inventory' ? (
                 <>
-                    {/* General Stock View */}
+                    {/* General Stock View — Warehouse Toolbar */}
                     <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                        <div className="flex bg-gray-100/80 p-1 rounded-lg border border-gray-200/50 backdrop-blur-md">
-                            <button 
+                        <div className="flex bg-[#f5f5f7] p-1 rounded-xl border border-gray-200/50">
+                            <button
                                 onClick={() => setWarehouseType('KGB')}
-                                className={`px-5 py-1.5 rounded-md text-[13px] font-medium transition-all duration-200 ${warehouseType === 'KGB' ? 'bg-white text-gray-900 shadow-sm ring-1 ring-black/5' : 'text-gray-500 hover:text-gray-700'}`}
+                                className={`px-5 py-2 rounded-lg text-[13px] font-bold transition-all duration-200 flex items-center gap-2 ${warehouseType === 'KGB' ? 'bg-white text-[#0071e3] shadow-sm ring-1 ring-black/5' : 'text-gray-500 hover:text-gray-700'}`}
                             >
-                                KGB (Yeni Parça)
+                                <Box size={15} /> KGB · Yeni Parça
                             </button>
-                            <button 
+                            <button
                                 onClick={() => setWarehouseType('KBB')}
-                                className={`px-5 py-1.5 rounded-md text-[13px] font-medium transition-all duration-200 ${warehouseType === 'KBB' ? 'bg-white text-gray-900 shadow-sm ring-1 ring-black/5' : 'text-gray-500 hover:text-gray-700'}`}
+                                className={`px-5 py-2 rounded-lg text-[13px] font-bold transition-all duration-200 flex items-center gap-2 ${warehouseType === 'KBB' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5' : 'text-gray-500 hover:text-gray-700'}`}
                             >
-                                KBB (İade / İkinci El)
+                                <Recycle size={15} /> KBB · İade / İkinci El
                             </button>
                         </div>
 
                         <div className="flex items-center gap-3 w-full md:w-auto">
-                            <div className="relative flex-1 md:w-64">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                                <input 
-                                    type="text" 
+                            <div className="relative flex-1 md:w-64 group">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#0071e3] transition-colors" size={16} />
+                                <input
+                                    type="text"
                                     placeholder="Envanterde ara..."
-                                    className="w-full bg-white border border-gray-200 rounded-xl pl-10 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                                    className="w-full bg-[#f5f5f7] border-transparent rounded-xl pl-10 pr-4 py-2.5 text-sm font-medium text-[#1d1d1f] focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#0071e3]/10 focus:border-[#0071e3] transition-all"
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                 />
                             </div>
                             <button
                                 onClick={() => setShowAddModal(true)}
-                                className="bg-blue-600 hover:bg-blue-700 text-white h-10 px-6 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 shadow-lg shadow-blue-200 flex-shrink-0"
+                                className="bg-[#0071e3] hover:bg-[#0077ed] text-white h-10 px-6 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 shadow-lg shadow-[#0071e3]/20 flex-shrink-0 active:scale-95"
                             >
                                 <Plus size={18} /> Parça Ekle
                             </button>
@@ -368,35 +371,35 @@ const StockManagement = () => {
 
 
                     {/* Stats Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         {[
-                            { label: 'Toplam Parça', value: totalItems, subtitle: 'Envanterdeki parçalar', icon: Package, color: 'text-gray-900' },
-                            { label: 'Kritik Stok', value: lowStockItems, subtitle: 'Tedarik gerekenler', icon: AlertTriangle, color: lowStockItems > 0 ? 'text-red-500' : 'text-gray-900' },
-                            { label: 'Envanter Değeri', value: new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(totalValue), subtitle: 'Genel tutar', icon: Tag, color: 'text-gray-900' }
+                            { label: 'Toplam Parça', value: totalItems, subtitle: 'Envanterdeki parçalar', icon: Package, color: 'text-[#0071e3]' },
+                            { label: 'Kritik Stok', value: lowStockItems, subtitle: 'Tedarik gerekenler', icon: AlertTriangle, color: lowStockItems > 0 ? 'text-[#e30000]' : 'text-gray-400' },
+                            { label: 'Envanter Değeri', value: new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(totalValue), subtitle: 'Genel tutar', icon: Tag, color: 'text-[#8e24aa]' }
                         ].map((stat, idx) => (
-                            <div key={idx} className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm transition-all hover:shadow-md">
-                                <div className="flex justify-between items-start mb-4">
-                                    <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-gray-50">
-                                        <stat.icon size={18} className="text-gray-600" />
-                                    </div>
+                            <div key={idx} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4 transition-all hover:shadow-md">
+                                <div className={`p-3 rounded-xl bg-gray-50 ${stat.color}`}>
+                                    <stat.icon size={20} />
                                 </div>
-                                <h3 className={`text-3xl font-bold ${stat.color} tracking-tight`}>{stat.value}</h3>
-                                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">{stat.label}</p>
-                                <p className="text-[11px] text-gray-400 mt-2 font-medium">{stat.subtitle}</p>
+                                <div>
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{stat.label}</p>
+                                    <p className="text-xl font-bold text-[#1d1d1f]">{stat.value}</p>
+                                    <p className="text-[10px] text-gray-400 mt-0.5 font-medium">{stat.subtitle}</p>
+                                </div>
                             </div>
                         ))}
                     </div>
 
                     {/* Inventory Table */}
-                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm max-h-[550px] overflow-y-auto custom-scrollbar relative">
+                    <div className="bg-white rounded-[24px] border border-gray-200 shadow-sm max-h-[550px] overflow-y-auto custom-scrollbar relative">
                         <table className="w-full text-left border-separate border-spacing-0">
-                            <thead className="sticky top-0 z-10 bg-gray-50 border-b border-gray-200">
-                                <tr className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">
-                                    <th className="px-6 py-4 bg-gray-50 border-b border-gray-200">Parça Bilgisi</th>
-                                    <th className="px-6 py-4 bg-gray-50 border-b border-gray-200">P/N Kodu</th>
-                                    {selectedStoreId === 0 && <th className="px-6 py-4">Şube</th>}
-                                    <th className="px-6 py-4 text-center">Stok Adedi</th>
-                                    <th className="px-6 py-4 text-right">İşlem</th>
+                            <thead className="sticky top-0 z-10 bg-[#f5f5f7] border-b border-gray-200">
+                                <tr className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                                    <th className="px-6 py-4 bg-[#f5f5f7] border-b border-gray-200">Parça Bilgisi</th>
+                                    <th className="px-6 py-4 bg-[#f5f5f7] border-b border-gray-200">P/N Kodu</th>
+                                    {selectedStoreId === 0 && <th className="px-6 py-4 bg-[#f5f5f7] border-b border-gray-200">Şube</th>}
+                                    <th className="px-6 py-4 bg-[#f5f5f7] border-b border-gray-200 text-center">Stok Adedi</th>
+                                    <th className="px-6 py-4 bg-[#f5f5f7] border-b border-gray-200 text-right">İşlem</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
@@ -418,11 +421,11 @@ const StockManagement = () => {
                                                 storeId: item.storeId ?? 1
                                             });
                                         }}
-                                        className="hover:bg-blue-50/20 active:scale-[0.995] transition-all duration-200 group cursor-pointer"
+                                        className="hover:bg-gray-50/80 active:scale-[0.995] transition-all duration-200 group cursor-pointer"
                                     >
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 bg-blue-50/60 text-blue-600 rounded-xl flex items-center justify-center shadow-inner group-hover:bg-blue-100 group-hover:scale-105 transition-all">
+                                                <div className="w-10 h-10 bg-blue-50 text-[#0071e3] rounded-xl flex items-center justify-center border border-blue-100 group-hover:bg-blue-100 group-hover:scale-105 transition-all">
                                                     {(() => {
                                                         const IconComponent = getCategoryIcon(item.category);
                                                         return <IconComponent size={18} />;
@@ -430,7 +433,7 @@ const StockManagement = () => {
                                                 </div>
                                                 <div>
                                                     <div className="flex items-center gap-2">
-                                                        <p className="text-sm font-bold text-gray-900 leading-none group-hover:text-blue-600 transition-colors">
+                                                        <p className="text-sm font-bold text-[#1d1d1f] leading-none group-hover:text-[#0071e3] transition-colors">
                                                             {item.name}
                                                         </p>
                                                         {item.quantity === 0 ? (
@@ -476,7 +479,7 @@ const StockManagement = () => {
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex justify-end gap-2">
-                                                <div className="p-2 text-gray-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all duration-200">
+                                                <div className="p-2 text-gray-400 group-hover:text-[#0071e3] group-hover:translate-x-1 transition-all duration-200">
                                                     <ChevronRight size={18} />
                                                 </div>
                                             </div>
@@ -485,6 +488,15 @@ const StockManagement = () => {
                                 ))}
                             </tbody>
                         </table>
+                        {filteredParts.length === 0 && (
+                            <div className="py-20 text-center">
+                                <Package className="mx-auto text-gray-200 mb-4" size={48} />
+                                <h3 className="text-lg font-bold text-[#1d1d1f]">Parça Bulunamadı</h3>
+                                <p className="text-sm text-gray-500 mt-1">
+                                    Bu {warehouseType} ambarında {selectedStoreId === 0 ? '' : 'bu mağazaya ait '}kayıtlı parça yok.
+                                </p>
+                            </div>
+                        )}
                     </div>
                 </>
             ) : (
@@ -531,7 +543,7 @@ const StockManagement = () => {
                     </div>
 
                     {activeKbbTab === 'returns' ? (
-                        <div className="bg-white rounded-xl border border-gray-200 shadow-sm max-h-[550px] overflow-y-auto custom-scrollbar relative">
+                        <div className="bg-white rounded-[24px] border border-gray-200 shadow-sm max-h-[550px] overflow-y-auto custom-scrollbar relative">
                             <table className="w-full text-left border-separate border-spacing-0">
                                 <thead className="sticky top-0 z-10 bg-gray-50 border-b border-gray-200">
                                     <tr className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">
@@ -591,7 +603,7 @@ const StockManagement = () => {
                             </table>
                         </div>
                     ) : activeKbbTab === 'stocks' ? (
-                        <div className="bg-white rounded-xl border border-gray-200 shadow-sm max-h-[550px] overflow-y-auto custom-scrollbar relative">
+                        <div className="bg-white rounded-[24px] border border-gray-200 shadow-sm max-h-[550px] overflow-y-auto custom-scrollbar relative">
                             <table className="w-full text-left border-separate border-spacing-0">
                                 <thead className="sticky top-0 z-10 bg-gray-50 border-b border-gray-200">
                                     <tr className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">
@@ -719,11 +731,11 @@ const StockManagement = () => {
                     <div className="bg-white rounded-[28px] w-full max-w-lg shadow-2xl animate-scale-up overflow-hidden">
                         <div className="p-8 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
                             <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-200">
+                                <div className="w-12 h-12 bg-[#0071e3] rounded-2xl flex items-center justify-center shadow-lg shadow-[#0071e3]/20">
                                     <Plus size={24} className="text-white" />
                                 </div>
                                 <div>
-                                    <h3 className="text-xl font-bold text-gray-900 tracking-tight">Yeni Parça Kaydı</h3>
+                                    <h3 className="text-xl font-bold text-[#1d1d1f] tracking-tight">Yeni Parça Kaydı</h3>
                                     <p className="text-sm text-gray-500 font-medium">Envantere yeni ürün ekleyin.</p>
                                 </div>
                             </div>
@@ -738,7 +750,7 @@ const StockManagement = () => {
                                     <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2 ml-1">Parça Tanımı (Açıklama)</label>
                                     <input 
                                         type="text" 
-                                        className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none font-medium"
+                                        className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#0071e3]/10 focus:border-[#0071e3] transition-all outline-none font-medium"
                                         placeholder="Örn: iPhone 13 Pro Ekran"
                                         value={newPart.name}
                                         onChange={(e) => setNewPart({...newPart, name: e.target.value})}
@@ -750,7 +762,7 @@ const StockManagement = () => {
                                         <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2 ml-1">Parça Kodu (P/N)</label>
                                         <input 
                                             type="text" 
-                                            className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none font-mono font-bold"
+                                            className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#0071e3]/10 focus:border-[#0071e3] transition-all outline-none font-mono font-bold"
                                             placeholder="661-XXXXX"
                                             value={newPart.partNumber}
                                             onChange={(e) => setNewPart({...newPart, partNumber: e.target.value})}
@@ -758,11 +770,12 @@ const StockManagement = () => {
                                     </div>
                                     <div>
                                         <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2 ml-1">Mağaza Ambarı</label>
-                                        <select 
-                                            className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 outline-none font-medium appearance-none"
+                                        <select
+                                            className={`w-full p-4 bg-gray-50 border rounded-xl focus:ring-2 focus:ring-blue-500/20 outline-none font-medium appearance-none ${!newPart.storeId ? 'border-red-300 text-red-500' : 'border-gray-200'}`}
                                             value={newPart.storeId}
                                             onChange={(e) => setNewPart({...newPart, storeId: e.target.value})}
                                         >
+                                            <option value="">Mağaza Seçiniz...</option>
                                             {visibleServicePoints.map(s => (
                                                 <option key={s.id} value={s.id}>{s.name}</option>
                                             ))}
@@ -779,7 +792,7 @@ const StockManagement = () => {
                                     </div>
                                     <textarea 
                                         rows="2"
-                                        className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none font-mono font-bold resize-none"
+                                        className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#0071e3]/10 focus:border-[#0071e3] transition-all outline-none font-mono font-bold resize-none"
                                         placeholder="Her satıra bir adet veya virgülle ayırarak girin (Örn: KGB123, KGB456)"
                                         value={newPart.kgbSerial}
                                         onChange={(e) => {
@@ -827,14 +840,19 @@ const StockManagement = () => {
                                         showToast('Lütfen Tanım ve Kod alanlarını doldurun', 'warning');
                                         return;
                                     }
-                                    
+                                    if (!newPart.storeId || Number(newPart.storeId) === 0) {
+                                        showToast('Lütfen parçanın ekleneceği mağaza ambarını seçin', 'warning');
+                                        return;
+                                    }
+
                                     const serials = newPart.kgbSerial
                                         ? newPart.kgbSerial.split(/[\n,]+/).map(s => s.trim().toUpperCase()).filter(Boolean)
                                         : [];
                                     const qty = serials.length > 0 ? serials.length : 1;
-                                    
+
                                     const partToSave = {
                                         ...newPart,
+                                        storeId: Number(newPart.storeId),
                                         kgbSerials: serials,
                                         quantity: qty
                                     };
@@ -842,10 +860,10 @@ const StockManagement = () => {
                                     if (success) {
                                         showToast('Yeni parça başarıyla eklendi', 'success');
                                         setShowAddModal(false);
-                                        setNewPart({ name: '', partNumber: '', kgbSerial: '', category: 'iPhone', storeId: selectedStoreId || (currentUser?.storeId || ''), quantity: 1, minLevel: 5, warehouseType: 'KGB' });
+                                        setNewPart({ name: '', partNumber: '', kgbSerial: '', category: 'iPhone', storeId: (selectedStoreId && selectedStoreId !== 0) ? selectedStoreId : (currentUser?.storeId || ''), quantity: 1, minLevel: 5, warehouseType: 'KGB' });
                                     }
                                 }}
-                                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-2xl shadow-xl shadow-blue-200 transition-all active:scale-95 flex items-center justify-center gap-2"
+                                className="w-full bg-[#0071e3] hover:bg-[#0077ed] text-white font-bold py-4 rounded-2xl shadow-xl shadow-[#0071e3]/20 transition-all active:scale-95 flex items-center justify-center gap-2"
                             >
                                 <CheckCircle size={20} /> Kaydı Tamamla
                             </button>

@@ -774,6 +774,74 @@ router.post('/inventory/use', async (req, res) => {
     }
 });
 
+// Process repair stock movement: KGB (yeni parça) düş, KBB (eski parça) ekle — mağaza bazlı
+router.post('/inventory/process-movement', async (req, res) => {
+    const { repairId, parts } = req.body;
+    if (!Array.isArray(parts) || parts.length === 0) {
+        return res.json({ success: true, message: 'İşlenecek parça yok.' });
+    }
+    try {
+        const results = [];
+        for (const part of parts) {
+            const storeId = Number(part.storeId);
+            if (!storeId || Number.isNaN(storeId)) {
+                return res.status(400).json({ success: false, message: 'Parça için geçerli mağaza bilgisi (storeId) eksik.' });
+            }
+            const partNumber = part.partNumber || null;
+
+            // 1) KGB ambarından düş (yeni parça çıkışı) — mağaza bazlı
+            if (partNumber) {
+                const kgbItem = await Inventory.findOne({
+                    partNumber,
+                    storeId,
+                    $or: [{ warehouseType: 'KGB' }, { warehouseType: { $exists: false } }, { warehouseType: null }]
+                });
+                if (kgbItem) {
+                    kgbItem.quantity = Math.max(0, (kgbItem.quantity || 0) - 1);
+                    if (part.kgbSerial) {
+                        kgbItem.kgbSerials = (kgbItem.kgbSerials || []).filter(s => s !== part.kgbSerial);
+                    }
+                    await kgbItem.save();
+                    results.push({ kgb: kgbItem._id });
+                }
+            }
+
+            // 2) KBB ambarına ekle (sökülen eski parça girişi) — mağaza bazlı
+            if (part.kbbSerial) {
+                let kbbItem = await Inventory.findOne({
+                    partNumber,
+                    storeId,
+                    warehouseType: 'KBB'
+                });
+                if (kbbItem) {
+                    kbbItem.quantity = (kbbItem.quantity || 0) + 1;
+                    kbbItem.kbbSerials = [...(kbbItem.kbbSerials || []), part.kbbSerial].filter(Boolean);
+                    await kbbItem.save();
+                    results.push({ kbb: kbbItem._id });
+                } else {
+                    const created = await Inventory.create({
+                        id: `kbb-${Date.now()}-${Math.round(Math.random() * 1000)}`,
+                        name: part.description || part.name || 'Sökülen Parça',
+                        partNumber,
+                        category: part.category || 'Diğer',
+                        quantity: 1,
+                        kbbSerials: [part.kbbSerial].filter(Boolean),
+                        warehouseType: 'KBB',
+                        storeId
+                    });
+                    results.push({ kbbCreated: created._id });
+                }
+            }
+        }
+
+        await createLog(req, 'STOCK_USE', 'INVENTORY', `Onarım (#${repairId}) için ${parts.length} parça işlendi (KGB düşüldü / KBB eklendi).`, Number(parts[0]?.storeId) || undefined);
+        res.json({ success: true, processed: results.length });
+    } catch (err) {
+        console.error('[Inventory] process-movement error:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
 // Transfer Serials across Stores
 router.post('/inventory/transfer-serial', async (req, res) => {
     const { sourceItemId, targetStoreId, serialNumbers, serialType } = req.body;
@@ -790,13 +858,16 @@ router.post('/inventory/transfer-serial', async (req, res) => {
         sourceItem.quantity = Math.max(0, sourceItem.quantity - serialNumbers.length);
         await sourceItem.save();
 
-        // Get matching item in target store
-        let targetItem = await Inventory.findOne({
+        // Get matching item in target store (partNumber varsa ona göre, yoksa ada göre eşleştir)
+        const targetQuery = {
             storeId: targetStoreId,
-            partNumber: sourceItem.partNumber || null,
             name: sourceItem.name,
             warehouseType: sourceItem.warehouseType
-        });
+        };
+        if (sourceItem.partNumber) {
+            targetQuery.partNumber = sourceItem.partNumber;
+        }
+        let targetItem = await Inventory.findOne(targetQuery);
 
         if (!targetItem) {
             targetItem = new Inventory({

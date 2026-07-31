@@ -934,10 +934,16 @@ export const AppProvider = ({ children }) => {
             if (itemToSave.kbbSerial && (!itemToSave.kbbSerials || itemToSave.kbbSerials.length === 0)) {
                 itemToSave.kbbSerials = [itemToSave.kbbSerial];
             }
+            // Mağaza ambar ayrımı: geçerli bir mağaza zorunlu (storeId=0 "tüm mağazalar" sentinelidir, öksüz kayıt yaratır)
+            const resolvedStoreId = Number(itemToSave.storeId ?? currentUser?.storeId);
+            if (!resolvedStoreId || Number.isNaN(resolvedStoreId)) {
+                showToast('Parça eklemek için geçerli bir mağaza seçilmelidir.', 'error');
+                return false;
+            }
             const res = await apiFetch(`${API_URL}/inventory`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ...itemToSave, storeId: itemToSave.storeId || currentUser?.storeId || 0 })
+                body: JSON.stringify({ ...itemToSave, storeId: resolvedStoreId })
             });
             if (res.ok) {
                 const saved = await res.json();
