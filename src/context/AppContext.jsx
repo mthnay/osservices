@@ -1076,6 +1076,27 @@ export const AppProvider = ({ children }) => {
         }
     };
 
+    // KBB iade edildiğinde ilgili mağazanın KBB ambarından düş
+    const returnKbbStock = async (parts, returnCode = '') => {
+        if (!parts || parts.length === 0) return true;
+        try {
+            const res = await apiFetch(`${API_URL}/inventory/return-kbb`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ parts, returnCode })
+            });
+            if (res.ok) {
+                const invRes = await apiFetch(`${API_URL}/inventory`);
+                if (invRes.ok) setInventory(await invRes.json());
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error("Error returning KBB stock:", error);
+            return false;
+        }
+    };
+
     const transferInventorySerial = async (sourceItemId, targetStoreId, serialNumbers, serialType) => {
         try {
             const res = await apiFetch(`${API_URL}/inventory/transfer-serial`, {
@@ -1370,7 +1391,7 @@ export const AppProvider = ({ children }) => {
             allEarnings: earnings,
             login, logout, addUser, updateUser, removeUser, addRepair, removeRepair, updateRepair, updateRepairStatus,
             addTechnician, updateTechnician, removeTechnician, assignTechnician, completeJob, verifyTechnicianPassword, addServicePoint, updateServicePoint, removeServicePoint,
-            addCustomer, updateCustomer, removeCustomer, addInventoryItem, updateInventoryItem, removeInventoryItem, usePart, processStockMovement, transferInventorySerial, addEarning,
+            addCustomer, updateCustomer, removeCustomer, addInventoryItem, updateInventoryItem, removeInventoryItem, usePart, processStockMovement, transferInventorySerial, returnKbbStock, addEarning,
             emailSettings, setEmailSettings: (s) => { setEmailSettings(s); saveSettings('emailSettings', s); },
             companyProfile, setCompanyProfile: (p) => { setCompanyProfile(p); saveSettings('companyProfile', p); },
             notificationSettings, setNotificationSettings: (s) => { setNotificationSettings(s); saveSettings('notificationSettings', s); },

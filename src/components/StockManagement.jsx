@@ -14,9 +14,9 @@ import MyPhoneIcon from './LocalIcons';
 
 const StockManagement = () => {
     const { 
-        inventory, addInventoryItem, updateInventoryItem, removeInventoryItem, 
+        inventory, addInventoryItem, updateInventoryItem, removeInventoryItem,
         servicePoints, visibleServicePoints, currentUser, showToast, selectedStoreId, setSelectedStoreId,
-        repairs, updateRepair
+        repairs, updateRepair, returnKbbStock
     } = useAppContext();
 
     // Role-based access
@@ -247,7 +247,17 @@ const StockManagement = () => {
             });
             await updateRepair(repairId, { parts: updatedParts });
         }
-        showToast(`${itemsToReturn.length} parça başarıyla iade edildi.`, 'success');
+
+        // İade edilen parçaları ilgili mağazanın KBB ambarından düş
+        const kbbToDeduct = itemsToReturn.map(item => ({
+            storeId: item.storeId,
+            partNumber: item.partNumber,
+            name: item.name || item.description,
+            kbbSerial: item.kbbSerial
+        }));
+        await returnKbbStock(kbbToDeduct, returnCode);
+
+        showToast(`${itemsToReturn.length} parça iade edildi ve KBB ambarından düşüldü.`, 'success');
         setShowReturnModal(false);
         setReturnCode('');
         setSelectedItems([]);

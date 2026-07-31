@@ -842,6 +842,41 @@ router.post('/inventory/process-movement', async (req, res) => {
     }
 });
 
+// KBB iadesi: iade edilen eski parçayı ilgili mağazanın KBB ambarından düş
+router.post('/inventory/return-kbb', async (req, res) => {
+    const { parts, returnCode } = req.body;
+    if (!Array.isArray(parts) || parts.length === 0) {
+        return res.json({ success: true, processed: 0 });
+    }
+    try {
+        let processed = 0;
+        for (const part of parts) {
+            const storeId = Number(part.storeId);
+            if (!storeId || Number.isNaN(storeId)) continue;
+
+            const query = { storeId, warehouseType: 'KBB' };
+            if (part.partNumber) query.partNumber = part.partNumber;
+            else query.name = part.name || part.description;
+
+            const kbbItem = await Inventory.findOne(query);
+            if (!kbbItem) continue;
+
+            if (part.kbbSerial) {
+                kbbItem.kbbSerials = (kbbItem.kbbSerials || []).filter(s => s !== part.kbbSerial);
+            }
+            kbbItem.quantity = Math.max(0, (kbbItem.quantity || 0) - 1);
+            await kbbItem.save();
+            processed++;
+        }
+
+        await createLog(req, 'STOCK_USE', 'INVENTORY', `KBB iadesi: ${processed} parça KBB ambarından düşüldü. (İade Kodu: ${returnCode || '-'})`, Number(parts[0]?.storeId) || undefined);
+        res.json({ success: true, processed });
+    } catch (err) {
+        console.error('[Inventory] return-kbb error:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
 // Transfer Serials across Stores
 router.post('/inventory/transfer-serial', async (req, res) => {
     const { sourceItemId, targetStoreId, serialNumbers, serialType } = req.body;
