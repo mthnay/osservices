@@ -2421,9 +2421,9 @@ const Settings = () => {
     );
 
     return (
-        <div className="max-w-[1600px] mx-auto animate-fade-in px-4 md:px-6">
+        <div className="animate-fade-in w-full">
             {/* Mobil sekme şeridi (yatay kaydırmalı) */}
-            <div className="lg:hidden -mx-4 px-4 mb-4 overflow-x-auto custom-scrollbar">
+            <div className="lg:hidden -mx-6 px-6 mb-4 overflow-x-auto custom-scrollbar">
                 <div className="flex gap-2 w-max pb-1">
                     {settingsTabs.map((item) => {
                         const active = activeTab === item.id;
