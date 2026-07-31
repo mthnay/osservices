@@ -63,7 +63,7 @@ const accessibleStoreIds = (user) => {
     (user?.storeIds || []).forEach(add);
     return [...ids];
 };
-const canViewAllStores = (user) => ['superadmin', 'admin', 'yonetici'].includes((user?.role || '').toLowerCase());
+const canViewAllStores = (user) => user?.viewAll === true || ['superadmin', 'admin', 'yonetici'].includes((user?.role || '').toLowerCase());
 // Kullanıcı bu mağazadaki kayda işlem yapabilir mi? (yetkili → tümü)
 const canAccessStore = (user, storeId) => canViewAllStores(user) || accessibleStoreIds(user).map(String).includes(String(storeId));
 
@@ -384,13 +384,6 @@ router.post('/repairs', async (req, res) => {
             req.body.storeId = Number(req.user?.storeId) || accessibleStoreIds(req.user)[0];
         }
 
-        // Debug için gelen veriyi dosyaya yaz
-        fs.writeFileSync(path.join(__dirname, '../debug_log.json'), JSON.stringify({
-            timestamp: new Date().toISOString(),
-            body: req.body
-        }, null, 2));
-
-        console.log('[REPAIR] Incoming data logged to debug_log.json');
         // Otomatik ID Oluştur (Eğer yoksa)
         if (!req.body.id || req.body.id.startsWith('TR-')) {
             const lastRepair = await Repair.findOne({ id: /^S\d+$/ }).sort({ id: -1 });
@@ -424,14 +417,6 @@ router.post('/repairs', async (req, res) => {
 router.put('/repairs/:id', async (req, res) => {
     try {
         const id = req.params.id;
-        
-        // Debug için gelen veriyi dosyaya yaz
-        fs.writeFileSync(path.join(__dirname, '../debug_log.json'), JSON.stringify({
-            timestamp: new Date().toISOString(),
-            type: 'UPDATE',
-            id: id,
-            body: req.body
-        }, null, 2));
 
         const filter = { $or: [{ id: id }] };
         if (mongoose.Types.ObjectId.isValid(id)) filter.$or.push({ _id: id });
@@ -491,8 +476,17 @@ router.delete('/repairs/:id', async (req, res) => {
 router.get('/users', async (req, res) => {
     try {
         const filter = {};
-        if (req.query.storeId) filter.storeId = req.query.storeId;
-        
+        if (canViewAllStores(req.user)) {
+            if (req.query.storeId && req.query.storeId !== '0') filter.storeId = Number(req.query.storeId);
+        } else {
+            // Yetkisiz kullanıcı yalnızca erişimli mağazalarının kullanıcılarını görür
+            const allowed = accessibleStoreIds(req.user);
+            filter.$or = [
+                { storeId: { $in: allowed } },
+                { storeIds: { $in: allowed } }
+            ];
+        }
+
         // Şifre alanını güvenlik için hariç tutuyoruz
         const users = await User.find(filter).select('-password').lean();
         res.json(users);
@@ -542,8 +536,20 @@ router.post('/login', async (req, res) => {
         req.user = user; // Manual set for login route
         await createLog(req, 'LOGIN', 'AUTH', `Kullanıcı sisteme giriş yaptı: ${user.email}`);
 
+        // 'Tüm mağazaları gör' yetkisini rol iznine göre belirle (dinamik roller / muhasebe dahil)
+        const roleName = (user.role || '').toLowerCase();
+        let viewAll = ['superadmin', 'admin', 'yonetici'].includes(roleName);
+        if (!viewAll) {
+            try {
+                const roleDoc = await Role.findOne({ name: { $in: [user.role, roleName] } }).lean();
+                if (roleDoc && Array.isArray(roleDoc.permissions) && roleDoc.permissions.includes('view_all_stores')) {
+                    viewAll = true;
+                }
+            } catch { /* rol bulunamazsa yoksay */ }
+        }
+
         const token = jwt.sign(
-            { id: user._id || user.id, name: user.name, email: user.email, role: user.role, storeId: user.storeId, storeIds: user.storeIds || [] },
+            { id: user._id || user.id, name: user.name, email: user.email, role: user.role, storeId: user.storeId, storeIds: user.storeIds || [], viewAll },
             JWT_SECRET,
             { expiresIn: '24h' }
         );
@@ -1044,7 +1050,7 @@ router.get('/service-points', async (req, res) => {
     }
 });
 
-router.post('/service-points', async (req, res) => {
+router.post('/service-points', requireRole(['superadmin', 'yonetici']), async (req, res) => {
     const point = new ServicePoint(req.body);
     try {
         const newPoint = await point.save();
@@ -1054,12 +1060,12 @@ router.post('/service-points', async (req, res) => {
     }
 });
 
-router.put('/service-points/:id', async (req, res) => {
+router.put('/service-points/:id', requireRole(['superadmin', 'yonetici']), async (req, res) => {
     try {
         const id = req.params.id;
         const filter = { $or: [{ id: id }] };
         if (mongoose.Types.ObjectId.isValid(id)) filter.$or.push({ _id: id });
-        
+
         const updatedPoint = await ServicePoint.findOneAndUpdate(filter, req.body, { new: true });
         res.json(updatedPoint);
     } catch (err) {
@@ -1067,12 +1073,12 @@ router.put('/service-points/:id', async (req, res) => {
     }
 });
 
-router.delete('/service-points/:id', async (req, res) => {
+router.delete('/service-points/:id', requireRole(['superadmin', 'yonetici']), async (req, res) => {
     try {
         const id = req.params.id;
         const filter = { $or: [{ id: id }] };
         if (mongoose.Types.ObjectId.isValid(id)) filter.$or.push({ _id: id });
-        
+
         const deleted = await ServicePoint.findOneAndDelete(filter);
         res.json({ message: 'Service Point deleted', success: !!deleted });
     } catch (err) {
@@ -1090,7 +1096,7 @@ router.get('/settings/:key', async (req, res) => {
     }
 });
 
-router.post('/settings', async (req, res) => {
+router.post('/settings', requireRole(['superadmin', 'yonetici']), async (req, res) => {
     const { key, value } = req.body;
     try {
         const setting = await SystemSetting.findOneAndUpdate(
@@ -1250,8 +1256,12 @@ router.get('/earnings', async (req, res) => {
     }
 });
 
-router.post('/earnings', async (req, res) => {
+router.post('/earnings', requireRole(['superadmin', 'yonetici', 'storemanager']), async (req, res) => {
     try {
+        // Yetkisiz (mağaza yöneticisi) yalnızca erişimli mağazasına gelir kaydı ekleyebilir
+        if (!canViewAllStores(req.user) && !canAccessStore(req.user, req.body.storeId)) {
+            return res.status(403).json({ message: 'Bu mağazaya gelir kaydı ekleme yetkiniz yok.' });
+        }
         const id = `ERN-${Date.now()}`;
         const newEarning = new Earning({ ...req.body, id });
         const savedEarning = await newEarning.save();
