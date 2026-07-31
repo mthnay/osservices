@@ -1,6 +1,6 @@
 /* eslint-disable no-case-declarations, react-hooks/rules-of-hooks, no-undef */
 import React, { useState } from 'react';
-import { Save, Bell, Shield, Store, Globe, CreditCard, MapPin, Plus, Trash2, Building, Users, UserPlus, Mail, Lock, Paperclip, Check, Upload, X, ChevronRight, Package, AlertTriangle, Key, Clock, RefreshCw, MessageSquare, Smartphone, Edit } from 'lucide-react';
+import { Save, Bell, Shield, Store, Globe, CreditCard, MapPin, Plus, Trash2, Building, Users, UserPlus, Mail, Lock, Paperclip, Check, Upload, X, ChevronRight, Package, AlertTriangle, Key, Clock, RefreshCw, MessageSquare, Smartphone, Edit, Settings2 } from 'lucide-react';
 import { appConfirm } from '../utils/alert';
 import { useAppContext } from '../context/AppContext';
 import Swal from 'sweetalert2';
@@ -2392,15 +2392,21 @@ const Settings = () => {
     };
 
     return (
-        <div className="max-w-[1400px] mx-auto pb-32 animate-fade-in px-4 md:px-8">
-            <div className="flex flex-col lg:flex-row gap-8 mt-4">
+        <div className="max-w-[1600px] mx-auto pb-16 animate-fade-in px-4 md:px-6">
+            <div className="flex flex-col lg:flex-row gap-6 mt-4 items-start">
                 {/* Sol Menü: GSX Sidebar */}
-                <div className="lg:w-72 shrink-0">
-                    <div className="sticky top-24 bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-                        <div className="px-6 py-5 bg-gray-50 border-b border-gray-200">
-                            <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">Sistem Ayarları</h3>
+                <aside className="w-full lg:w-64 shrink-0 lg:sticky lg:top-6">
+                    <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
+                        <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2.5">
+                            <div className="w-8 h-8 bg-[#1d1d1f] text-white rounded-lg flex items-center justify-center">
+                                <Settings2 size={16} />
+                            </div>
+                            <div>
+                                <h3 className="text-[13px] font-bold text-[#1d1d1f] leading-none">Sistem Ayarları</h3>
+                                <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Yönetim Menüsü</span>
+                            </div>
                         </div>
-                        <nav className="p-2 space-y-1">
+                        <nav className="p-2 space-y-0.5 max-h-[calc(100vh-200px)] overflow-y-auto custom-scrollbar">
                             {[
                                 { id: 'general', label: 'Kurumsal Kimlik', icon: Building },
                                 { id: 'locations', label: 'Mağaza Ağı', icon: MapPin },
@@ -2415,34 +2421,37 @@ const Settings = () => {
                                 { id: 'audit_logs', label: 'Sistem Günlükleri', icon: Clock },
                                 { id: 'roles', label: 'Yetki ve İzinler', icon: Key },
                                 { id: 'updates', label: 'Yazılım Güncelleme', icon: RefreshCw },
-                            ].map((item) => (
-                                <button
-                                    key={item.id}
-                                    onClick={() => setActiveTab(item.id)}
-                                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-[13px] font-semibold transition-all group ${
-                                        activeTab === item.id 
-                                        ? 'bg-blue-50 text-blue-700' 
-                                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                                    }`}
-                                >
-                                    <item.icon size={18} className={activeTab === item.id ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'} />
-                                    <span className="flex-1 text-left">{item.label}</span>
-                                    {activeTab === item.id && <div className="w-1.5 h-1.5 rounded-full bg-blue-600"></div>}
-                                </button>
-                            ))}
+                            ].map((item) => {
+                                const active = activeTab === item.id;
+                                return (
+                                    <button
+                                        key={item.id}
+                                        onClick={() => setActiveTab(item.id)}
+                                        className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[13px] font-semibold transition-all group ${
+                                            active
+                                            ? 'bg-[#0071e3]/10 text-[#0071e3]'
+                                            : 'text-gray-600 hover:bg-[#f5f5f7] hover:text-[#1d1d1f]'
+                                        }`}
+                                    >
+                                        <item.icon size={17} className={active ? 'text-[#0071e3]' : 'text-gray-400 group-hover:text-gray-600'} />
+                                        <span className="flex-1 text-left truncate">{item.label}</span>
+                                        {active && <div className="w-1.5 h-1.5 rounded-full bg-[#0071e3] shrink-0"></div>}
+                                    </button>
+                                );
+                            })}
                         </nav>
                     </div>
-                </div>
+                </aside>
 
                 {/* Sağ İçerik Alanı */}
-                <div className="flex-1">
-                    <div className="mb-8">
-                        <div className="flex items-center gap-2 mb-1">
-                            <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest bg-blue-50 px-2 py-0.5 rounded">GSX Portal</span>
+                <div className="flex-1 min-w-0 w-full">
+                    <div className="mb-6">
+                        <div className="flex items-center gap-2 mb-1.5">
+                            <span className="text-[10px] font-bold text-[#0071e3] uppercase tracking-widest bg-[#0071e3]/10 px-2 py-0.5 rounded">GSX Portal</span>
                             <ChevronRight size={12} className="text-gray-300" />
-                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Settings</span>
+                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Sistem Ayarları</span>
                         </div>
-                        <h2 className="text-3xl font-bold text-gray-900 tracking-tight">
+                        <h2 className="text-3xl font-bold text-[#1d1d1f] tracking-tight">
                             {activeTab === 'users' ? 'Personel & Rol Yönetimi' :
                              activeTab === 'locations' ? 'Mağaza & Lokasyon Ağı' :
                              activeTab === 'notifications' ? 'E-Posta & SMTP Yapısı' :
@@ -2456,8 +2465,8 @@ const Settings = () => {
                         </h2>
                     </div>
 
-                    <div className="bg-white border border-gray-200 rounded-xl shadow-sm min-h-[700px] overflow-hidden">
-                        <div className="p-8 md:p-10">
+                    <div className="bg-white border border-gray-200 rounded-2xl shadow-sm min-h-[calc(100vh-190px)] overflow-hidden">
+                        <div className="p-6 md:p-8">
                             {renderTabContent()}
                         </div>
                     </div>
