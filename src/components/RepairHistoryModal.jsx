@@ -4,7 +4,7 @@ import {
     X, CheckCircle, Clock, Truck, MessageCircle, Wrench, Phone, User,
     Calendar, ArrowRight, Printer, FileText, Shield, Eye, Package,
     ChevronRight, Save, Pencil, PlusCircle, Send, Receipt, Hash, ShieldCheck,
-    AlertCircle, FileInput, Fingerprint, Coins, Camera, Info, Image, Bell, Trash2, MapPin, Award
+    AlertCircle, FileInput, Fingerprint, Coins, Camera, Info, Image, Bell, Trash2, MapPin, Award, Star, Layers
 } from 'lucide-react';
 import ServiceFormPrint from './ServiceFormPrint';
 import DeliveryFormPrint from './DeliveryFormPrint';
@@ -236,6 +236,33 @@ const RepairHistoryModal = ({ repair: initialRepair, onClose, onDiagnose }) => {
     };
     const currentStepIndex = determineStepIndex();
 
+    // Tarih/zaman damgası formatlayıcı (Date | ISO | tr-TR string)
+    const fmtStamp = (val) => {
+        if (!val) return '—';
+        const d = new Date(val);
+        if (!isNaN(d.getTime())) return d.toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+        return String(val);
+    };
+    const fmtMoney = (v) => {
+        const n = parseFloat(v);
+        if (isNaN(n)) return null;
+        return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(n);
+    };
+
+    // Meta künye alanları (tüm kayıt detayları)
+    const metaFields = [
+        { icon: Calendar, label: 'Kayıt Tarihi', value: fmtStamp(repair.date || repair.createdAt) },
+        { icon: Wrench, label: 'Servis Tipi', value: REPAIR_TYPE_LABELS[repair.repairType] || REPAIR_TYPE_LABELS[repair.serviceType] || (repair.serviceType === 'exchange' ? 'Değişim' : 'Onarım') },
+        { icon: Award, label: 'Atanan Teknisyen', value: repair.technician || 'Atanmadı' },
+        { icon: Shield, label: 'Garanti Durumu', value: repair.warrantyStatus || 'Belirtilmedi' },
+        { icon: Package, label: 'Ürün Grubu', value: repair.productGroup || repair.device?.split(' ')[0] || '—' },
+        { icon: Coins, label: 'Teklif Tutarı', value: fmtMoney(repair.quoteAmount) || '—' },
+        { icon: Receipt, label: 'Fatura No', value: repair.invoiceNumber || '—' },
+        { icon: FileText, label: 'Vergi Dairesi', value: repair.taxOffice || '—' },
+        { icon: Clock, label: 'Onarım Başlangıcı', value: fmtStamp(repair.startedAt) },
+        { icon: CheckCircle, label: 'Tamamlanma', value: fmtStamp(repair.completedAt) },
+    ];
+
     // Stream Combiner & Sorter
     const parseDate = (dString) => {
         if (!dString) return 0;
@@ -339,10 +366,10 @@ const RepairHistoryModal = ({ repair: initialRepair, onClose, onDiagnose }) => {
     };
 
     return (
-        <div className="modal-overlay">
-            <div className="modal-content w-full max-w-[90vw] lg:max-w-[1300px] flex flex-col max-h-[85vh] rounded-lg overflow-hidden">
+        <div className="fixed inset-0 z-[100] bg-[#f5f5f7] flex flex-col animate-fade-in">
+            <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
                 {/* Header & Progress Bar */}
-                <div className="bg-white/95 backdrop-blur-md border-b border-gray-100 sticky top-0 z-30">
+                <div className="bg-white/95 backdrop-blur-md border-b border-gray-100 shrink-0 z-30">
                     <div className="p-6 flex justify-between items-center">
                         <div className="flex items-center gap-5">
                             <div className="w-14 h-14 bg-gray-50 rounded-md flex items-center justify-center text-3xl shadow-sm border border-gray-100">
@@ -418,7 +445,7 @@ const RepairHistoryModal = ({ repair: initialRepair, onClose, onDiagnose }) => {
                 </div>
 
                 <div className="flex-1 overflow-y-auto custom-scrollbar bg-[#f5f5f7] p-6 lg:p-8">
-                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 w-full max-w-none pt-4">
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 w-full max-w-[1600px] mx-auto pt-4">
                         
                         {/* ---------------- SOL / ANA İÇERİK (8 KOLON) ---------------- */}
                         <div className="lg:col-span-8 flex flex-col gap-8">
@@ -540,6 +567,107 @@ const RepairHistoryModal = ({ repair: initialRepair, onClose, onDiagnose }) => {
                                 )}
                             </div>
 
+                            {/* ONARIM DETAYLARI / KAYIT KÜNYESİ */}
+                            <div className="bg-white p-8 rounded-lg border border-gray-100 shadow-sm">
+                                <h4 className="text-[10px] font-semibold text-gray-400 text-xs uppercase tracking-wide flex items-center gap-2 mb-6">
+                                    <Info size={16} className="text-apple-blue"/> Onarım Detayları & Kayıt Künyesi
+                                </h4>
+                                <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
+                                    {metaFields.map((f, i) => (
+                                        <div key={i} className="p-4 bg-gray-50 rounded-md border border-gray-100">
+                                            <div className="flex items-center gap-1.5 text-gray-400 mb-2">
+                                                <f.icon size={13} />
+                                                <span className="text-[9px] font-bold uppercase tracking-wider">{f.label}</span>
+                                            </div>
+                                            <p className="text-sm font-semibold text-gray-900 truncate" title={f.value}>{f.value}</p>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Değişen / Kullanılan Parçalar */}
+                                {repair.parts && repair.parts.length > 0 && (
+                                    <div className="mt-8 pt-6 border-t border-gray-50">
+                                        <h5 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                            <Package size={14} className="text-indigo-500"/> Kullanılan Parçalar ({repair.parts.length})
+                                        </h5>
+                                        <div className="overflow-x-auto custom-scrollbar rounded-md border border-gray-100">
+                                            <table className="w-full text-left border-collapse">
+                                                <thead>
+                                                    <tr className="bg-gray-50 text-[9px] font-bold uppercase tracking-wider text-gray-400">
+                                                        <th className="px-4 py-3">Parça</th>
+                                                        <th className="px-4 py-3">Parça No</th>
+                                                        <th className="px-4 py-3">KBB (Eski Seri)</th>
+                                                        <th className="px-4 py-3">KGB (Yeni Seri)</th>
+                                                        <th className="px-4 py-3 text-right">Fiyat</th>
+                                                        <th className="px-4 py-3 text-center">Durum</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-gray-50">
+                                                    {repair.parts.map((p, i) => (
+                                                        <tr key={i} className="hover:bg-gray-50/50">
+                                                            <td className="px-4 py-3 text-xs font-semibold text-gray-900">{p.description || '—'}</td>
+                                                            <td className="px-4 py-3 text-[11px] font-mono text-gray-500">{p.partNumber || '—'}</td>
+                                                            <td className="px-4 py-3 text-[11px] font-mono text-gray-500 uppercase">{p.kbbSerial || '—'}</td>
+                                                            <td className="px-4 py-3 text-[11px] font-mono text-gray-500 uppercase">{p.kgbSerial || '—'}</td>
+                                                            <td className="px-4 py-3 text-xs font-bold text-gray-900 text-right">{fmtMoney(p.price) || '—'}</td>
+                                                            <td className="px-4 py-3 text-center">
+                                                                <span className="text-[9px] font-bold px-2 py-0.5 rounded uppercase bg-gray-100 text-gray-500">{p.status || 'Pending'}</span>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Onarım Adımları (Checklist) */}
+                                {repair.steps && repair.steps.length > 0 && (
+                                    <div className="mt-8 pt-6 border-t border-gray-50">
+                                        <div className="flex items-center justify-between mb-4">
+                                            <h5 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                                                <Layers size={14} className="text-teal-500"/> Onarım Akışı
+                                            </h5>
+                                            <span className="text-[10px] font-bold text-gray-500">
+                                                {repair.steps.filter(s => s.checked ?? s.completed).length}/{repair.steps.length} tamamlandı
+                                            </span>
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                            {repair.steps.map((s, i) => {
+                                                const done = s.checked ?? s.completed;
+                                                return (
+                                                    <div key={i} className={`flex items-center gap-3 p-3 rounded-md border text-xs font-semibold ${done ? 'bg-green-50 border-green-100 text-green-700' : 'bg-gray-50 border-gray-100 text-gray-400'}`}>
+                                                        <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${done ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-400'}`}>
+                                                            <CheckCircle size={12} />
+                                                        </div>
+                                                        {s.label}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Müşteri Geri Bildirimi */}
+                                {repair.feedback && repair.feedback.score && (
+                                    <div className="mt-8 pt-6 border-t border-gray-50">
+                                        <h5 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                            <Star size={14} className="text-amber-500"/> Müşteri Değerlendirmesi
+                                        </h5>
+                                        <div className="flex items-center gap-4 p-4 bg-amber-50/50 rounded-md border border-amber-100">
+                                            <div className="flex items-center gap-1">
+                                                {[1, 2, 3, 4, 5].map(n => (
+                                                    <Star key={n} size={20} className={n <= repair.feedback.score ? 'text-amber-500 fill-amber-500' : 'text-gray-200'} />
+                                                ))}
+                                            </div>
+                                            {repair.feedback.comment && (
+                                                <p className="text-sm text-gray-700 font-medium italic border-l-2 border-amber-200 pl-4">"{repair.feedback.comment}"</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
                             {/* BELGELER VE MEDYA GALERİSİ */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                 {/* Evraklar ve Raporlar */}
@@ -639,7 +767,7 @@ const RepairHistoryModal = ({ repair: initialRepair, onClose, onDiagnose }) => {
                         </div>
 
                         {/* ---------------- SAĞ / TİMELİNE (4 KOLON) ---------------- */}
-                        <div className="lg:col-span-4 flex flex-col h-[60vh] lg:h-[calc(85vh-200px)] bg-white rounded-lg border border-gray-100 shadow-2xl overflow-hidden sticky top-0">
+                        <div className="lg:col-span-4 flex flex-col h-[60vh] lg:h-[calc(100vh-300px)] bg-white rounded-lg border border-gray-100 shadow-2xl overflow-hidden sticky top-0">
                             <div className="px-8 py-8 bg-gray-900 flex items-center justify-between shrink-0 z-10 shadow-md">
                                 <h4 className="text-sm font-semibold tracking-widest text-white flex items-center gap-3"><Clock size={18} className="text-blue-400" /> SERVİS AKIŞI</h4>
                                 <button onClick={handleAddProcess} className="w-10 h-10 flex items-center justify-center bg-white/10 text-white rounded-md hover:bg-white/20 transition-colors shadow-sm border border-white/10">

@@ -278,6 +278,44 @@ const TechnicianWorkspace = ({ repairId, onClose, setActiveTab }) => {
                         </div>
                     </div>
 
+                    {/* Kayıt Detayları (tüm kayıt bilgileri) */}
+                    <div className="px-6 py-5 border-b border-gray-50 space-y-2.5">
+                        <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-1">
+                            <Info size={10} /> Kayıt Detayları
+                        </h4>
+                        {[
+                            { label: 'Telefon', value: repair.customerPhone || '—' },
+                            { label: 'S/N', value: repair.serial || repair.serialNumber || '—' },
+                            { label: 'IMEI 1', value: repair.imei1, show: !!repair.imei1 },
+                            { label: 'IMEI 2', value: repair.imei2, show: !!repair.imei2 },
+                            { label: 'Garanti', value: repair.warrantyStatus || 'Belirtilmedi' },
+                            { label: 'Cihazımı Bul', value: repair.findMyOff ? 'Kapalı' : 'Açık' },
+                            { label: 'Veri Yedeği', value: repair.backupTaken ? 'Alındı' : 'Yok' },
+                            { label: 'Ürün Grubu', value: repair.productGroup || repair.device?.split(' ')[0] || '—' },
+                            { label: 'Teklif Tutarı', value: repair.quoteAmount ? `${repair.quoteAmount} ₺` : '—' },
+                            { label: 'Fatura No', value: repair.invoiceNumber || '—' },
+                            { label: 'Kayıt Tarihi', value: repair.date || '—' },
+                        ].filter(r => r.show !== false).map((r, i) => (
+                            <div key={i} className="flex items-center justify-between text-[11px] gap-3">
+                                <span className="font-bold text-gray-400 uppercase tracking-tight shrink-0">{r.label}</span>
+                                <span className="font-semibold text-gray-800 font-mono truncate text-right" title={r.value}>{r.value}</span>
+                            </div>
+                        ))}
+                        {repair.customerAddress && (
+                            <div className="pt-2 mt-2 border-t border-gray-50">
+                                <span className="text-[9px] font-bold text-gray-400 uppercase tracking-tight block mb-1">Adres</span>
+                                <p className="text-[11px] font-medium text-gray-600 leading-snug">{repair.customerAddress}</p>
+                            </div>
+                        )}
+                        {repair.visualCondition && repair.visualCondition.length > 0 && (
+                            <div className="pt-2 mt-2 border-t border-gray-50 flex flex-wrap gap-1.5">
+                                {repair.visualCondition.map((v, i) => (
+                                    <span key={i} className="text-[9px] px-2 py-0.5 bg-red-50 text-red-600 rounded border border-red-100 font-bold">{v}</span>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
                     <div className="p-6 space-y-2">
                         <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4">Onarım Akışı Checklist</h4>
                         {steps.map((step, idx) => (
