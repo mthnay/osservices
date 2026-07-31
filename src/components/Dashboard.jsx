@@ -1,6 +1,6 @@
 // eslint-disable-next-line no-unused-vars
 import React, { useMemo, useState } from 'react';
-import { Clock, AlertCircle, CheckCircle, Package, Activity, TrendingUp, PieChart, ArrowUpRight, ArrowDownRight, MoreHorizontal, Wallet, Users, Zap, LayoutDashboard, Store, X, ChevronRight, ShieldAlert, Wrench } from 'lucide-react';
+import { Clock, AlertCircle, CheckCircle, Package, Activity, TrendingUp, PieChart, ArrowUpRight, ArrowDownRight, MoreHorizontal, Wallet, Users, Zap, LayoutDashboard, Store, X, ChevronRight, ShieldAlert, Wrench, PlusCircle, RefreshCw, Trash2, ArrowLeftRight } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 // eslint-disable-next-line no-unused-vars
 import { hasPermission, ROLES } from '../utils/permissions';
@@ -66,9 +66,95 @@ const DonutChart = ({ data }) => {
     );
 };
 
+// Denetim kaydı aksiyonunu görsel stile eşle
+const getActivityStyle = (action = '') => {
+    const a = action.toUpperCase();
+    if (a.startsWith('CREATE') || a === 'STOCK_ADD') {
+        return { label: 'Eklendi', icon: PlusCircle, color: 'text-green-600 bg-green-50', dot: 'bg-green-500' };
+    }
+    if (a.startsWith('DELETE') || a === 'STOCK_USE') {
+        return { label: 'Çıkarıldı', icon: Trash2, color: 'text-red-600 bg-red-50', dot: 'bg-red-500' };
+    }
+    if (a.includes('TRANSFER')) {
+        return { label: 'Transfer', icon: ArrowLeftRight, color: 'text-indigo-600 bg-indigo-50', dot: 'bg-indigo-500' };
+    }
+    if (a.startsWith('UPDATE')) {
+        return { label: 'Güncellendi', icon: RefreshCw, color: 'text-blue-600 bg-blue-50', dot: 'bg-blue-500' };
+    }
+    return { label: 'İşlem', icon: Activity, color: 'text-gray-500 bg-gray-50', dot: 'bg-gray-400' };
+};
+
+const MODULE_LABELS = {
+    REPAIR: 'Servis',
+    INVENTORY: 'Stok',
+    CUSTOMER: 'Müşteri',
+    STORE_MANAGEMENT: 'Mağaza',
+    AUTH: 'Oturum'
+};
+
+const formatActivityTime = (iso) => {
+    if (!iso) return { time: '', date: '' };
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return { time: '', date: '' };
+    return {
+        time: d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
+        date: d.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit' })
+    };
+};
+
+const StoreActivityFeed = ({ activities, showStore }) => {
+    if (!activities || activities.length === 0) {
+        return (
+            <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+                <Activity size={36} className="mb-3 opacity-20" />
+                <p className="text-sm font-medium">Henüz veri hareketi bulunmuyor</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="divide-y divide-gray-50">
+            {activities.map((act, i) => {
+                const style = getActivityStyle(act.action);
+                const Icon = style.icon;
+                const { time, date } = formatActivityTime(act.createdAt);
+                const moduleLabel = MODULE_LABELS[act.module] || act.module;
+                return (
+                    <div key={act._id || i} className="flex gap-3 px-6 py-3.5 hover:bg-gray-50/50 transition-colors">
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-sm border border-white ${style.color}`}>
+                            <Icon size={16} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2 mb-0.5">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className={`text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ${style.color}`}>{style.label}</span>
+                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{moduleLabel}</span>
+                                    {showStore && act.storeName && (
+                                        <span className="text-[10px] font-bold text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded inline-flex items-center gap-1">
+                                            <Store size={9} /> {act.storeName}
+                                        </span>
+                                    )}
+                                </div>
+                                <div className="text-right shrink-0">
+                                    <span className="text-[10px] font-bold text-gray-400 block leading-tight">{time}</span>
+                                    <span className="text-[8px] font-medium text-gray-300 block">{date}</span>
+                                </div>
+                            </div>
+                            <p className="text-xs text-gray-700 font-medium truncate">{act.details || act.action}</p>
+                            {act.userName && act.userName !== 'Sistem' && (
+                                <p className="text-[10px] text-gray-400 mt-0.5">{act.userName}</p>
+                            )}
+                        </div>
+                    </div>
+                );
+            })}
+        </div>
+    );
+};
+
 const Dashboard = () => {
     // eslint-disable-next-line no-unused-vars
-    const { repairs, allRepairs, inventory, currentUser, technicians, earnings, servicePoints, alerts, selectedStoreId } = useAppContext();
+    const { repairs, allRepairs, inventory, currentUser, technicians, earnings, servicePoints, allServicePoints, alerts, selectedStoreId, recentActivity } = useAppContext();
 
 
     const stats = useMemo(() => {
@@ -139,6 +225,16 @@ const Dashboard = () => {
         }).sort((a, b) => b.revenue - a.revenue);
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [servicePoints, repairs, earnings, currentUser]);
+
+    // Mağaza bazlı son eklenen/çıkarılan/güncellenen veriler (AuditLog kaynaklı)
+    const storeActivities = useMemo(() => {
+        const points = (allServicePoints && allServicePoints.length ? allServicePoints : servicePoints) || [];
+        const nameById = new Map(points.map(sp => [String(sp.id), sp.name]));
+        return (recentActivity || []).map(act => ({
+            ...act,
+            storeName: nameById.get(String(act.storeId)) || (act.storeId != null ? `Mağaza ${act.storeId}` : '—')
+        }));
+    }, [recentActivity, allServicePoints, servicePoints]);
 
     const recentActivities = useMemo(() => {
         const myStoreId = currentUser?.storeId;
@@ -357,6 +453,25 @@ const Dashboard = () => {
                             </div>
                         </div>
                     )}
+
+                    {/* Mağaza Hareketleri (Son eklenen / çıkarılan / güncellenen veriler) */}
+                    <div className="gsx-card overflow-hidden flex flex-col">
+                        <div className="px-6 py-5 border-b border-gray-50 flex justify-between items-center bg-white">
+                            <div>
+                                <h3 className="font-bold text-sm text-gray-900 uppercase tracking-widest">Mağaza Hareketleri</h3>
+                                <p className="text-[11px] text-gray-400 font-medium mt-0.5">
+                                    {canViewPerformance ? 'Tüm mağazalarda son eklenen, çıkarılan ve güncellenen veriler' : 'Mağazanızda son eklenen, çıkarılan ve güncellenen veriler'}
+                                </p>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                                <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tight">Canlı</span>
+                            </div>
+                        </div>
+                        <div className="overflow-auto max-h-[520px] custom-scrollbar">
+                            <StoreActivityFeed activities={storeActivities} showStore={canViewPerformance} />
+                        </div>
+                    </div>
                 </div>
 
                 {/* Right Column */}

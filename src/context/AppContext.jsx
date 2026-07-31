@@ -234,6 +234,7 @@ export const AppProvider = ({ children }) => {
 
     const [announcements, setAnnouncements] = useState([]);
     const [tasks, setTasks] = useState([]);
+    const [recentActivity, setRecentActivity] = useState([]);
 
     const fetchStoreUpdates = async () => {
         if (!currentUser) return;
@@ -242,11 +243,17 @@ export const AppProvider = ({ children }) => {
             if (!hasPermission(currentUser, 'view_all_stores') && currentUser.storeId) {
                 queryParams = `?storeId=${currentUser.storeId}`;
             }
-            
-            const [annRes, taskRes] = await Promise.all([
+
+            const [annRes, taskRes, actRes] = await Promise.all([
                 apiFetch(`${API_URL}/store-announcements${queryParams}`),
-                apiFetch(`${API_URL}/store-tasks${queryParams}`)
+                apiFetch(`${API_URL}/store-tasks${queryParams}`),
+                apiFetch(`${API_URL}/system/recent-activity?limit=30`)
             ]);
+
+            if (actRes.ok) {
+                const data = await actRes.json();
+                setRecentActivity(Array.isArray(data) ? data : []);
+            }
 
             if (annRes.ok) {
                 const data = await annRes.json();
@@ -1365,7 +1372,8 @@ export const AppProvider = ({ children }) => {
             serviceTerms, setServiceTerms: (s) => { setServiceTerms(s); saveSettings('serviceTerms', s); },
             roles, addRole, updateRole, deleteRole,
             deviceModels, addDeviceModel, updateDeviceModel, removeDeviceModel,
-            selectedStoreId, setSelectedStoreId, showToast, alerts: alerts.filter(a => !clearedAlertIds.includes(a.id)), checkSLA, sendWhatsApp, uploadMedia, clearAllAlerts
+            selectedStoreId, setSelectedStoreId, showToast, alerts: alerts.filter(a => !clearedAlertIds.includes(a.id)), checkSLA, sendWhatsApp, uploadMedia, clearAllAlerts,
+            recentActivity
         }}>
             {children}
             {toast.isVisible && <Toast key={toast.id} message={toast.message} type={toast.type} onClose={hideToast} />}

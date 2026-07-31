@@ -30,9 +30,11 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 const JWT_SECRET = process.env.JWT_SECRET || 'troy-fallback-secret-key-2026';
 
 // --- Audit Log Helper ---
-const createLog = async (req, action, module, details = '') => {
+const createLog = async (req, action, module, details = '', storeId = undefined) => {
     try {
         const user = req.user; // Set by verifyToken middleware
+        // Verinin ait olduğu mağaza öncelikli; belirtilmemişse kullanıcının mağazası
+        const resolvedStoreId = (storeId !== undefined && storeId !== null) ? Number(storeId) : user?.storeId;
         await AuditLog.create({
             userId: user?.id || 'SYSTEM',
             userName: user?.name || 'Sistem',
@@ -41,7 +43,7 @@ const createLog = async (req, action, module, details = '') => {
             module,
             details: typeof details === 'object' ? JSON.stringify(details) : details,
             ipAddress: req.ip || req.headers['x-forwarded-for'] || '',
-            storeId: user?.storeId
+            storeId: resolvedStoreId
         });
     } catch (err) {
         console.error('Audit Log Error:', err);
@@ -379,7 +381,9 @@ router.post('/repairs', async (req, res) => {
         
         const repair = new Repair(req.body);
         const newRepair = await repair.save();
-        
+
+        await createLog(req, 'CREATE_REPAIR', 'REPAIR', `Yeni servis kaydı oluşturuldu: ${newRepair.serviceNo || newRepair.id} - ${newRepair.customerName || ''} (${newRepair.device || ''})`, newRepair.storeId);
+
         // Otomatik Kabul E-postası Gönder (Arka Planda)
         if (newRepair.customerEmail) {
             sendAutomatedEmail(newRepair, 'Kabul').catch(err => console.error('Auto Email Error:', err));
@@ -410,8 +414,14 @@ router.put('/repairs/:id', async (req, res) => {
         let updatedRepair = await Repair.findOneAndUpdate(filter, req.body, { new: true });
 
         if (updatedRepair) {
+            const statusChanged = req.body.status && oldRepair && oldRepair.status !== req.body.status;
+            const detail = statusChanged
+                ? `Servis kaydı güncellendi: ${updatedRepair.serviceNo || updatedRepair.id} (Durum: ${oldRepair.status} → ${updatedRepair.status})`
+                : `Servis kaydı güncellendi: ${updatedRepair.serviceNo || updatedRepair.id} - ${updatedRepair.customerName || ''}`;
+            await createLog(req, 'UPDATE_REPAIR', 'REPAIR', detail, updatedRepair.storeId);
+
             // Eğer durum değiştiyse otomatik e-posta gönder
-            if (req.body.status && oldRepair && oldRepair.status !== req.body.status) {
+            if (statusChanged) {
                 if (updatedRepair.customerEmail) {
                     sendAutomatedEmail(updatedRepair, updatedRepair.status).catch(err => console.error('Auto Status Email Error:', err));
                 }
@@ -433,7 +443,7 @@ router.delete('/repairs/:id', async (req, res) => {
         
         const deleted = await Repair.findOneAndDelete(filter);
         if (deleted) {
-            await createLog(req, 'DELETE_REPAIR', 'REPAIR', `Servis kaydı silindi: ${deleted.serviceNo} - ${deleted.customerName}`);
+            await createLog(req, 'DELETE_REPAIR', 'REPAIR', `Servis kaydı silindi: ${deleted.serviceNo} - ${deleted.customerName}`, deleted.storeId);
         }
         res.json({ message: 'Repair deleted', success: !!deleted });
     } catch (err) {
@@ -497,7 +507,7 @@ router.post('/login', async (req, res) => {
         await createLog(req, 'LOGIN', 'AUTH', `Kullanıcı sisteme giriş yaptı: ${user.email}`);
 
         const token = jwt.sign(
-            { id: user._id || user.id, email: user.email, role: user.role, storeId: user.storeId },
+            { id: user._id || user.id, name: user.name, email: user.email, role: user.role, storeId: user.storeId },
             JWT_SECRET,
             { expiresIn: '24h' }
         );
@@ -677,6 +687,7 @@ router.post('/inventory', requireRole(['superadmin', 'storemanager']), async (re
     const item = new Inventory(data);
     try {
         const newItem = await item.save();
+        await createLog(req, 'CREATE_STOCK', 'INVENTORY', `Yeni parça eklendi: ${newItem.name || ''} (${newItem.partNumber || newItem.id || ''}) - Adet: ${newItem.quantity ?? ''}`, newItem.storeId);
         res.status(201).json(newItem);
     } catch (err) {
         res.status(400).json({ message: err.message });
@@ -698,6 +709,9 @@ router.put('/inventory/:id', requireRole(['superadmin', 'storemanager']), async 
         }
         
         const updatedItem = await Inventory.findOneAndUpdate(filter, data, { new: true });
+        if (updatedItem) {
+            await createLog(req, 'UPDATE_STOCK', 'INVENTORY', `Parça güncellendi: ${updatedItem.name || ''} (${updatedItem.partNumber || updatedItem.id || ''}) - Adet: ${updatedItem.quantity ?? ''}`, updatedItem.storeId);
+        }
         res.json(updatedItem);
     } catch (err) {
         res.status(400).json({ message: err.message });
@@ -716,6 +730,7 @@ router.delete('/inventory/:id', requireRole(['superadmin', 'storemanager']), asy
         
         if (deleted) {
             console.log(`[Inventory] SUCCESS: Deleted item: ${deleted.name} (${deleted.partNumber || deleted.id})`);
+            await createLog(req, 'DELETE_STOCK', 'INVENTORY', `Parça silindi: ${deleted.name || ''} (${deleted.partNumber || deleted.id || ''})`, deleted.storeId);
             res.json({ message: 'Inventory item deleted', success: true });
         } else {
             console.warn(`[Inventory] FAILED: No record found for ID: ${id}`);
@@ -992,6 +1007,7 @@ router.post('/customers', async (req, res) => {
             id: customerId
         });
         const savedCustomer = await newCustomer.save();
+        await createLog(req, 'CREATE_CUSTOMER', 'CUSTOMER', `Yeni müşteri eklendi: ${savedCustomer.name || ''} ${savedCustomer.phone ? '(' + savedCustomer.phone + ')' : ''}`, savedCustomer.storeId);
         res.status(201).json(savedCustomer);
     } catch (err) {
         res.status(400).json({ message: err.message });
@@ -1005,6 +1021,9 @@ router.put('/customers/:id', async (req, res) => {
         if (mongoose.Types.ObjectId.isValid(id)) filter.$or.push({ _id: id });
         
         const updatedCustomer = await Customer.findOneAndUpdate(filter, req.body, { new: true });
+        if (updatedCustomer) {
+            await createLog(req, 'UPDATE_CUSTOMER', 'CUSTOMER', `Müşteri güncellendi: ${updatedCustomer.name || ''} ${updatedCustomer.phone ? '(' + updatedCustomer.phone + ')' : ''}`, updatedCustomer.storeId);
+        }
         res.json(updatedCustomer);
     } catch (err) {
         res.status(400).json({ message: err.message });
@@ -1018,6 +1037,9 @@ router.delete('/customers/:id', requireRole(['superadmin', 'storemanager']), asy
         if (mongoose.Types.ObjectId.isValid(id)) filter.$or.push({ _id: id });
         
         const deleted = await Customer.findOneAndDelete(filter);
+        if (deleted) {
+            await createLog(req, 'DELETE_CUSTOMER', 'CUSTOMER', `Müşteri silindi: ${deleted.name || ''} ${deleted.phone ? '(' + deleted.phone + ')' : ''}`, deleted.storeId);
+        }
         res.json({ message: 'Müşteri silindi', success: !!deleted });
     } catch (err) {
         res.status(500).json({ message: err.message });
@@ -1574,6 +1596,31 @@ router.delete('/store-shifts/:id', requireRole(['superadmin', 'storemanager']), 
         res.json({ success: true, message: 'Vardiya silindi.' });
     } catch (err) {
         res.status(500).json({ message: err.message });
+    }
+});
+
+// --- Recent Activity Feed (mağaza bazlı son eklenen/çıkarılan/güncellenen) ---
+router.get('/system/recent-activity', async (req, res) => {
+    try {
+        const role = (req.user?.role || '').toLowerCase();
+        const canViewAll = ['superadmin', 'admin', 'yonetici'].includes(role);
+
+        // Sadece veri hareketlerini göster (LOGIN gibi oturum olaylarını hariç tut)
+        const query = { module: { $in: ['REPAIR', 'INVENTORY', 'CUSTOMER', 'STORE_MANAGEMENT'] } };
+
+        if (!canViewAll) {
+            // Yönetici olmayan kullanıcı sadece kendi mağazasını görür
+            query.storeId = req.user?.storeId ?? null;
+        } else if (req.query.storeId && req.query.storeId !== '0') {
+            // Yönetici belirli bir mağazaya filtrelemek isterse
+            query.storeId = Number(req.query.storeId);
+        }
+
+        const limit = Math.min(parseInt(req.query.limit, 10) || 30, 100);
+        const logs = await AuditLog.find(query).sort({ createdAt: -1 }).limit(limit).lean();
+        res.json(logs);
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
     }
 });
 
