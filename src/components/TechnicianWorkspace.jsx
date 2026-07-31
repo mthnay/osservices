@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import Swal from 'sweetalert2';
 import {
     X, CheckCircle, Clock, AlertTriangle, Check,
     Save, Play, Pause, RotateCcw, Box, Wrench, FileText, ChevronRight, Activity, Zap, AlertCircle, Users,
-    Camera, Plus, Trash2, ArrowRight, ShieldCheck, Microscope, Info
+    Camera, Plus, Trash2, ArrowRight, ShieldCheck, Microscope, Info, Lock, Eye, EyeOff
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 // eslint-disable-next-line no-unused-vars
@@ -30,6 +29,13 @@ const TechnicianWorkspace = ({ repairId, onClose, setActiveTab }) => {
     const [customReturnReason, setCustomReturnReason] = useState('');
     const [uploading, setUploading] = useState(false);
     const [localSerials, setLocalSerials] = useState({});
+    // Teknisyen şifre doğrulama modalı state'leri
+    const [pwModal, setPwModal] = useState({ open: false, tech: null });
+    const [pwInput, setPwInput] = useState('');
+    const [pwShow, setPwShow] = useState(false);
+    const [pwError, setPwError] = useState('');
+    const [pwVerifying, setPwVerifying] = useState(false);
+
     const [showQuoteModal, setShowQuoteModal] = useState(false);
     const [quoteItems, setQuoteItems] = useState([{ name: '', price: '' }]);
     // eslint-disable-next-line no-unused-vars
@@ -103,50 +109,37 @@ const TechnicianWorkspace = ({ repairId, onClose, setActiveTab }) => {
         return `${h > 0 ? h + ':' : ''}${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
     };
 
-    const verifyAndAssignTech = async (tech) => {
-        const { value: password } = await Swal.fire({
-            title: 'Teknisyen Doğrulaması',
-            html: `Lütfen <strong>${tech.name}</strong> şifresini giriniz:`,
-            input: 'password',
-            inputPlaceholder: 'Şifrenizi yazın',
-            inputAttributes: {
-                autocapitalize: 'off',
-                autocorrect: 'off'
-            },
-            showCancelButton: true,
-            confirmButtonText: 'Doğrula ve Başlat',
-            cancelButtonText: 'İptal',
-            confirmButtonColor: '#0071e3',
-            cancelButtonColor: '#8e8e93',
-            customClass: {
-                popup: 'rounded-[32px] shadow-2xl border border-gray-100 font-sans',
-                title: 'font-black text-xl text-gray-900',
-                htmlContainer: 'text-gray-600 font-medium',
-                input: 'rounded-xl border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-50 text-center font-mono tracking-widest text-lg',
-                confirmButton: 'rounded-xl font-bold px-6 py-3 shadow-md hover:shadow-lg transition-all',
-                cancelButton: 'rounded-xl font-bold px-6 py-3 border border-gray-200'
-            }
-        });
+    // Teknisyen doğrulama modalı
+    const verifyAndAssignTech = (tech) => {
+        setPwInput('');
+        setPwError('');
+        setPwShow(false);
+        setPwModal({ open: true, tech });
+    };
 
-        if (password === undefined) return;
-        
-        if (!password) {
-            showToast('Şifre boş bırakılamaz.', 'warning');
+    const submitPassword = async () => {
+        const tech = pwModal.tech;
+        if (!tech) return;
+        if (!pwInput.trim()) {
+            setPwError('Lütfen şifrenizi girin.');
             return;
         }
+        setPwVerifying(true);
+        setPwError('');
+        const isValid = await verifyTechnicianPassword(tech.id || tech._id, pwInput);
+        setPwVerifying(false);
 
-        showToast('Şifre doğrulanıyor...', 'info');
-        const isValid = await verifyTechnicianPassword(tech.id || tech._id, password);
-        
         if (isValid) {
-            showToast('Teknisyen başarıyla doğrulandı!', 'success');
-            updateRepair(repairId, { 
-                technician: tech.name, 
-                status: 'Onarımda', 
-                historyNote: `${tech.name} şifre doğrulayarak onarımı başlattı.` 
+            setPwModal({ open: false, tech: null });
+            setPwInput('');
+            showToast('Teknisyen doğrulandı, onarım başlatıldı.', 'success');
+            updateRepair(repairId, {
+                technician: tech.name,
+                status: 'Onarımda',
+                historyNote: `${tech.name} şifre doğrulayarak onarımı başlattı.`
             });
         } else {
-            appAlert('Girdiğiniz şifre hatalı. Lütfen tekrar deneyin.', 'error');
+            setPwError('Girdiğiniz şifre hatalı. Lütfen tekrar deneyin.');
         }
     };
 
@@ -512,6 +505,57 @@ const TechnicianWorkspace = ({ repairId, onClose, setActiveTab }) => {
                     )}
                 </div>
             </div>
+
+            {/* Teknisyen Şifre Doğrulama Modalı */}
+            {pwModal.open && (
+                <div className="fixed inset-0 z-[120] bg-[#1d1d1f]/60 backdrop-blur-md flex items-center justify-center p-6 animate-fade-in" onClick={() => !pwVerifying && setPwModal({ open: false, tech: null })}>
+                    <div className="bg-white w-full max-w-sm rounded-[28px] overflow-hidden shadow-2xl animate-scale-up" onClick={(e) => e.stopPropagation()}>
+                        {/* Başlık */}
+                        <div className="px-8 pt-8 pb-6 text-center">
+                            <div className="w-16 h-16 mx-auto bg-[#f5f5f7] rounded-2xl flex items-center justify-center text-3xl mb-4 border border-gray-100">
+                                {pwModal.tech?.avatar || '👨‍🔧'}
+                            </div>
+                            <span className="text-[10px] font-bold text-[#0071e3] uppercase tracking-widest">Teknisyen Doğrulaması</span>
+                            <h3 className="text-xl font-bold text-[#1d1d1f] mt-1">{pwModal.tech?.name}</h3>
+                            <p className="text-sm text-gray-500 font-medium mt-2">Onarımı başlatmak için şifrenizi girin.</p>
+                        </div>
+
+                        {/* Şifre alanı */}
+                        <div className="px-8">
+                            <div className="relative">
+                                <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                                <input
+                                    type={pwShow ? 'text' : 'password'}
+                                    autoFocus
+                                    value={pwInput}
+                                    onChange={(e) => { setPwInput(e.target.value); if (pwError) setPwError(''); }}
+                                    onKeyDown={(e) => e.key === 'Enter' && submitPassword()}
+                                    placeholder="Şifreniz"
+                                    className={`w-full pl-12 pr-12 py-4 bg-[#f5f5f7] border rounded-2xl text-base font-semibold text-[#1d1d1f] outline-none transition-all focus:bg-white ${pwError ? 'border-red-300 focus:ring-4 focus:ring-red-500/10' : 'border-transparent focus:ring-4 focus:ring-[#0071e3]/10 focus:border-[#0071e3]'}`}
+                                />
+                                <button type="button" onClick={() => setPwShow(s => !s)} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">
+                                    {pwShow ? <EyeOff size={18} /> : <Eye size={18} />}
+                                </button>
+                            </div>
+                            {pwError && (
+                                <p className="text-xs text-red-500 font-bold mt-2 ml-1 flex items-center gap-1.5">
+                                    <AlertCircle size={13} /> {pwError}
+                                </p>
+                            )}
+                        </div>
+
+                        {/* Butonlar */}
+                        <div className="p-8 flex gap-3">
+                            <button onClick={() => setPwModal({ open: false, tech: null })} disabled={pwVerifying} className="flex-1 py-3.5 bg-white border border-gray-200 text-gray-500 font-bold rounded-2xl hover:bg-gray-50 transition-all disabled:opacity-50">
+                                İptal
+                            </button>
+                            <button onClick={submitPassword} disabled={pwVerifying} className="flex-[1.6] py-3.5 bg-[#0071e3] hover:bg-[#0077ed] text-white font-bold rounded-2xl shadow-lg shadow-[#0071e3]/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-60">
+                                {pwVerifying ? 'Doğrulanıyor...' : (<><ShieldCheck size={18} /> Doğrula ve Başlat</>)}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Quote Modal */}
             {showQuoteModal && (
