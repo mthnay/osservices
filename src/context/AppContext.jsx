@@ -240,10 +240,8 @@ export const AppProvider = ({ children }) => {
     const fetchStoreUpdates = async () => {
         if (!currentUser) return;
         try {
-            let queryParams = '';
-            if (!hasPermission(currentUser, 'view_all_stores') && currentUser.storeId) {
-                queryParams = `?storeId=${currentUser.storeId}`;
-            }
+            // Mağaza kapsamı backend'de JWT'ye göre zorlanır; istemcinin storeId göndermesine gerek yok
+            const queryParams = '';
 
             const [annRes, taskRes, actRes, satRes] = await Promise.all([
                 apiFetch(`${API_URL}/store-announcements${queryParams}`),
@@ -466,10 +464,8 @@ export const AppProvider = ({ children }) => {
                 }
                 if (servicePointsRes.ok) setServicePoints(await servicePointsRes.json());
 
-                let queryParams = '';
-                if (!hasPermission(currentUser, 'view_all_stores') && currentUser.storeId) {
-                    queryParams = `?storeId=${currentUser.storeId}`;
-                }
+                // Mağaza kapsamı backend'de JWT'ye göre zorlanır (yetkisiz → erişimli mağazalar; yetkili → tümü)
+                const queryParams = '';
                 const [repairsRes, inventoryRes, techniciansRes, settingsRes, customersRes, companyRes, earningsRes, notifSetRes, notifTempRes, serviceTermsRes, rolesRes, deviceModelsRes] = await Promise.all([
                     apiFetch(`${API_URL}/repairs${queryParams}`),
                     apiFetch(`${API_URL}/inventory${queryParams}`),
@@ -552,13 +548,18 @@ export const AppProvider = ({ children }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentUser]);
 
-    // Force store restriction for unauthorized users
+    // Yetkisiz kullanıcılar için mağaza kısıtı (çoklu mağaza destekli)
     useEffect(() => {
         if (currentUser && !hasPermission(currentUser, 'view_all_stores')) {
-            const userStoreId = Number(currentUser.storeId);
-            if (selectedStoreId === 0 || selectedStoreId === '0' || Number(selectedStoreId) !== userStoreId) {
-                console.log("Enforcing store restriction for user:", currentUser.name);
-                setSelectedStoreId(userStoreId);
+            const allowed = getAccessibleStoreIds(currentUser);
+            const sel = Number(selectedStoreId);
+            if (allowed.length <= 1) {
+                // Tek mağaza: her zaman kendi mağazasına sabitle
+                const only = allowed[0] ?? Number(currentUser.storeId);
+                if (only && sel !== only) setSelectedStoreId(only);
+            } else if (sel !== 0 && !allowed.includes(sel)) {
+                // Çok mağaza: 0 (tümü) veya erişimli mağazalardan biri geçerli; değilse 0'a çek
+                setSelectedStoreId(0);
             }
         }
     }, [currentUser, selectedStoreId]);
@@ -594,8 +595,10 @@ export const AppProvider = ({ children }) => {
                 const role = data.user.role?.toLowerCase();
                 if (role === 'superadmin' || role === 'admin' || role === 'yonetici') {
                     setSelectedStoreId(0);
-                } else if (data.user.storeId !== undefined && data.user.storeId !== null) {
-                    setSelectedStoreId(Number(data.user.storeId));
+                } else {
+                    // Çok mağazalı kullanıcı → 0 (tüm erişimli mağazaları); tek mağazalı → kendi mağazası
+                    const allowedStores = getAccessibleStoreIds(data.user);
+                    setSelectedStoreId(allowedStores.length > 1 ? 0 : (allowedStores[0] ?? (data.user.storeId != null ? Number(data.user.storeId) : 0)));
                 }
                 sessionStorage.setItem('token', data.token);
                 return true;

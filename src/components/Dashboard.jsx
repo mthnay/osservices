@@ -237,9 +237,8 @@ const Dashboard = () => {
     }, [recentActivity, allServicePoints, servicePoints]);
 
     const recentActivities = useMemo(() => {
-        const myStoreId = currentUser?.storeId;
+        // repairs zaten context'te erişimli mağaza(lar)a göre kapsanmış durumda
         const allEvents = (repairs || [])
-            .filter(r => String(r.storeId) === String(myStoreId))
             .flatMap(r => (r.history || []).map(h => ({
                 repairId: r.id,
                 device: r.device,
@@ -288,7 +287,7 @@ const Dashboard = () => {
                     color
                 };
             });
-    }, [repairs, currentUser]);
+    }, [repairs]);
 
     const deviceDistribution = useMemo(() => {
         const counts = { 'iPhone': 0, 'Mac': 0, 'iPad': 0, 'Diğer': 0 };

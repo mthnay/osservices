@@ -64,6 +64,8 @@ const accessibleStoreIds = (user) => {
     return [...ids];
 };
 const canViewAllStores = (user) => ['superadmin', 'admin', 'yonetici'].includes((user?.role || '').toLowerCase());
+// Kullanıcı bu mağazadaki kayda işlem yapabilir mi? (yetkili → tümü)
+const canAccessStore = (user, storeId) => canViewAllStores(user) || accessibleStoreIds(user).map(String).includes(String(storeId));
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -361,8 +363,12 @@ router.post('/public/repairs/:id/feedback', async (req, res) => {
 router.get('/repairs', async (req, res) => {
     try {
         const filter = {};
-        if (req.query.storeId) {
-            filter.storeId = req.query.storeId;
+        if (canViewAllStores(req.user)) {
+            // Yetkili hesap: opsiyonel seçili mağaza filtresi
+            if (req.query.storeId && req.query.storeId !== '0') filter.storeId = Number(req.query.storeId);
+        } else {
+            // Yetkisiz kullanıcı: yalnızca erişim yetkisi olan mağazalar (JWT'den zorlanır)
+            filter.storeId = { $in: accessibleStoreIds(req.user) };
         }
         const repairs = await Repair.find(filter).sort({ createdAt: -1 }).lean();
         res.json(repairs);
@@ -373,12 +379,17 @@ router.get('/repairs', async (req, res) => {
 
 router.post('/repairs', async (req, res) => {
     try {
+        // Yetkisiz kullanıcı yalnızca erişimli mağazasına kayıt açabilir (aksi halde birincil mağazaya zorla)
+        if (!canViewAllStores(req.user) && !canAccessStore(req.user, req.body.storeId)) {
+            req.body.storeId = Number(req.user?.storeId) || accessibleStoreIds(req.user)[0];
+        }
+
         // Debug için gelen veriyi dosyaya yaz
         fs.writeFileSync(path.join(__dirname, '../debug_log.json'), JSON.stringify({
             timestamp: new Date().toISOString(),
             body: req.body
         }, null, 2));
-        
+
         console.log('[REPAIR] Incoming data logged to debug_log.json');
         // Otomatik ID Oluştur (Eğer yoksa)
         if (!req.body.id || req.body.id.startsWith('TR-')) {
@@ -426,6 +437,10 @@ router.put('/repairs/:id', async (req, res) => {
         if (mongoose.Types.ObjectId.isValid(id)) filter.$or.push({ _id: id });
 
         const oldRepair = await Repair.findOne(filter);
+        // Yetki: kayıt kullanıcının erişimli mağazasına ait değilse reddet
+        if (oldRepair && !canAccessStore(req.user, oldRepair.storeId)) {
+            return res.status(403).json({ message: 'Bu kayıt üzerinde işlem yetkiniz yok (farklı mağaza).' });
+        }
         let updatedRepair = await Repair.findOneAndUpdate(filter, req.body, { new: true });
 
         if (updatedRepair) {
@@ -455,7 +470,13 @@ router.delete('/repairs/:id', async (req, res) => {
         const id = req.params.id;
         const filter = { $or: [{ id: id }] };
         if (mongoose.Types.ObjectId.isValid(id)) filter.$or.push({ _id: id });
-        
+
+        // Yetki: kaydın mağazası erişimli değilse silme
+        const target = await Repair.findOne(filter);
+        if (target && !canAccessStore(req.user, target.storeId)) {
+            return res.status(403).json({ message: 'Bu kaydı silme yetkiniz yok (farklı mağaza).' });
+        }
+
         const deleted = await Repair.findOneAndDelete(filter);
         if (deleted) {
             await createLog(req, 'DELETE_REPAIR', 'REPAIR', `Servis kaydı silindi: ${deleted.serviceNo} - ${deleted.customerName}`, deleted.storeId);
@@ -681,8 +702,12 @@ router.post('/users/forgot-password', async (req, res) => {
 router.get('/inventory', async (req, res) => {
     try {
         const filter = {};
-        if (req.query.storeId) {
-            filter.storeId = req.query.storeId;
+        if (canViewAllStores(req.user)) {
+            // Yetkili hesap: opsiyonel seçili mağaza filtresi
+            if (req.query.storeId && req.query.storeId !== '0') filter.storeId = Number(req.query.storeId);
+        } else {
+            // Yetkisiz kullanıcı: yalnızca erişim yetkisi olan mağazalar (JWT'den zorlanır)
+            filter.storeId = { $in: accessibleStoreIds(req.user) };
         }
         const inventory = await Inventory.find(filter).lean();
         res.json(inventory);
@@ -692,6 +717,10 @@ router.get('/inventory', async (req, res) => {
 });
 
 router.post('/inventory', requireRole(['superadmin', 'storemanager']), async (req, res) => {
+    // Yetki: yetkisiz kullanıcı yalnızca erişimli mağazasına parça ekleyebilir
+    if (!canViewAllStores(req.user) && !canAccessStore(req.user, req.body.storeId)) {
+        return res.status(403).json({ message: 'Bu mağazaya parça ekleme yetkiniz yok.' });
+    }
     const data = { ...req.body };
     if (data.kgbSerial && (!data.kgbSerials || data.kgbSerials.length === 0)) {
         data.kgbSerials = [data.kgbSerial];
@@ -715,6 +744,12 @@ router.put('/inventory/:id', requireRole(['superadmin', 'storemanager']), async 
         const filter = { $or: [{ id: id }] };
         if (mongoose.Types.ObjectId.isValid(id)) filter.$or.push({ _id: id });
         
+        // Yetki: kaydın mağazası erişimli değilse güncelleme
+        const current = await Inventory.findOne(filter);
+        if (current && !canAccessStore(req.user, current.storeId)) {
+            return res.status(403).json({ message: 'Bu parça üzerinde işlem yetkiniz yok (farklı mağaza).' });
+        }
+
         const data = { ...req.body };
         if (data.kgbSerial && (!data.kgbSerials || data.kgbSerials.length === 0)) {
             data.kgbSerials = [data.kgbSerial];
@@ -722,7 +757,7 @@ router.put('/inventory/:id', requireRole(['superadmin', 'storemanager']), async 
         if (data.kbbSerial && (!data.kbbSerials || data.kbbSerials.length === 0)) {
             data.kbbSerials = [data.kbbSerial];
         }
-        
+
         const updatedItem = await Inventory.findOneAndUpdate(filter, data, { new: true });
         if (updatedItem) {
             await createLog(req, 'UPDATE_STOCK', 'INVENTORY', `Parça güncellendi: ${updatedItem.name || ''} (${updatedItem.partNumber || updatedItem.id || ''}) - Adet: ${updatedItem.quantity ?? ''}`, updatedItem.storeId);
@@ -740,9 +775,15 @@ router.delete('/inventory/:id', requireRole(['superadmin', 'storemanager']), asy
         
         const filter = { $or: [{ id: id }] };
         if (mongoose.Types.ObjectId.isValid(id)) filter.$or.push({ _id: id });
-        
+
+        // Yetki: kaydın mağazası erişimli değilse silme
+        const target = await Inventory.findOne(filter);
+        if (target && !canAccessStore(req.user, target.storeId)) {
+            return res.status(403).json({ message: 'Bu parçayı silme yetkiniz yok (farklı mağaza).', success: false });
+        }
+
         const deleted = await Inventory.findOneAndDelete(filter);
-        
+
         if (deleted) {
             console.log(`[Inventory] SUCCESS: Deleted item: ${deleted.name} (${deleted.partNumber || deleted.id})`);
             await createLog(req, 'DELETE_STOCK', 'INVENTORY', `Parça silindi: ${deleted.name || ''} (${deleted.partNumber || deleted.id || ''})`, deleted.storeId);
@@ -953,8 +994,12 @@ router.post('/inventory/transfer-serial', async (req, res) => {
 router.get('/technicians', async (req, res) => {
     try {
         const filter = {};
-        if (req.query.storeId) {
-            filter.storeId = req.query.storeId;
+        if (canViewAllStores(req.user)) {
+            // Yetkili hesap: opsiyonel seçili mağaza filtresi
+            if (req.query.storeId && req.query.storeId !== '0') filter.storeId = Number(req.query.storeId);
+        } else {
+            // Yetkisiz kullanıcı: yalnızca erişim yetkisi olan mağazalar (JWT'den zorlanır)
+            filter.storeId = { $in: accessibleStoreIds(req.user) };
         }
         const technicians = await Technician.find(filter).lean();
         res.json(technicians);
@@ -1103,8 +1148,12 @@ router.get('/media/:id', async (req, res) => {
 router.get('/customers', async (req, res) => {
     try {
         const filter = {};
-        if (req.query.storeId) {
-            filter.storeId = req.query.storeId;
+        if (canViewAllStores(req.user)) {
+            // Yetkili hesap: opsiyonel seçili mağaza filtresi
+            if (req.query.storeId && req.query.storeId !== '0') filter.storeId = Number(req.query.storeId);
+        } else {
+            // Yetkisiz kullanıcı: yalnızca erişim yetkisi olan mağazalar (JWT'den zorlanır)
+            filter.storeId = { $in: accessibleStoreIds(req.user) };
         }
         const customers = await Customer.find(filter).sort({ createdAt: -1 }).lean();
         res.json(customers);
@@ -1115,6 +1164,10 @@ router.get('/customers', async (req, res) => {
 
 router.post('/customers', async (req, res) => {
     try {
+        // Yetki: yetkisiz kullanıcı yalnızca erişimli mağazasına müşteri ekleyebilir (aksi halde birincile zorla)
+        if (!canViewAllStores(req.user) && !canAccessStore(req.user, req.body.storeId)) {
+            req.body.storeId = Number(req.user?.storeId) || accessibleStoreIds(req.user)[0];
+        }
         const lastCustomer = await Customer.findOne({ id: /^C-\d+$/ }).sort({ id: -1 });
         let nextId = 1000 + (await Customer.countDocuments()) + 1;
         if (lastCustomer && lastCustomer.id) {
@@ -1140,7 +1193,13 @@ router.put('/customers/:id', async (req, res) => {
         const id = req.params.id;
         const filter = { $or: [{ id: id }] };
         if (mongoose.Types.ObjectId.isValid(id)) filter.$or.push({ _id: id });
-        
+
+        // Yetki: kaydın mağazası erişimli değilse güncelleme
+        const currentCustomer = await Customer.findOne(filter);
+        if (currentCustomer && !canAccessStore(req.user, currentCustomer.storeId)) {
+            return res.status(403).json({ message: 'Bu müşteri üzerinde işlem yetkiniz yok (farklı mağaza).' });
+        }
+
         const updatedCustomer = await Customer.findOneAndUpdate(filter, req.body, { new: true });
         if (updatedCustomer) {
             await createLog(req, 'UPDATE_CUSTOMER', 'CUSTOMER', `Müşteri güncellendi: ${updatedCustomer.name || ''} ${updatedCustomer.phone ? '(' + updatedCustomer.phone + ')' : ''}`, updatedCustomer.storeId);
@@ -1156,7 +1215,13 @@ router.delete('/customers/:id', requireRole(['superadmin', 'storemanager']), asy
         const id = req.params.id;
         const filter = { $or: [{ id: id }] };
         if (mongoose.Types.ObjectId.isValid(id)) filter.$or.push({ _id: id });
-        
+
+        // Yetki: kaydın mağazası erişimli değilse silme
+        const target = await Customer.findOne(filter);
+        if (target && !canAccessStore(req.user, target.storeId)) {
+            return res.status(403).json({ message: 'Bu müşteriyi silme yetkiniz yok (farklı mağaza).', success: false });
+        }
+
         const deleted = await Customer.findOneAndDelete(filter);
         if (deleted) {
             await createLog(req, 'DELETE_CUSTOMER', 'CUSTOMER', `Müşteri silindi: ${deleted.name || ''} ${deleted.phone ? '(' + deleted.phone + ')' : ''}`, deleted.storeId);
@@ -1171,8 +1236,12 @@ router.delete('/customers/:id', requireRole(['superadmin', 'storemanager']), asy
 router.get('/earnings', async (req, res) => {
     try {
         const filter = {};
-        if (req.query.storeId) {
-            filter.storeId = req.query.storeId;
+        if (canViewAllStores(req.user)) {
+            // Yetkili hesap: opsiyonel seçili mağaza filtresi
+            if (req.query.storeId && req.query.storeId !== '0') filter.storeId = Number(req.query.storeId);
+        } else {
+            // Yetkisiz kullanıcı: yalnızca erişim yetkisi olan mağazalar (JWT'den zorlanır)
+            filter.storeId = { $in: accessibleStoreIds(req.user) };
         }
         const earnings = await Earning.find(filter).sort({ month: -1 }).lean();
         res.json(earnings);
@@ -1446,7 +1515,7 @@ router.get('/store-announcements', async (req, res) => {
 
         const isGlobalAdmin = ['superadmin', 'admin', 'yonetici'].includes(userRole);
         if (!isGlobalAdmin) {
-            filter.storeId = userStoreId;
+            filter.storeId = { $in: accessibleStoreIds(req.user) };
         } else if (req.query.storeId) {
             filter.storeId = Number(req.query.storeId);
         }
@@ -1511,7 +1580,7 @@ router.get('/store-tasks', async (req, res) => {
 
         const isGlobalAdmin = ['superadmin', 'admin', 'yonetici'].includes(userRole);
         if (!isGlobalAdmin) {
-            filter.storeId = userStoreId;
+            filter.storeId = { $in: accessibleStoreIds(req.user) };
         } else if (req.query.storeId) {
             filter.storeId = Number(req.query.storeId);
         }
@@ -1607,7 +1676,7 @@ router.get('/store-shifts', async (req, res) => {
 
         const isGlobalAdmin = ['superadmin', 'admin', 'yonetici'].includes(userRole);
         if (!isGlobalAdmin) {
-            filter.storeId = userStoreId;
+            filter.storeId = { $in: accessibleStoreIds(req.user) };
         } else if (req.query.storeId) {
             filter.storeId = Number(req.query.storeId);
         }

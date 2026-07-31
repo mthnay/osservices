@@ -36,7 +36,7 @@ import ServiceFormPrint from './ServiceFormPrint';
 import Toast from './Toast'; // Import Toast
 import { useAppContext } from '../context/AppContext';
 import { appConfirm } from '../utils/alert';
-import { hasPermission, ROLES } from '../utils/permissions';
+import { hasPermission, ROLES, getAccessibleStoreIds } from '../utils/permissions';
 import MyPhoneIcon from './LocalIcons';
 import { getProductImage } from '../utils/productImages';
 
@@ -119,6 +119,9 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
     // eslint-disable-next-line no-unused-vars
     const { addRepair, customers, addCustomer, companyProfile, uploadMedia, showToast, serviceTerms, currentUser, servicePoints, visibleServicePoints, deviceModels } = useAppContext();
     const hasAllStores = currentUser?.role === 'admin' || currentUser?.role === ROLES?.SUPER_ADMIN || hasPermission(currentUser, 'view_all_stores');
+    // Çok mağazalı kullanıcı da kaydın açılacağı mağazayı seçebilmeli
+    const hasMultiStore = getAccessibleStoreIds(currentUser).length > 1;
+    const canPickStore = hasAllStores || hasMultiStore;
 
     const [step, setStep] = useState(1);
     const [showPrintModal, setShowPrintModal] = useState(false);
@@ -190,7 +193,7 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
             if (!formData.warrantyStatus) { showToast('Lütfen Garanti Durumu seçiniz.', 'error'); return; }
             if (!formData.customerName) { showToast('Lütfen Müşteri Adı giriniz.', 'error'); return; }
             if (!formData.customerPhone) { showToast('Lütfen Müşteri Telefonu giriniz.', 'error'); return; }
-            if (hasAllStores && !formData.storeId) { showToast('Lütfen kaydın bağlı olacağı Mağazayı seçiniz.', 'error'); return; }
+            if (canPickStore && !formData.storeId) { showToast('Lütfen kaydın bağlı olacağı Mağazayı seçiniz.', 'error'); return; }
             if (!formData.findMyOff) { showToast('Lütfen "Cihazımı Bul" özelliğinin kapalı olduğunu teyit ediniz.', 'error'); return; }
 
             // Geçiş: Form geçerliyse doğrudan full-screen Kiosk Modal aç.
@@ -363,11 +366,11 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
  
     // Kullanıcının bağlı olduğu mağazayı varsayılan seç
     React.useEffect(() => {
-        if (currentUser?.storeId && !hasAllStores) {
-            // view_all_stores yetkisi yoksa her zaman kendi mağazası olmalı
+        if (currentUser?.storeId && !canPickStore) {
+            // Tek mağazalı ve yetkisiz: her zaman kendi mağazası
             setFormData(prev => ({ ...prev, storeId: currentUser.storeId }));
         } else if (currentUser?.storeId && !formData.storeId) {
-            // view_all_stores yetkisi varsa ama storeId boşsa, kendi mağazasını ata
+            // Mağaza seçebilenlerde boşsa birincil mağazayı varsayılan ata (değiştirilebilir)
             setFormData(prev => ({ ...prev, storeId: currentUser.storeId }));
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -507,7 +510,7 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                     </div>
                 </div>
                 <div className="flex items-center gap-4">
-                    {hasAllStores && (
+                    {canPickStore && (
                         <div className="relative" ref={storeSelectRef}>
                             <button 
                                 onClick={() => setShowStoreSelect(!showStoreSelect)}

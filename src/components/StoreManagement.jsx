@@ -1340,9 +1340,21 @@ const StoreManagement = () => {
 
                                             {/* Weekly Shifts Grid / Schedule Table */}
                                             <div className="bg-white rounded-[32px] border border-gray-200 p-8 shadow-sm">
-                                                <div className="mb-6">
-                                                    <h3 className="font-bold text-lg text-[#1d1d1f]">Vardiya Planlama Çizelgesi</h3>
-                                                    <p className="text-xs text-gray-500 mt-0.5">Personellerin günlere göre çalışma planı. Boş hücrelerdeki "+" butonuna basarak hızlıca vardiya atayabilirsiniz.</p>
+                                                <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                                    <div>
+                                                        <h3 className="font-bold text-lg text-[#1d1d1f]">Vardiya Planlama Çizelgesi</h3>
+                                                        <p className="text-xs text-gray-500 mt-0.5">Personellerin günlere göre çalışma planı. Boş hücrelerdeki "+" butonuna basarak hızlıca vardiya atayabilirsiniz.</p>
+                                                    </div>
+                                                    {isManagerOrAdmin && (
+                                                        <div className="flex items-center gap-2 shrink-0">
+                                                            <button onClick={handleSaveShifts} className="px-4 py-2 bg-[#0071e3] hover:bg-[#0077ed] text-white text-[11px] font-bold uppercase tracking-wider rounded-lg transition-all flex items-center gap-2 shadow-sm">
+                                                                <Check size={14} /> Kaydet
+                                                            </button>
+                                                            <button onClick={handleClearWeekShifts} className="px-4 py-2 bg-white border border-gray-200 text-red-500 hover:bg-red-50 hover:border-red-100 text-[11px] font-bold uppercase tracking-wider rounded-lg transition-all flex items-center gap-2">
+                                                                <Trash2 size={14} /> Haftayı Temizle
+                                                            </button>
+                                                        </div>
+                                                    )}
                                                 </div>
 
                                                 <div ref={printAreaRef} id="shift-schedule-print-area" className="p-4 bg-white rounded-2xl">
