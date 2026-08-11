@@ -1,6 +1,6 @@
 // eslint-disable-next-line no-unused-vars
 import React, { useMemo, useState } from 'react';
-import { Clock, AlertCircle, CheckCircle, Package, Activity, TrendingUp, PieChart, ArrowUpRight, ArrowDownRight, MoreHorizontal, Wallet, Users, Zap, LayoutDashboard, Store, X, ChevronRight, ShieldAlert, Wrench, PlusCircle, RefreshCw, Trash2, ArrowLeftRight } from 'lucide-react';
+import { Clock, CheckCircle, Activity, TrendingUp, PieChart, ArrowUpRight, ArrowDownRight, MoreHorizontal, Wallet, Users, Zap, LayoutDashboard, Store, X, ChevronRight, ShieldAlert, Wrench, PlusCircle, RefreshCw, Trash2, ArrowLeftRight } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 // eslint-disable-next-line no-unused-vars
 import { hasPermission, ROLES } from '../utils/permissions';
@@ -204,27 +204,11 @@ const Dashboard = () => {
     }, [repairs, earnings, technicians]);
 
     // Single source of truth for manager-level access - role-string only to avoid async flicker
-    const canViewPerformance = useMemo(() => {
+    // Tüm mağazaları görebilen roller: Mağaza Hareketleri'nde mağaza kolonu bunlara gösterilir.
+    const canViewAllStores = useMemo(() => {
         const role = currentUser?.role?.toLowerCase();
         return role === ROLES.SUPER_ADMIN || role === ROLES.STORE_MANAGER || role === ROLES.SERVICE_SUPERVISOR || role === 'admin' || role === ROLES.YONETICI || role === 'servis_sorumlusu' || role === 'servissorumlusu';
     }, [currentUser?.role]);
-
-    const storePerformance = useMemo(() => {
-        if (!canViewPerformance) return [];
-        return (servicePoints || []).map(sp => {
-            const storeRepairs = (repairs || []).filter(r => String(r.storeId) === String(sp.id));
-            const storeEarnings = (earnings || []).filter(e => String(e.storeId) === String(sp.id));
-            const totalE = storeEarnings.reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
-            return {
-                name: sp.name,
-                shipTo: sp.shipTo,
-                count: storeRepairs.length,
-                revenue: totalE,
-                successRate: storeRepairs.length > 0 ? Math.round((storeRepairs.filter(r => r.status === 'Tamamlandı').length / storeRepairs.length) * 100) : 0
-            };
-        }).sort((a, b) => b.revenue - a.revenue);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [servicePoints, repairs, earnings, currentUser]);
 
     // Mağaza bazlı son eklenen/çıkarılan/güncellenen veriler (AuditLog kaynaklı)
     const storeActivities = useMemo(() => {
@@ -235,59 +219,6 @@ const Dashboard = () => {
             storeName: nameById.get(String(act.storeId)) || (act.storeId != null ? `Mağaza ${act.storeId}` : '—')
         }));
     }, [recentActivity, allServicePoints, servicePoints]);
-
-    const recentActivities = useMemo(() => {
-        // repairs zaten context'te erişimli mağaza(lar)a göre kapsanmış durumda
-        const allEvents = (repairs || [])
-            .flatMap(r => (r.history || []).map(h => ({
-                repairId: r.id,
-                device: r.device,
-                customer: r.customer,
-                ...h
-            })));
-
-        return allEvents
-            .sort((a, b) => {
-                const parseDate = (dStr) => {
-                    if (!dStr) return 0;
-                    // Handles both "14.05.2026 15:00" and ISO formats
-                    const [datePart, timePart] = dStr.split(' ');
-                    const [d, m, y] = datePart.split('.');
-                    return new Date(`${y}-${m}-${d}T${timePart || '00:00'}`).getTime();
-                };
-                return parseDate(b.date) - parseDate(a.date);
-            })
-            .slice(0, 15)
-            .map(event => {
-                let color = 'text-gray-500 bg-gray-50';
-                let icon = Clock;
-
-                if (event.status.includes('Tamamlandı') || event.status.includes('Hazır')) {
-                    color = 'text-green-600 bg-green-50';
-                    icon = CheckCircle;
-                } else if (event.status.includes('İşlemde')) {
-                    color = 'text-blue-600 bg-blue-50';
-                    icon = Zap;
-                } else if (event.status.includes('Kayıt')) {
-                    color = 'text-indigo-600 bg-indigo-50';
-                    icon = Package;
-                } else if (event.status.includes('Onay')) {
-                    color = 'text-orange-600 bg-orange-50';
-                    icon = AlertCircle;
-                }
-
-                return {
-                    id: event.repairId,
-                    title: event.status,
-                    subtitle: `${event.device} - ${event.customer}`,
-                    note: event.note,
-                    time: event.date.split(' ')[1] || '',
-                    date: event.date.split(' ')[0],
-                    icon,
-                    color
-                };
-            });
-    }, [repairs]);
 
     const deviceDistribution = useMemo(() => {
         const counts = { 'iPhone': 0, 'Mac': 0, 'iPad': 0, 'Diğer': 0 };
@@ -372,94 +303,13 @@ const Dashboard = () => {
 
                 {/* Left Column */}
                 <div className="lg:col-span-2 space-y-6">
-                    {/* Admin Store Comparison OR Recent Activity */}
-                    {canViewPerformance ? (
-                        <div className="gsx-card overflow-hidden flex flex-col h-full min-h-[560px]">
-                            <div className="px-6 py-5 border-b border-gray-50 flex justify-between items-center bg-white z-20">
-                                <h3 className="font-bold text-sm text-gray-900 uppercase tracking-widest">Mağaza Performansları</h3>
-                                <div className="flex items-center gap-2">
-                                    <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tight">Canlı Veri</span>
-                                </div>
-                            </div>
-                            <div className="overflow-auto max-h-[540px] custom-scrollbar">
-                                <table className="w-full text-left border-separate border-spacing-0">
-                                    <thead className="sticky top-0 z-10 bg-white">
-                                        <tr className="bg-gray-50 text-[10px] font-bold uppercase tracking-widest text-gray-400 border-b border-gray-100">
-                                            <th className="px-6 py-4 border-b border-gray-100">Mağaza</th>
-                                            <th className="px-6 py-4 text-center border-b border-gray-100">Hacim</th>
-                                            <th className="px-6 py-4 text-right border-b border-gray-100">Ciro</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-50">
-                                        {storePerformance.map((store, i) => (
-                                            <tr key={i} className="hover:bg-gray-50/50 transition-colors">
-                                                <td className="px-6 py-4 font-bold text-gray-900 text-sm">{store.name}</td>
-                                                <td className="px-6 py-4 text-center font-bold text-gray-600">{store.count}</td>
-                                                <td className="px-6 py-4 text-right font-bold text-gray-900">{new Intl.NumberFormat('tr-TR').format(store.revenue)} ₺</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="gsx-card overflow-hidden flex flex-col h-full min-h-[560px]">
-                            <div className="px-6 py-5 border-b border-gray-50 flex justify-between items-center bg-white z-20">
-                                <h3 className="font-bold text-sm text-gray-900 uppercase tracking-widest">Mağazadaki Son Hareketler</h3>
-                                <div className="flex items-center gap-2">
-                                    <div className="p-1.5 bg-blue-50 text-blue-600 rounded">
-                                        <Activity size={14} />
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="p-6 space-y-6 overflow-auto max-h-[540px] custom-scrollbar">
-                                {recentActivities.length > 0 ? recentActivities.map((activity, i) => (
-                                    <div key={i} className="flex gap-4 group">
-                                        <div className="flex flex-col items-center">
-                                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm border border-white transition-transform group-hover:scale-110 ${activity.color}`}>
-                                                <activity.icon size={18} />
-                                            </div>
-                                            {i !== recentActivities.length - 1 && <div className="w-px h-full bg-gray-100 my-2"></div>}
-                                        </div>
-                                        <div className="flex-1 pt-1 pb-4">
-                                            <div className="flex justify-between items-start mb-1">
-                                                <h4 className="text-sm font-bold text-gray-900">{activity.title}</h4>
-                                                <div className="text-right">
-                                                    <span className="text-[10px] font-bold text-gray-400 bg-gray-50 px-2 py-0.5 rounded uppercase tracking-wider block">{activity.time}</span>
-                                                    <span className="text-[8px] font-medium text-gray-300 block mt-0.5">{activity.date}</span>
-                                                </div>
-                                            </div>
-                                            <p className="text-xs text-gray-600 mb-1.5 font-medium">{activity.subtitle}</p>
-                                            {activity.note && (
-                                                <div className="bg-gray-50/50 rounded p-2 border border-gray-100/50 mb-2">
-                                                    <p className="text-[11px] text-gray-500 leading-relaxed italic">"{activity.note}"</p>
-                                                </div>
-                                            )}
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-[9px] font-black px-2 py-0.5 bg-white border border-gray-100 rounded text-gray-400 uppercase tracking-tighter">
-                                                    #{activity.id}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )) : (
-                                    <div className="flex flex-col items-center justify-center py-20 text-gray-400">
-                                        <Clock size={40} className="mb-4 opacity-20" />
-                                        <p className="text-sm font-medium">Henüz bir hareket bulunmuyor</p>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    )}
-
                     {/* Mağaza Hareketleri (Son eklenen / çıkarılan / güncellenen veriler) */}
                     <div className="gsx-card overflow-hidden flex flex-col">
                         <div className="px-6 py-5 border-b border-gray-50 flex justify-between items-center bg-white">
                             <div>
                                 <h3 className="font-bold text-sm text-gray-900 uppercase tracking-widest">Mağaza Hareketleri</h3>
                                 <p className="text-[11px] text-gray-400 font-medium mt-0.5">
-                                    {canViewPerformance ? 'Tüm mağazalarda son eklenen, çıkarılan ve güncellenen veriler' : 'Mağazanızda son eklenen, çıkarılan ve güncellenen veriler'}
+                                    {canViewAllStores ? 'Tüm mağazalarda son eklenen, çıkarılan ve güncellenen veriler' : 'Mağazanızda son eklenen, çıkarılan ve güncellenen veriler'}
                                 </p>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
@@ -468,7 +318,7 @@ const Dashboard = () => {
                             </div>
                         </div>
                         <div className="overflow-auto max-h-[520px] custom-scrollbar">
-                            <StoreActivityFeed activities={storeActivities} showStore={canViewPerformance} />
+                            <StoreActivityFeed activities={storeActivities} showStore={canViewAllStores} />
                         </div>
                     </div>
                 </div>

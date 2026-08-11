@@ -8,6 +8,68 @@ import { useAppContext } from '../context/AppContext';
 import Swal from 'sweetalert2';
 import { useReactToPrint } from 'react-to-print';
 
+// A4 yatay: 297x210mm. Sayfa kenarında 8mm boşluk bırakılınca kalan içerik alanı
+// 281x194mm -> 96dpi'de CSS px karşılığı.
+const PRINT_PAGE_HEIGHT_MM = 210;
+const PRINT_PAGE_PADDING_MM = 8;
+const PRINT_AREA_WIDTH = 1062;
+const PRINT_AREA_HEIGHT = 733;
+// Satır yükseklikleri fiziksel px'e yuvarlandığı için ölçüm 1-2 px şaşabilir.
+const PRINT_ZOOM_SAFETY = 0.995;
+const MIN_PRINT_ZOOM = 0.25;
+const PRINT_PROBE_CLASS = 'shift-print-probe';
+const PRINT_SCALE_CLASS = 'shift-print-scale';
+
+// İçeriğin tek sayfaya sığması için gereken zoom oranını bulur. Ölçüm kopyası, kağıttaki
+// yerleşimin aynısıdır: dış kutu sayfanın içerik genişliğinde, iç kutuda ise denenen zoom
+// uygulanmış durumda. Bu yüzden probe.scrollHeight doğrudan kağıda basılacak yüksekliği verir.
+// zoom küçüldükçe yerleşim yeniden hesaplandığı (ve yuvarlamalar değiştiği) için oran
+// tek hamlede değil, sığana kadar adım adım daraltılıyor.
+const measurePrintZoom = (probe) => {
+    const scaleNode = probe.querySelector(`.${PRINT_SCALE_CLASS}`);
+    if (!scaleNode) return 1;
+
+    probe.style.width = `${PRINT_AREA_WIDTH}px`;
+    let zoom = 1;
+
+    for (let pass = 0; pass < 5; pass++) {
+        scaleNode.style.zoom = String(zoom);
+        const printedHeight = Math.max(probe.scrollHeight, 1);
+        const printedWidth = Math.max(probe.scrollWidth, PRINT_AREA_WIDTH);
+        const fit = Math.min(
+            PRINT_AREA_HEIGHT / printedHeight,
+            PRINT_AREA_WIDTH / printedWidth
+        );
+        if (fit >= 1) break;
+        zoom = Math.max(MIN_PRINT_ZOOM, zoom * fit * PRINT_ZOOM_SAFETY);
+        if (zoom === MIN_PRINT_ZOOM) break;
+    }
+
+    return zoom;
+};
+
+// Yazdırma/ölçüm sırasında çizelgeyi sıkıştıran kurallar. Aynı kuralların hem @media print
+// içinde hem de ekran dışı ölçüm kopyasında geçerli olması gerekiyor, bu yüzden tek yerden üretiliyor.
+const shiftPrintCompactCss = (scope) => `
+    ${scope} .pdf-action-btn { display: none !important; }
+    ${scope} .pdf-only-header { display: block !important; margin-bottom: 10px !important; padding-bottom: 8px !important; }
+    ${scope} .pdf-only-header h2 { font-size: 15px !important; line-height: 1.2 !important; }
+    ${scope} .pdf-only-header p { font-size: 10px !important; line-height: 1.35 !important; }
+    ${scope} .overflow-x-auto { overflow: visible !important; }
+    ${scope} table { min-width: 0 !important; width: 100% !important; table-layout: fixed !important; }
+    ${scope} thead th { padding: 4px 3px !important; font-size: 9px !important; color: #374151 !important; }
+    ${scope} thead th > div:last-child { font-size: 8px !important; }
+    ${scope} tbody td { padding: 3px 2px !important; }
+    ${scope} tbody tr { break-inside: avoid; page-break-inside: avoid; }
+    ${scope} .shift-avatar { display: none !important; }
+    ${scope} .shift-emp-name { font-size: 10px !important; line-height: 1.2 !important; }
+    ${scope} .shift-emp-role { font-size: 8px !important; line-height: 1.2 !important; }
+    ${scope} .shift-card { max-width: none !important; padding: 3px 4px !important; border-radius: 4px !important; box-shadow: none !important; }
+    ${scope} .shift-card-type { font-size: 7px !important; padding: 0 3px !important; }
+    ${scope} .shift-card-time { font-size: 8px !important; margin-top: 1px !important; }
+    ${scope} .shift-card-note { font-size: 7px !important; margin-top: 0 !important; }
+`;
+
 const StoreManagement = () => {
     const { 
         currentUser, 
@@ -754,6 +816,28 @@ const StoreManagement = () => {
     const handleDownloadPDF = useReactToPrint({
         contentRef: printAreaRef,
         documentTitle: documentTitleForPrint,
+        // Çizelge kaç personel içerirse içersin tek sayfaya sığsın: yazdırmadan önce
+        // içeriği ekran dışında A4 yatay ölçülerinde ölçüp gereken küçültme oranını hesaplıyoruz.
+        onBeforePrint: () => {
+            const node = printAreaRef.current;
+            if (!node) return Promise.resolve();
+
+            const probe = node.cloneNode(true);
+            probe.removeAttribute('id');
+            probe.classList.add(PRINT_PROBE_CLASS);
+            probe.style.cssText += 'position:fixed;top:0;left:-20000px;padding:0;margin:0;background:#fff;';
+            document.body.appendChild(probe);
+
+            let zoom = 1;
+            try {
+                zoom = measurePrintZoom(probe);
+            } finally {
+                document.body.removeChild(probe);
+            }
+
+            node.style.setProperty('--shift-print-zoom', String(zoom));
+            return Promise.resolve();
+        },
     });
 
     // Stats calculations
@@ -770,32 +854,41 @@ const StoreManagement = () => {
             <style>{`
                 @media print {
                     @page {
+                        /* margin: 0 -> tarayıcının kendi başlık/sayfa numarası şeridi basılmaz.
+                           Kenar boşluğunu yazdırma alanının padding'i veriyor. */
                         size: A4 landscape;
-                        margin: 10mm;
+                        margin: 0;
                     }
                     body {
                         background: white !important;
                         color: black !important;
                     }
                     #shift-schedule-print-area {
-                        padding: 0 !important;
+                        /* Yükseklik sayfa boyuna sabitlenip taşma kırpılıyor: hesaplanan zoom
+                           birkaç px şaşsa bile ikinci sayfa oluşamaz. */
+                        box-sizing: border-box !important;
+                        height: ${PRINT_PAGE_HEIGHT_MM}mm !important;
+                        max-height: ${PRINT_PAGE_HEIGHT_MM}mm !important;
+                        overflow: hidden !important;
+                        padding: ${PRINT_PAGE_PADDING_MM}mm !important;
                         margin: 0 !important;
                         box-shadow: none !important;
                         border: none !important;
+                        border-radius: 0 !important;
                         width: 100% !important;
                     }
-                    .pdf-action-btn {
-                        display: none !important;
-                    }
-                    .pdf-only-header {
-                        display: block !important;
+                    /* onBeforePrint içinde hesaplanan oran; içerik tek sayfaya sığacak kadar küçültülür. */
+                    #shift-schedule-print-area .${PRINT_SCALE_CLASS} {
+                        zoom: var(--shift-print-zoom, 1);
                     }
                     /* Ensure colors and background-colors print correctly */
                     * {
                         -webkit-print-color-adjust: exact !important;
                         print-color-adjust: exact !important;
                     }
+                    ${shiftPrintCompactCss('#shift-schedule-print-area')}
                 }
+                ${shiftPrintCompactCss(`.${PRINT_PROBE_CLASS}`)}
             `}</style>
             {/* Header */}
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
@@ -1358,6 +1451,7 @@ const StoreManagement = () => {
                                                 </div>
 
                                                 <div ref={printAreaRef} id="shift-schedule-print-area" className="p-4 bg-white rounded-2xl">
+                                                  <div className={PRINT_SCALE_CLASS}>
                                                     {/* PDF Header - visible only during PDF printing */}
                                                     <div className="pdf-only-header mb-6 border-b border-gray-200 pb-4 hidden print:block">
                                                         <h2 className="text-2xl font-bold text-gray-900">TROY YETKİLİ SERVİS</h2>
@@ -1395,12 +1489,12 @@ const StoreManagement = () => {
                                                                         <tr key={emp.id || emp._id} className="border-b border-gray-100 hover:bg-[#f5f5f7]/20 transition-colors">
                                                                             <td className="py-4 px-3">
                                                                                 <div className="flex items-center gap-3">
-                                                                                    <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-blue-500 flex items-center justify-center text-white font-bold text-xs">
+                                                                                    <div className="shift-avatar w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-blue-500 flex items-center justify-center text-white font-bold text-xs">
                                                                                         {emp.name.substring(0, 2).toUpperCase()}
                                                                                     </div>
                                                                                     <div>
-                                                                                        <p className="text-xs font-bold text-[#1d1d1f]">{emp.name}</p>
-                                                                                        <p className="text-[10px] text-gray-400 font-medium">{emp.role}</p>
+                                                                                        <p className="shift-emp-name text-xs font-bold text-[#1d1d1f]">{emp.name}</p>
+                                                                                        <p className="shift-emp-role text-[10px] text-gray-400 font-medium">{emp.role}</p>
                                                                                     </div>
                                                                                 </div>
                                                                             </td>
@@ -1414,9 +1508,9 @@ const StoreManagement = () => {
                                                                                 return (
                                                                                     <td key={dateIdx} className="py-4 px-2 text-center align-middle">
                                                                                         {shift ? (
-                                                                                            <div className="group relative mx-auto max-w-[120px] bg-white border border-gray-100 rounded-xl p-2.5 shadow-sm hover:shadow transition-all text-left">
+                                                                                            <div className="shift-card group relative mx-auto max-w-[120px] bg-white border border-gray-100 rounded-xl p-2.5 shadow-sm hover:shadow transition-all text-left">
                                                                                                 <div className="flex justify-between items-start gap-1">
-                                                                                                    <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase ${
+                                                                                                    <span className={`shift-card-type px-1.5 py-0.5 rounded text-[8px] font-black uppercase ${
                                                                                                         shift.shiftType === 'Sabah' ? 'bg-amber-50 text-amber-700 border border-amber-100' :
                                                                                                         shift.shiftType === 'Akşam' ? 'bg-blue-50 text-blue-700 border border-blue-100' :
                                                                                                         shift.shiftType === 'İzin' ? 'bg-red-50 text-red-700 border border-red-100' :
@@ -1435,12 +1529,12 @@ const StoreManagement = () => {
                                                                                                     )}
                                                                                                 </div>
                                                                                                 {shift.shiftType !== 'İzin' && (
-                                                                                                    <div className="text-[10px] font-mono font-bold text-gray-700 mt-1.5">
+                                                                                                    <div className="shift-card-time text-[10px] font-mono font-bold text-gray-700 mt-1.5">
                                                                                                         {shift.startTime} - {shift.endTime}
                                                                                                     </div>
                                                                                                 )}
                                                                                                 {shift.notes && (
-                                                                                                    <div className="text-[9px] text-gray-400 mt-1 truncate" title={shift.notes}>
+                                                                                                    <div className="shift-card-note text-[9px] text-gray-400 mt-1 truncate" title={shift.notes}>
                                                                                                         {shift.notes}
                                                                                                     </div>
                                                                                                 )}
@@ -1470,6 +1564,7 @@ const StoreManagement = () => {
                                                             </tbody>
                                                         </table>
                                                     </div>
+                                                  </div>
                                                 </div>
                                             </div>
                                         </>
