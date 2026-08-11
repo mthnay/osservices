@@ -13,6 +13,7 @@ import { appPrompt, appAlert, appConfirm } from '../utils/alert';
 import CustomerNotificationModal from './CustomerNotificationModal';
 import RepairDiagnosisPanel from './RepairDiagnosisPanel';
 import { hasPermission } from '../utils/permissions';
+import DeviceImage from './DeviceImage';
 import { getSafeRepairImageUrl } from '../utils/productImages';
 
 const STATUS_STEPS = [
@@ -843,7 +844,15 @@ const RepairHistoryModal = ({ repair: initialRepair, onClose, onSaveDiagnosis })
                                             <div className="flex gap-4 overflow-x-auto custom-scrollbar pb-3">
                                                 {(repair.beforeImages || repair.mediaFiles?.filter(f=>!f.isDefault) || []).map((img, i) => (
                                                     <div key={i} className="relative group shrink-0 ring-offset-2 hover:ring-2 ring-indigo-500/30 rounded-[20px] transition-all cursor-zoom-in">
-                                                        <img src={getSafeRepairImageUrl(img.url || img, repair.productGroup, repair.device, API_URL)} onClick={()=>setSelectedPhoto({url: getSafeRepairImageUrl(img.url||img, repair.productGroup, repair.device, API_URL), user: 'Servis Kabul', date: repair.date})} className="w-24 h-24 rounded-[20px] object-cover border border-gray-200 shadow-sm" />
+                                                        <DeviceImage
+                                                            image={img.url || img}
+                                                            productGroup={repair.productGroup}
+                                                            device={repair.device}
+                                                            apiUrl={API_URL}
+                                                            alt={`Kabul görseli ${i + 1}`}
+                                                            onClick={()=>setSelectedPhoto({url: getSafeRepairImageUrl(img.url||img, repair.productGroup, repair.device, API_URL), user: 'Servis Kabul', date: repair.date})}
+                                                            className="w-24 h-24 rounded-[20px] object-cover border border-gray-200 shadow-sm"
+                                                        />
                                                     </div>
                                                 ))}
                                                 {(!repair.beforeImages?.length && (!repair.mediaFiles || repair.mediaFiles.filter(f=>!f.isDefault).length===0)) && <div className="text-xs text-gray-400 p-8 border-2 border-dashed border-gray-100 rounded-lg w-full text-center bg-gray-50 font-medium">Görsel yüklenmemiş</div>}
@@ -859,7 +868,15 @@ const RepairHistoryModal = ({ repair: initialRepair, onClose, onSaveDiagnosis })
                                             <div className="flex gap-4 overflow-x-auto custom-scrollbar pb-3">
                                                 {repair.afterImages?.map((url, i) => (
                                                     <div key={i} className="relative group shrink-0 ring-offset-2 hover:ring-2 ring-emerald-500/30 rounded-[20px] transition-all cursor-zoom-in">
-                                                        <img src={getSafeRepairImageUrl(url, repair.productGroup, repair.device, API_URL)} onClick={()=>setSelectedPhoto({url: getSafeRepairImageUrl(url, repair.productGroup, repair.device, API_URL), user: 'Teknisyen', date: ''})} className="w-24 h-24 rounded-[20px] object-cover border border-gray-200 shadow-sm" />
+                                                        <DeviceImage
+                                                            image={url}
+                                                            productGroup={repair.productGroup}
+                                                            device={repair.device}
+                                                            apiUrl={API_URL}
+                                                            alt={`Onarım sonrası görsel ${i + 1}`}
+                                                            onClick={()=>setSelectedPhoto({url: getSafeRepairImageUrl(url, repair.productGroup, repair.device, API_URL), user: 'Teknisyen', date: ''})}
+                                                            className="w-24 h-24 rounded-[20px] object-cover border border-gray-200 shadow-sm"
+                                                        />
                                                         <button onClick={() => handlePhotoDelete(url, 'after')} className="absolute -top-3 -right-3 bg-red-500 text-white rounded-full p-2 opacity-0 group-hover:opacity-100 shadow-xl border-2 border-white transition-all scale-75 group-hover:scale-100"><Trash2 size={12}/></button>
                                                     </div>
                                                 ))}
@@ -1028,7 +1045,15 @@ const RepairHistoryModal = ({ repair: initialRepair, onClose, onSaveDiagnosis })
                     <button className="absolute top-8 right-8 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all">
                         <X size={32} />
                     </button>
-                    <img src={selectedPhoto.url} className="max-w-full max-h-full object-contain shadow-2xl animate-scale-up" />
+                    <DeviceImage
+                        image={selectedPhoto.url}
+                        productGroup={repair.productGroup}
+                        device={repair.device}
+                        apiUrl={API_URL}
+                        alt={`${repair.device} görseli`}
+                        loading="eager"
+                        className="max-w-full max-h-full object-contain shadow-2xl animate-scale-up"
+                    />
                     <div className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-white/10 backdrop-blur-md px-6 py-3 rounded-md border border-white/20">
                         <p className="text-white font-bold text-sm">{selectedPhoto.user} tarafından yüklendi</p>
                         <p className="text-white/60 text-xs font-mono">{selectedPhoto.date}</p>

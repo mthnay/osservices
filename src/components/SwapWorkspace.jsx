@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { appPrompt, appAlert } from '../utils/alert';
-import { getSafeRepairImageUrl } from '../utils/productImages';
+import DeviceImage from './DeviceImage';
 import Swal from 'sweetalert2';
 
 const SwapWorkspace = ({ repairId, onClose, setActiveTab }) => {
@@ -229,7 +229,7 @@ const SwapWorkspace = ({ repairId, onClose, setActiveTab }) => {
                     <div className="flex-1 p-10 overflow-y-auto flex flex-col items-center justify-center">
                         <div className="relative mb-6 group">
                             <div className="absolute inset-0 bg-purple-500 blur-[40px] opacity-10 rounded-full group-hover:opacity-20 transition-all duration-700"></div>
-                            <img src={getSafeRepairImageUrl(repair.image, repair.productGroup, repair.device, API_URL)} className="w-56 h-56 object-cover rounded-lg shadow-2xl border-4 border-white transform transition-transform group-hover:scale-105" alt="Device" />
+                            <DeviceImage image={repair.image} productGroup={repair.productGroup} device={repair.device} apiUrl={API_URL} className="w-56 h-56 object-cover rounded-lg shadow-2xl border-4 border-white transform transition-transform group-hover:scale-105" alt="Device" />
                         </div>
                         <h1 className="text-2xl font-semibold text-gray-900 mb-2">{repair.device}</h1>
                         <p className="text-base text-gray-500 font-medium mb-10 max-w-md text-center">{repair.issue || repair.issueDescription}</p>

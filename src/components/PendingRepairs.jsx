@@ -4,8 +4,7 @@ import MyPhoneIcon from './LocalIcons';
 import RepairHistoryModal from './RepairHistoryModal';
 import { useAppContext } from '../context/AppContext';
 import { appConfirm } from '../utils/alert';
-// eslint-disable-next-line no-unused-vars
-import { getProductImage, getSafeRepairImageUrl } from '../utils/productImages';
+import DeviceImage from './DeviceImage';
 
 const StatusBadge = ({ status }) => {
     const config = {
@@ -189,7 +188,7 @@ const PendingRepairs = ({ setActiveTab }) => {
                             <div key={repair.id} className="bg-white/80 backdrop-blur-sm border border-white rounded-xl p-4 flex items-center justify-between group hover:border-[#0071e3]/30 transition-all">
                                 <div className="flex items-center gap-3">
                                     <div className="w-10 h-10 rounded-lg bg-gray-100 overflow-hidden border border-gray-100">
-                                        <img src={getSafeRepairImageUrl(repair.image, repair.productGroup, repair.device, API_URL)} className="w-full h-full object-cover" />
+                                        <DeviceImage image={repair.image} productGroup={repair.productGroup} device={repair.device} apiUrl={API_URL} className="w-full h-full object-cover" />
                                     </div>
                                     <div>
                                         <p className="text-xs font-bold text-[#1d1d1f]">{repair.device}</p>
@@ -234,7 +233,7 @@ const PendingRepairs = ({ setActiveTab }) => {
                                         <td className="px-6 py-5">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-10 h-10 rounded-xl bg-gray-50 overflow-hidden border border-gray-100 shrink-0">
-                                                    <img src={getSafeRepairImageUrl(repair.image, repair.productGroup, repair.device, API_URL)} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                                                    <DeviceImage image={repair.image} productGroup={repair.productGroup} device={repair.device} apiUrl={API_URL} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                                                 </div>
                                                 <div className="min-w-0">
                                                     <p className="text-xs font-bold text-[#1d1d1f] truncate">{repair.device}</p>
@@ -294,7 +293,7 @@ const PendingRepairs = ({ setActiveTab }) => {
                                         </div>
                                         <div className="flex gap-4">
                                             <div className="w-14 h-14 rounded-2xl bg-gray-50 border border-gray-100 overflow-hidden shrink-0">
-                                                <img src={getSafeRepairImageUrl(repair.image, repair.productGroup, repair.device, API_URL)} className="w-full h-full object-cover" />
+                                                <DeviceImage image={repair.image} productGroup={repair.productGroup} device={repair.device} apiUrl={API_URL} className="w-full h-full object-cover" />
                                             </div>
                                             <div className="min-w-0">
                                                 <h4 className="text-xs font-bold text-[#1d1d1f] line-clamp-1">{repair.device}</h4>

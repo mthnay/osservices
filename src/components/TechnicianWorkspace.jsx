@@ -7,7 +7,7 @@ import {
 import { useAppContext } from '../context/AppContext';
 // eslint-disable-next-line no-unused-vars
 import { appPrompt, appAlert } from '../utils/alert';
-import { getSafeRepairImageUrl } from '../utils/productImages';
+import DeviceImage from './DeviceImage';
 
 const TechnicianWorkspace = ({ repairId, onClose, setActiveTab }) => {
     const { 
@@ -252,7 +252,7 @@ const TechnicianWorkspace = ({ repairId, onClose, setActiveTab }) => {
                     <div className="p-6 border-b border-gray-50 bg-[#fbfbfd]">
                         <div className="flex items-center gap-4 mb-4">
                             <div className="w-16 h-16 rounded-2xl bg-white border border-gray-200 overflow-hidden shadow-sm">
-                                <img src={getSafeRepairImageUrl(repair.image, repair.productGroup, repair.device, API_URL)} className="w-full h-full object-cover" />
+                                <DeviceImage image={repair.image} productGroup={repair.productGroup} device={repair.device} apiUrl={API_URL} className="w-full h-full object-cover" />
                             </div>
                             <div>
                                 <h3 className="font-bold text-[#1d1d1f]">{repair.customer}</h3>
@@ -470,7 +470,14 @@ const TechnicianWorkspace = ({ repairId, onClose, setActiveTab }) => {
                                     <div className="grid grid-cols-2 gap-4">
                                         {(repair.repairImages || []).map((url, i) => (
                                             <div key={i} className="relative group aspect-square rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
-                                                <img src={`${API_URL}/uploads/${url}`} className="w-full h-full object-cover" />
+                                                <DeviceImage
+                                                    image={url}
+                                                    productGroup={repair.productGroup}
+                                                    device={repair.device}
+                                                    apiUrl={API_URL}
+                                                    alt={`Onarım görseli ${i + 1}`}
+                                                    className="w-full h-full object-cover"
+                                                />
                                                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                                     <button onClick={async () => {
                                                         const newImages = repair.repairImages.filter((_, idx) => idx !== i);

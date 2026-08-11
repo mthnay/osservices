@@ -7,7 +7,7 @@ import {
 import { useAppContext } from '../context/AppContext';
 import RepairHistoryModal from './RepairHistoryModal';
 import DeliveryFormPrint from './DeliveryFormPrint';
-import { getSafeRepairImageUrl } from '../utils/productImages';
+import DeviceImage from './DeviceImage';
 
 const StatusBadge = ({ status }) => {
     const config = {
@@ -173,7 +173,7 @@ const ReadyForPickup = () => {
                                     <td className="px-6 py-5">
                                         <div className="flex items-center gap-3">
                                             <div className="w-10 h-10 rounded-xl bg-gray-50 overflow-hidden border border-gray-100 shrink-0">
-                                                <img src={getSafeRepairImageUrl(repair.image, repair.productGroup, repair.device, API_URL)} className="w-full h-full object-cover" />
+                                                <DeviceImage image={repair.image} productGroup={repair.productGroup} device={repair.device} apiUrl={API_URL} className="w-full h-full object-cover" />
                                             </div>
                                             <div className="min-w-0">
                                                 <p className="text-xs font-bold text-[#1d1d1f] truncate">{repair.device}</p>

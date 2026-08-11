@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Apple, CheckCircle, Clock, XCircle, ChevronRight, AlertTriangle } from 'lucide-react';
 import MyPhoneIcon from './LocalIcons';
 import { appConfirm } from '../utils/alert';
-import { getSafeRepairImageUrl } from '../utils/productImages';
+import DeviceImage from './DeviceImage';
 
 const CustomerPortal = ({ trackId }) => {
     const [loading, setLoading] = useState(true);
@@ -148,10 +148,13 @@ const CustomerPortal = ({ trackId }) => {
                 <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-gray-100">
                     <div className="flex items-start gap-6">
                         <div className="w-16 h-16 bg-gray-50 rounded-md overflow-hidden flex items-center justify-center flex-shrink-0 border border-gray-100">
-                            <img 
-                                src={getSafeRepairImageUrl(repair.image, repair.productGroup, repair.device, API_URL)} 
-                                className="w-full h-full object-cover" 
-                                alt={repair.device} 
+                            <DeviceImage
+                                image={repair.image}
+                                productGroup={repair.productGroup}
+                                device={repair.device}
+                                apiUrl={API_URL}
+                                className="w-full h-full object-cover"
+                                alt={repair.device}
                             />
                         </div>
                         <div className="flex-1">

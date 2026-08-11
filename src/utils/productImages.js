@@ -63,75 +63,124 @@ const PRODUCT_PHOTOS = {
     other: '/product-images/accessory.jpg'
 };
 
-export const getProductImage = (group = '', model = '') => {
-    const groupLower = (group || '').toLowerCase();
-    const modelLower = (model || '').toLowerCase();
-    const fullText = `${groupLower} ${modelLower}`;
+// Ürün grubunu metinden çıkarır. Hem hazır fotoğrafı hem de hiç ağa çıkmayan
+// gömülü SVG'yi aynı anahtardan üretebilmek için tek yerde tutuluyor.
+const resolveProductKey = (group = '', model = '') => {
+    const fullText = `${(group || '').toLowerCase()} ${(model || '').toLowerCase()}`;
 
-    // iPhone Serisi
-    if (fullText.includes('iphone')) {
-        return PRODUCT_PHOTOS.iphone || PRODUCT_FALLBACKS.iphone;
-    }
-    
-    // Mac / MacBook Serisi
-    if (fullText.includes('mac') || fullText.includes('bilgisayar')) {
-        return PRODUCT_PHOTOS.mac || PRODUCT_FALLBACKS.mac;
-    }
-    
-    // iPad Serisi
-    if (fullText.includes('ipad') || fullText.includes('tablet')) {
-        return PRODUCT_PHOTOS.ipad || PRODUCT_FALLBACKS.ipad;
-    }
-    
-    // Watch Serisii
-    if (fullText.includes('watch') || fullText.includes('saat')) {
-        return PRODUCT_PHOTOS.watch || PRODUCT_FALLBACKS.watch;
-    }
-    
-    // Ses / AirPods / Beats
-    if (fullText.includes('airpods') || fullText.includes('ses') || fullText.includes('audio') || fullText.includes('kulaklık') || fullText.includes('beats')) {
-        return PRODUCT_PHOTOS.airpods || PRODUCT_FALLBACKS.airpods;
-    }
+    if (fullText.includes('iphone')) return 'iphone';
+    if (fullText.includes('mac') || fullText.includes('bilgisayar')) return 'mac';
+    if (fullText.includes('ipad') || fullText.includes('tablet')) return 'ipad';
+    if (fullText.includes('watch') || fullText.includes('saat')) return 'watch';
+    if (fullText.includes('airpods') || fullText.includes('ses') || fullText.includes('audio') ||
+        fullText.includes('kulaklık') || fullText.includes('beats')) return 'airpods';
 
-    // Parça / Teknik Görseller
-    if (fullText.includes('parça') || fullText.includes('ekran') || fullText.includes('pil') || fullText.includes('batarya')) {
-        return PRODUCT_PHOTOS.other || PRODUCT_FALLBACKS.other;
-    }
-
-    // Varsayılan: Teknoloji/Servis Temalı Şık Bir Görsel
-    return PRODUCT_PHOTOS.other || PRODUCT_FALLBACKS.other;
+    // Parça/aksesuar ve bilinmeyen her şey
+    return 'other';
 };
 
+export const getProductImage = (group = '', model = '') => PRODUCT_PHOTOS[resolveProductKey(group, model)];
+
+// Son çare: veri URI olduğu için ağ/dosya hatası ihtimali yok, asla kırılmaz.
+export const getProductFallbackSvg = (group = '', model = '') => PRODUCT_FALLBACKS[resolveProductKey(group, model)];
+
+// Bilinen ölü/örnek adresler
+const DEAD_LINK_PATTERNS = [
+    'officialapple.store',
+    'img.icons8.com',
+    'images.unsplash.com',
+    'example.com',
+    'broken-link'
+];
+
+// Uygulamanın kendi statik varlıkları (public/ altından servis edilir).
+// Bunlar /uploads ile karıştırılmamalı.
+const STATIC_ASSET_PREFIXES = ['product-images/', 'assets/'];
+
+// Bu yollar backend tarafından servis edilir; kayıtta eski/başka bir host yazılıysa
+// güncel backend adresine taşınabilir.
+const BACKEND_PATH_PREFIXES = ['/uploads/', '/api/media/'];
+
+// API adresinden backend kökünü çıkarır. '/api' -> '' (aynı origin),
+// 'https://sunucu/api' -> 'https://sunucu'
+const getBackendBase = (apiUrl) => {
+    const raw = (apiUrl || '').trim();
+    if (!raw) {
+        return typeof window !== 'undefined' ? window.location.origin : '';
+    }
+    return raw.replace(/\/api\/?$/i, '').replace(/\/$/, '');
+};
+
+/**
+ * Kayıtta saklanan görsel değerini gerçekten yüklenebilir bir adrese çevirir.
+ * Çözemediği her durumda ürün görseline düşer; böylece kırık görsel oluşmaz.
+ */
 export const getSafeRepairImageUrl = (imagePath, group, model, apiUrl) => {
     const fallback = getProductImage(group, model);
-    
+
     if (!imagePath || typeof imagePath !== 'string') return fallback;
-    
-    // Check for known dead/example domains
-    const isDeadLink = imagePath.includes('officialapple.store') ||
-                       imagePath.includes('img.icons8.com') ||
-                       imagePath.includes('images.unsplash.com') ||
-                       imagePath.includes('example.com') ||
-                       imagePath.includes('broken-link');
 
-    if (isDeadLink) return fallback;
+    const value = imagePath.trim();
+    if (!value) return fallback;
 
-    // Full URLs or Data URIs
-    if (imagePath.startsWith('http') || imagePath.startsWith('data:')) {
-        return imagePath;
+    // Gömülü görsel
+    if (value.startsWith('data:')) return value;
+
+    // blob: adresleri yalnızca oluşturuldukları sayfa oturumunda geçerlidir;
+    // kayıttan geldiyse kesin kırıktır.
+    if (value.startsWith('blob:')) return fallback;
+
+    if (DEAD_LINK_PATTERNS.some(pattern => value.includes(pattern))) return fallback;
+
+    const backendBase = getBackendBase(apiUrl);
+
+    // Mutlak adres: kayıt oluşturulurken o anki sunucu adresi (localhost, LAN IP,
+    // eski domain) gömülmüş olabilir. Bizim servis ettiğimiz bir yolsa güncel
+    // backend'e taşıyoruz, değilse olduğu gibi bırakıp onError'a güveniyoruz.
+    if (/^https?:\/\//i.test(value)) {
+        try {
+            const parsed = new URL(value);
+            if (BACKEND_PATH_PREFIXES.some(prefix => parsed.pathname.startsWith(prefix))) {
+                return `${backendBase}${parsed.pathname}`;
+            }
+        } catch {
+            return fallback; // Bozuk URL
+        }
+        return value;
     }
 
-    // Relative paths from backend
-    // Normalize path by removing leading slash
-    const cleanPath = imagePath.replace(/^\//, '');
-    
-    // Construct base URL
-    const baseUrl = (apiUrl || 'http://localhost:5001/api').replace('/api', '');
-    
-    // If it's just a filename, prepend /uploads/
-    if (!cleanPath.startsWith('uploads/')) {
-        return `${baseUrl}/uploads/${cleanPath}`;
+    // Protokolsüz ama şüpheli değerler (örn. "C:\...", "www.site.com/x.jpg")
+    if (value.includes('\\') || /^[a-z]+:/i.test(value)) return fallback;
+
+    const cleanPath = value.replace(/^\.?\//, '');
+
+    // public/ altındaki varlıklar aynı origin'den gelir
+    if (STATIC_ASSET_PREFIXES.some(prefix => cleanPath.startsWith(prefix))) {
+        return `/${cleanPath}`;
     }
-    
-    return `${baseUrl}/${cleanPath}`;
+
+    // Veritabanındaki medya kaydı
+    if (cleanPath.startsWith('api/media/')) return `${backendBase}/${cleanPath}`;
+    if (cleanPath.startsWith('media/')) return `${backendBase}/api/${cleanPath}`;
+
+    // Disk üzerindeki yüklemeler
+    if (cleanPath.startsWith('uploads/')) return `${backendBase}/${cleanPath}`;
+
+    // Sadece dosya adı verilmişse yükleme klasöründen ara
+    return `${backendBase}/uploads/${cleanPath}`;
+};
+
+/**
+ * Bir cihaz görseli için sırayla denenecek adresler: kaydın kendi görseli ->
+ * ürün fotoğrafı -> gömülü SVG. Son eleman veri URI olduğu için zincir
+ * her zaman geçerli bir görselle sonuçlanır.
+ */
+export const getDeviceImageSources = (imagePath, group, model, apiUrl) => {
+    const candidates = [
+        getSafeRepairImageUrl(imagePath, group, model, apiUrl),
+        getProductImage(group, model),
+        getProductFallbackSvg(group, model)
+    ];
+
+    return candidates.filter((src, index) => src && candidates.indexOf(src) === index);
 };

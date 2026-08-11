@@ -6,7 +6,7 @@ import {
     SearchCode, Database, Globe
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
-import { getSafeRepairImageUrl } from '../utils/productImages';
+import DeviceImage from './DeviceImage';
 import RepairHistoryModal from './RepairHistoryModal';
 import BatchExportModal from './BatchExportModal';
 import { hasPermission } from '../utils/permissions';
@@ -167,7 +167,7 @@ const Archive = () => {
                                                         <div key={repair.id} className="p-4 flex items-center justify-between hover:bg-gray-50/50 transition-colors group cursor-pointer" onClick={() => setSelectedRepair(repair)}>
                                                             <div className="flex items-center gap-4">
                                                                 <div className="w-8 h-8 rounded-lg bg-gray-50 overflow-hidden border border-gray-100 shrink-0">
-                                                                    <img src={getSafeRepairImageUrl(repair.image, repair.productGroup, repair.device, API_URL)} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity" />
+                                                                    <DeviceImage image={repair.image} productGroup={repair.productGroup} device={repair.device} apiUrl={API_URL} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity" />
                                                                 </div>
                                                                 <div>
                                                                     <p className="text-xs font-bold text-[#1d1d1f]">#{repair.id} • {repair.customer}</p>
