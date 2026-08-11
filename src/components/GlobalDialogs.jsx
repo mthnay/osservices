@@ -8,7 +8,8 @@ const GlobalDialogs = () => {
     useEffect(() => {
         const handleDialog = (e) => {
             setDialog(e.detail);
-            setInputValue('');
+            // Düzenleme akışlarında mevcut değer öntanımlı gelsin
+            setInputValue(e.detail?.defaultValue ?? '');
         };
         window.addEventListener('global-dialog', handleDialog);
         return () => window.removeEventListener('global-dialog', handleDialog);

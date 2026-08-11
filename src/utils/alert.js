@@ -14,10 +14,10 @@ export const appConfirm = (message) => {
     });
 };
 
-export const appPrompt = (message) => {
+export const appPrompt = (message, defaultValue = '') => {
     return new Promise(resolve => {
         window.dispatchEvent(new CustomEvent('global-dialog', {
-            detail: { type: 'prompt', message, resolve }
+            detail: { type: 'prompt', message, defaultValue, resolve }
         }));
     });
 };

@@ -13,7 +13,12 @@ const inventorySchema = new mongoose.Schema({
     storeId: { type: Number, default: 1 },
     warehouseType: { type: String, default: 'KGB' }, // 'KGB' or 'KBB'
     kgbSerials: [{ type: String }],
-    kbbSerials: [{ type: String }]
+    kbbSerials: [{ type: String }],
+    // Ödünç cihazlar (category: 'loaner') için
+    serialNumber: { type: String },
+    currentCustomer: { type: String },
+    loanedAt: { type: Date },
+    loanNote: { type: String }
 }, { timestamps: true });
 
 export default mongoose.models.Inventory || mongoose.model('Inventory', inventorySchema);

@@ -11,6 +11,7 @@ import { useAppContext } from '../context/AppContext';
 import { hasPermission, ROLES } from '../utils/permissions';
 import { appConfirm, appPrompt } from '../utils/alert';
 import MyPhoneIcon from './LocalIcons';
+import InventoryEntryModal from './InventoryEntryModal';
 
 const StockManagement = () => {
     const { 
@@ -27,21 +28,17 @@ const StockManagement = () => {
 
     // Unified Tab State: 'inventory' or 'kbb'
     const [activeMainTab, setActiveMainTab] = useState('inventory');
-    
+
     // KBB Specific Tab State
     const [activeKbbTab, setActiveKbbTab] = useState('stocks'); // 'stocks', 'loaners', 'returns'
-    
+
     const [searchTerm, setSearchTerm] = useState('');
-    // eslint-disable-next-line no-unused-vars
     const [activeCategory, setActiveCategory] = useState('all');
-    const [warehouseType, setWarehouseType] = useState('KGB'); 
+    const [warehouseType, setWarehouseType] = useState('KGB');
     const [showStoreDropdown, setShowStoreDropdown] = useState(false);
-    const [showAddModal, setShowAddModal] = useState(false);
+    // Envanter girişi modalı: 'KGB' | 'KBB' | 'loaner' | null
+    const [entryMode, setEntryMode] = useState(null);
     const [selectedPartDetails, setSelectedPartDetails] = useState(null);
-    // eslint-disable-next-line no-unused-vars
-    const [transferPart, setTransferPart] = useState(null);
-    
-    const [newPart, setNewPart] = useState({ name: '', partNumber: '', kgbSerial: '', category: 'iPhone', storeId: (selectedStoreId && selectedStoreId !== 0) ? selectedStoreId : (currentUser?.storeId || ''), quantity: 1, minLevel: 5, price: 0, location: '', warehouseType: 'KGB' });
 
     // Detailed Part Modal editing and search states
     const [isEditingDetails, setIsEditingDetails] = useState(false);
@@ -136,20 +133,55 @@ const StockManagement = () => {
     const [selectedItems, setSelectedItems] = useState([]);
     const [showReturnModal, setShowReturnModal] = useState(false);
     const [returnCode, setReturnCode] = useState('');
-    // eslint-disable-next-line no-unused-vars
-    const [editingSerialIdx, setEditingSerialIdx] = useState(-1);
-    // eslint-disable-next-line no-unused-vars
-    const [editingSerialVal, setEditingSerialVal] = useState('');
-    // eslint-disable-next-line no-unused-vars
-    const [showEditSerialModal, setShowEditSerialModal] = useState(false);
-    // eslint-disable-next-line no-unused-vars
-    const [currentSerial, setCurrentSerial] = useState('');
-    // eslint-disable-next-line no-unused-vars
-    const [serialList, setSerialList] = useState([]);
-    // eslint-disable-next-line no-unused-vars
-    const [selectedStockItem, setSelectedStockItem] = useState(null);
-    // eslint-disable-next-line no-unused-vars
-    const [showKbbAddModal, setShowKbbAddModal] = useState(false);
+
+    // Yeni envanter kaydı (KGB/KBB/ödünç) — tek modal
+    const handleCreateEntry = async (payload) => {
+        const success = await addInventoryItem(payload);
+        if (success) {
+            const label = payload.category === 'loaner'
+                ? 'Ödünç cihaz eklendi'
+                : `${payload.warehouseType} ambarına parça eklendi`;
+            showToast(label, 'success');
+        }
+        return success;
+    };
+
+    // Ödünç cihazı müşteriye ver / geri al
+    const handleLoanOut = async (item) => {
+        const customer = await appPrompt('Cihazı teslim alan müşterinin adı:', item.currentCustomer || '');
+        if (!customer || !String(customer).trim()) return;
+        const success = await updateInventoryItem(item._id || item.id, {
+            currentCustomer: String(customer).trim(),
+            loanedAt: new Date()
+        });
+        showToast(success ? 'Ödünç cihaz müşteriye verildi.' : 'İşlem kaydedilemedi.', success ? 'success' : 'error');
+    };
+
+    const handleLoanReturn = async (item) => {
+        if (!await appConfirm(`<strong>${item.name}</strong> cihazı geri teslim alındı olarak işaretlenecek. Onaylıyor musunuz?`)) return;
+        const success = await updateInventoryItem(item._id || item.id, { currentCustomer: '', loanedAt: null });
+        showToast(success ? 'Cihaz stoğa geri alındı.' : 'İşlem kaydedilemedi.', success ? 'success' : 'error');
+    };
+
+    // İade havuzunda kargoya verme
+    const handleShipKbbItem = async (item) => {
+        const repair = repairs.find(r => r.id === item.repairId);
+        if (!repair) {
+            showToast('İlgili servis kaydı bulunamadı.', 'error');
+            return;
+        }
+        const tracking = await appPrompt('UPS Takip No Giriniz:', item.trackingNo || '');
+        if (!tracking || !String(tracking).trim()) return;
+
+        const updatedParts = [...(repair.parts || [])];
+        updatedParts[item.partIndex] = {
+            ...updatedParts[item.partIndex],
+            kbbStatus: 'Shipped',
+            trackingNo: String(tracking).trim()
+        };
+        const success = await updateRepair(item.repairId, { parts: updatedParts });
+        showToast(success ? 'Parça kargoya verildi olarak işaretlendi.' : 'Güncelleme başarısız.', success ? 'success' : 'error');
+    };
 
     // --- KBB Helpers ---
     const getDaysLeft = (dateStr) => {
@@ -202,9 +234,35 @@ const StockManagement = () => {
         return matchesSearch && matchesCategory && matchesStore && matchesWarehouse;
     });
 
+    // Kategori seçenekleri: aktif ambar ve mağaza kapsamındaki kayıtlardan üretilir
+    const categoryOptions = useMemo(() => {
+        const scope = inventory.filter(part => {
+            const matchesStore = selectedStoreId === 0 || String(part.storeId) === String(selectedStoreId);
+            const matchesWarehouse = part.warehouseType === warehouseType || (!part.warehouseType && warehouseType === 'KGB');
+            return matchesStore && matchesWarehouse && part.category !== 'loaner';
+        });
+
+        const counts = new Map();
+        scope.forEach(part => {
+            const key = part.category || 'Diğer';
+            counts.set(key, (counts.get(key) || 0) + 1);
+        });
+
+        return [
+            { value: 'all', label: 'Tümü', count: scope.length },
+            ...[...counts.entries()]
+                .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'tr'))
+                .map(([value, count]) => ({ value, label: value, count }))
+        ];
+    }, [inventory, selectedStoreId, warehouseType]);
+
     const totalItems = filteredParts.length;
-    const lowStockItems = filteredParts.filter(p => p.quantity < p.minLevel).length;
-    const totalValue = filteredParts.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
+    const lowStockItems = filteredParts.filter(p => (p.quantity ?? 0) < (p.minLevel ?? 0)).length;
+    // Fiyatı/adedi girilmemiş parçalar toplamı NaN yapmasın
+    const totalValue = filteredParts.reduce(
+        (acc, curr) => acc + (Number(curr.price) || 0) * (Number(curr.quantity) || 0),
+        0
+    );
 
     const handleSelectAll = (e) => {
         if (e.target.checked) {
@@ -369,16 +427,38 @@ const StockManagement = () => {
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                 />
                             </div>
+                            {/* Hangi ambarda isek o ambara ekler */}
                             <button
-                                onClick={() => setShowAddModal(true)}
-                                className="bg-[#0071e3] hover:bg-[#0077ed] text-white h-10 px-6 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 shadow-lg shadow-[#0071e3]/20 flex-shrink-0 active:scale-95"
+                                onClick={() => setEntryMode(warehouseType)}
+                                className="bg-[#0071e3] hover:bg-[#0077ed] text-white h-10 px-6 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 shadow-lg shadow-[#0071e3]/20 flex-shrink-0 active:scale-95 outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
                             >
-                                <Plus size={18} /> Parça Ekle
+                                <Plus size={18} /> {warehouseType} Parça Ekle
                             </button>
                         </div>
                     </div>
 
-
+                    {/* Kategori filtresi */}
+                    <div role="group" aria-label="Kategoriye göre filtrele" className="flex flex-wrap items-center gap-2">
+                        {categoryOptions.map(option => {
+                            const isActive = activeCategory === option.value;
+                            return (
+                                <button
+                                    key={option.value}
+                                    type="button"
+                                    onClick={() => setActiveCategory(option.value)}
+                                    aria-pressed={isActive}
+                                    className={`inline-flex items-center gap-1.5 h-8 pl-3 pr-2.5 rounded-full border text-[12px] font-semibold transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25 ${isActive
+                                        ? 'bg-[#0071e3] text-white border-[#0071e3]'
+                                        : 'bg-white text-[#1d1d1f] border-gray-200 hover:border-gray-300 hover:bg-gray-50'}`}
+                                >
+                                    {option.label}
+                                    <span className={`text-[10px] font-bold tabular-nums px-1.5 py-0.5 rounded-full ${isActive ? 'bg-white/20' : 'bg-[#f5f5f7] text-gray-500'}`}>
+                                        {option.count}
+                                    </span>
+                                </button>
+                            );
+                        })}
+                    </div>
 
                     {/* Stats Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -544,10 +624,10 @@ const StockManagement = () => {
                                 </button>
                             )}
                             <button
-                                onClick={() => setShowKbbAddModal(true)}
-                                className="bg-white border border-gray-200 text-indigo-600 h-10 px-6 rounded-xl text-[13px] font-bold hover:bg-gray-50 transition-all shadow-sm flex items-center gap-2"
+                                onClick={() => setEntryMode(activeKbbTab === 'loaners' ? 'loaner' : 'KBB')}
+                                className="bg-white border border-gray-200 text-indigo-600 h-10 px-6 rounded-xl text-[13px] font-bold hover:bg-gray-50 transition-all shadow-sm flex items-center gap-2 outline-none focus-visible:ring-4 focus-visible:ring-indigo-500/25"
                             >
-                                <Plus size={18} /> Yeni KBB Girişi
+                                <Plus size={18} /> {activeKbbTab === 'loaners' ? 'Ödünç Cihaz Ekle' : 'Yeni KBB Girişi'}
                             </button>
                         </div>
                     </div>
@@ -592,19 +672,13 @@ const StockManagement = () => {
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 text-right">
-                                                <button 
-                                                    onClick={async () => {
-                                                        const tracking = await appPrompt('UPS Takip No Giriniz:');
-                                                        if (tracking) {
-                                                            const repair = repairs.find(r => r.id === item.repairId);
-                                                            const updatedParts = [...repair.parts];
-                                                            updatedParts[item.partIndex] = { ...updatedParts[item.partIndex], kbbStatus: 'Shipped', trackingNo: tracking };
-                                                            updateRepair(item.repairId, { parts: updatedParts });
-                                                        }
-                                                    }}
-                                                    className="p-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-600 hover:text-white transition-all shadow-sm"
+                                                <button
+                                                    onClick={() => handleShipKbbItem(item)}
+                                                    title="Kargoya ver / takip no gir"
+                                                    className="p-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-600 hover:text-white transition-all shadow-sm outline-none focus-visible:ring-4 focus-visible:ring-indigo-500/25"
                                                 >
                                                     <Truck size={14} />
+                                                    <span className="sr-only">{item.name} parçasını kargoya ver</span>
                                                 </button>
                                             </td>
                                         </tr>
@@ -624,7 +698,8 @@ const StockManagement = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
-                                    {inventory.filter(i => i.warehouseType === 'KBB' || (i.category === 'parts' && (selectedStoreId === 0 || String(i.storeId) === String(selectedStoreId)))).map(item => (
+                                    {/* Yalnızca gerçek KBB ambarı kayıtları, seçili mağaza kapsamında */}
+                                    {inventory.filter(i => i.warehouseType === 'KBB' && (selectedStoreId === 0 || String(i.storeId) === String(selectedStoreId))).map(item => (
                                         <tr 
                                             key={item.id} 
                                             className="hover:bg-indigo-50/20 active:scale-[0.995] transition-all duration-200 group cursor-pointer" 
@@ -689,26 +764,95 @@ const StockManagement = () => {
                             </table>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {inventory.filter(i => i.category === 'loaner' && (selectedStoreId === 0 || String(i.storeId) === String(selectedStoreId))).map((item) => (
-                                <div key={item.id} className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm hover:shadow-md transition-all group relative">
-                                     <div className="flex justify-between items-start mb-4">
-                                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${item.currentCustomer ? 'bg-purple-100 text-purple-600' : 'bg-emerald-100 text-emerald-600'}`}>
-                                            <MyPhoneIcon size={22} />
-                                        </div>
-                                        {!item.currentCustomer && <span className="bg-emerald-50 text-emerald-600 border border-emerald-100 px-2 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider">Müsait</span>}
+                        (() => {
+                            const loaners = inventory.filter(i => i.category === 'loaner' && (selectedStoreId === 0 || String(i.storeId) === String(selectedStoreId)));
+
+                            if (loaners.length === 0) {
+                                return (
+                                    <div className="bg-white rounded-[24px] border border-gray-200 shadow-sm py-16 text-center">
+                                        <MyPhoneIcon size={36} className="mx-auto text-gray-300 mb-3" />
+                                        <h3 className="text-lg font-semibold text-[#1d1d1f]">Kayıtlı ödünç cihaz yok</h3>
+                                        <p className="text-sm text-gray-500 mt-1">
+                                            Müşterilere geçici olarak verilen cihazları buradan tanımlayın.
+                                        </p>
+                                        <button
+                                            onClick={() => setEntryMode('loaner')}
+                                            className="mt-5 inline-flex items-center gap-2 h-11 px-5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-[13px] font-semibold transition-all outline-none focus-visible:ring-4 focus-visible:ring-purple-500/25"
+                                        >
+                                            <Plus size={16} /> Ödünç Cihaz Ekle
+                                        </button>
                                     </div>
-                                    <h4 className="font-bold text-gray-900 mb-1">{item.name}</h4>
-                                    <p className="text-[10px] font-mono text-gray-400 font-bold uppercase">S/N: {item.serialNumber}</p>
-                                    {item.currentCustomer && (
-                                        <div className="mt-4 p-3 bg-purple-50 rounded-lg border border-purple-100">
-                                            <p className="text-[9px] font-bold text-purple-400 uppercase tracking-widest mb-1">Müşteri</p>
-                                            <p className="text-xs font-bold text-purple-900">{item.currentCustomer}</p>
+                                );
+                            }
+
+                            return (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {loaners.map((item) => (
+                                        <div key={item._id || item.id} className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm hover:shadow-md transition-all group relative flex flex-col">
+                                            <div className="flex justify-between items-start mb-4">
+                                                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${item.currentCustomer ? 'bg-purple-100 text-purple-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                                                    <MyPhoneIcon size={22} />
+                                                </div>
+                                                <span className={`px-2 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider border ${item.currentCustomer
+                                                    ? 'bg-purple-50 text-purple-600 border-purple-100'
+                                                    : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`}>
+                                                    {item.currentCustomer ? 'Müşteride' : 'Müsait'}
+                                                </span>
+                                            </div>
+                                            <h4 className="font-bold text-gray-900 mb-1">{item.name}</h4>
+                                            <p className="text-[10px] font-mono text-gray-500 font-bold uppercase">S/N: {item.serialNumber || '—'}</p>
+                                            {item.loanNote && (
+                                                <p className="text-[11px] text-gray-500 mt-2 leading-snug">{item.loanNote}</p>
+                                            )}
+
+                                            {item.currentCustomer && (
+                                                <div className="mt-4 p-3 bg-purple-50 rounded-lg border border-purple-100">
+                                                    <p className="text-[9px] font-bold text-purple-400 uppercase tracking-widest mb-1">Müşteri</p>
+                                                    <p className="text-xs font-bold text-purple-900">{item.currentCustomer}</p>
+                                                    {item.loanedAt && (
+                                                        <p className="text-[10px] text-purple-500 font-medium mt-1">
+                                                            {new Date(item.loanedAt).toLocaleDateString('tr-TR')} tarihinde verildi
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {isManager && (
+                                                <div className="mt-auto pt-4 flex items-center gap-2">
+                                                    {item.currentCustomer ? (
+                                                        <button
+                                                            onClick={() => handleLoanReturn(item)}
+                                                            className="flex-1 h-10 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[12px] font-bold transition-all inline-flex items-center justify-center gap-1.5 outline-none focus-visible:ring-4 focus-visible:ring-emerald-500/25"
+                                                        >
+                                                            <CheckCircle size={14} /> Geri Teslim Alındı
+                                                        </button>
+                                                    ) : (
+                                                        <button
+                                                            onClick={() => handleLoanOut(item)}
+                                                            className="flex-1 h-10 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-[12px] font-bold transition-all inline-flex items-center justify-center gap-1.5 outline-none focus-visible:ring-4 focus-visible:ring-purple-500/25"
+                                                        >
+                                                            <ArrowUpRight size={14} /> Müşteriye Ver
+                                                        </button>
+                                                    )}
+                                                    <button
+                                                        onClick={async () => {
+                                                            if (await appConfirm(`<strong>${item.name}</strong> ödünç cihazı silinsin mi?`)) {
+                                                                const ok = await removeInventoryItem(item._id || item.id);
+                                                                showToast(ok ? 'Ödünç cihaz silindi.' : 'Silme başarısız.', ok ? 'success' : 'error');
+                                                            }
+                                                        }}
+                                                        className="w-10 h-10 rounded-xl border border-gray-200 text-gray-500 hover:text-[#c30000] hover:border-[#c30000]/30 hover:bg-[#fff5f5] flex items-center justify-center transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#c30000]/20"
+                                                    >
+                                                        <Trash2 size={15} />
+                                                        <span className="sr-only">{item.name} cihazını sil</span>
+                                                    </button>
+                                                </div>
+                                            )}
                                         </div>
-                                    )}
+                                    ))}
                                 </div>
-                            ))}
-                        </div>
+                            );
+                        })()
                     )}
                 </>
             )}
@@ -735,179 +879,16 @@ const StockManagement = () => {
             )}
 
             {/* Selected Stock Detail Modal (KBB) removed and unified */}
-            {/* Add Part Modal — GSX */}
-            {showAddModal && (() => {
-                const kgbCount = newPart.kgbSerial ? newPart.kgbSerial.split(/[\n,]+/).map(s => s.trim()).filter(Boolean).length : 0;
-                const effectiveQty = kgbCount > 0 ? kgbCount : 1;
-                const storeName = visibleServicePoints.find(s => String(s.id) === String(newPart.storeId))?.name;
-                const inputCls = "w-full px-4 py-3 bg-[#f5f5f7] border border-transparent rounded-xl text-sm font-semibold text-[#1d1d1f] focus:bg-white focus:ring-2 focus:ring-[#0071e3]/10 focus:border-[#0071e3] outline-none transition-all";
-                const labelCls = "block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1";
-                const handleSaveNewPart = async () => {
-                    if (!newPart.name || !newPart.partNumber) {
-                        showToast('Lütfen Tanım ve Parça Kodu alanlarını doldurun', 'warning');
-                        return;
-                    }
-                    if (!newPart.storeId || Number(newPart.storeId) === 0) {
-                        showToast('Lütfen parçanın ekleneceği mağaza ambarını seçin', 'warning');
-                        return;
-                    }
-                    const serials = newPart.kgbSerial
-                        ? newPart.kgbSerial.split(/[\n,]+/).map(s => s.trim().toUpperCase()).filter(Boolean)
-                        : [];
-                    const partToSave = {
-                        ...newPart,
-                        storeId: Number(newPart.storeId),
-                        price: Number(newPart.price) || 0,
-                        minLevel: Number(newPart.minLevel) || 0,
-                        kgbSerials: serials,
-                        quantity: serials.length > 0 ? serials.length : 1
-                    };
-                    const success = await addInventoryItem(partToSave);
-                    if (success) {
-                        showToast('Yeni parça başarıyla eklendi', 'success');
-                        setShowAddModal(false);
-                        setNewPart({ name: '', partNumber: '', kgbSerial: '', category: 'iPhone', storeId: (selectedStoreId && selectedStoreId !== 0) ? selectedStoreId : (currentUser?.storeId || ''), quantity: 1, minLevel: 5, price: 0, location: '', warehouseType: 'KGB' });
-                    }
-                };
-
-                return (
-                <div className="fixed inset-0 bg-[#1d1d1f]/60 backdrop-blur-md z-[110] flex items-center justify-center p-4">
-                    <div className="bg-white rounded-[24px] w-full max-w-3xl shadow-2xl animate-scale-up overflow-hidden flex flex-col max-h-[92vh]">
-                        {/* Header */}
-                        <div className="px-8 py-6 border-b border-gray-100 flex items-center justify-between bg-white shrink-0">
-                            <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 bg-[#0071e3] rounded-2xl flex items-center justify-center shadow-lg shadow-[#0071e3]/20">
-                                    <Plus size={24} className="text-white" />
-                                </div>
-                                <div>
-                                    <nav className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">
-                                        <span>Envanter</span>
-                                        <ChevronRight size={10} />
-                                        <span className="text-[#0071e3]">KGB · Yeni Parça</span>
-                                    </nav>
-                                    <h3 className="text-xl font-bold text-[#1d1d1f] tracking-tight">Yeni Parça Kaydı</h3>
-                                </div>
-                            </div>
-                            <button onClick={() => setShowAddModal(false)} className="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-[#1d1d1f] hover:bg-gray-100 rounded-full transition-all">
-                                <X size={20} />
-                            </button>
-                        </div>
-
-                        {/* Body */}
-                        <div className="p-8 space-y-8 overflow-y-auto custom-scrollbar">
-                            {/* Bölüm 1: Parça Bilgileri */}
-                            <div>
-                                <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                    <Package size={13} className="text-[#0071e3]" /> Parça Bilgileri
-                                </h4>
-                                <div className="space-y-4">
-                                    <div>
-                                        <label className={labelCls}>Parça Tanımı (Açıklama)</label>
-                                        <input type="text" className={inputCls} placeholder="Örn: iPhone 13 Pro Ekran"
-                                            value={newPart.name} onChange={(e) => setNewPart({...newPart, name: e.target.value})} />
-                                    </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div>
-                                            <label className={labelCls}>Parça Kodu (P/N)</label>
-                                            <input type="text" className={`${inputCls} font-mono`} placeholder="661-XXXXX"
-                                                value={newPart.partNumber} onChange={(e) => setNewPart({...newPart, partNumber: e.target.value})} />
-                                        </div>
-                                        <div>
-                                            <label className={labelCls}>Kategori</label>
-                                            <select className={`${inputCls} appearance-none`} value={newPart.category}
-                                                onChange={(e) => setNewPart({...newPart, category: e.target.value})}>
-                                                <option value="iPhone">iPhone</option>
-                                                <option value="iPad">iPad</option>
-                                                <option value="Mac">Mac</option>
-                                                <option value="Watch">Watch</option>
-                                                <option value="Aksesuar">Aksesuar</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div>
-                                            <label className={labelCls}>Birim Fiyat (₺)</label>
-                                            <input type="number" min="0" className={inputCls} placeholder="0"
-                                                value={newPart.price} onChange={(e) => setNewPart({...newPart, price: e.target.value})} />
-                                        </div>
-                                        <div>
-                                            <label className={labelCls}>Raf / Konum</label>
-                                            <input type="text" className={inputCls} placeholder="Örn: A-3 Rafı"
-                                                value={newPart.location} onChange={(e) => setNewPart({...newPart, location: e.target.value})} />
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Bölüm 2: Ambar & Stok */}
-                            <div className="pt-2 border-t border-gray-50">
-                                <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                    <Box size={13} className="text-[#0071e3]" /> Mağaza Ambarı & Stok
-                                </h4>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label className={labelCls}>Mağaza Ambarı <span className="text-red-400">*</span></label>
-                                        <select
-                                            className={`${inputCls} appearance-none ${!newPart.storeId ? 'ring-2 ring-red-200 text-red-500' : ''}`}
-                                            value={newPart.storeId}
-                                            onChange={(e) => setNewPart({...newPart, storeId: e.target.value})}
-                                        >
-                                            <option value="">Mağaza Seçiniz...</option>
-                                            {visibleServicePoints.map(s => (
-                                                <option key={s.id} value={s.id}>{s.name}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className={labelCls}>Kritik Stok Seviyesi</label>
-                                        <input type="number" min="0" className={inputCls}
-                                            value={newPart.minLevel} onChange={(e) => setNewPart({...newPart, minLevel: parseInt(e.target.value) || 0})} />
-                                    </div>
-                                </div>
-
-                                <div className="mt-4">
-                                    <div className="flex justify-between items-center mb-1.5">
-                                        <label className={`${labelCls} mb-0`}>KGB Seri Numaraları</label>
-                                        <span className="text-[10px] text-[#0071e3] font-bold bg-blue-50 px-2 py-0.5 rounded-full">{kgbCount} adet</span>
-                                    </div>
-                                    <textarea rows="3" className={`${inputCls} font-mono resize-none`}
-                                        placeholder="Her satıra bir adet veya virgülle ayırarak girin (Örn: KGB123, KGB456)"
-                                        value={newPart.kgbSerial}
-                                        onChange={(e) => {
-                                            const val = e.target.value;
-                                            const count = val.split(/[\n,]+/).map(s => s.trim()).filter(Boolean).length;
-                                            setNewPart({ ...newPart, kgbSerial: val, quantity: Math.max(1, count) });
-                                        }}
-                                    />
-                                    <p className="text-[10px] text-gray-400 font-medium mt-1.5 ml-1">Seri no girilirse stok adedi otomatik hesaplanır; boş bırakılırsa 1 adet eklenir.</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Footer */}
-                        <div className="px-8 py-5 bg-[#f5f5f7] border-t border-gray-100 flex items-center justify-between shrink-0">
-                            <div className="flex items-center gap-4 text-sm">
-                                <div className="flex items-center gap-2">
-                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Eklenecek</span>
-                                    <span className="text-lg font-bold text-[#1d1d1f]">{effectiveQty} adet</span>
-                                </div>
-                                {storeName && (
-                                    <span className="text-[11px] font-bold text-[#0071e3] bg-blue-50 border border-blue-100 px-2.5 py-1 rounded-lg flex items-center gap-1">
-                                        <Store size={11} /> {storeName}
-                                    </span>
-                                )}
-                            </div>
-                            <div className="flex items-center gap-3">
-                                <button onClick={() => setShowAddModal(false)} className="px-6 py-3 bg-white text-gray-600 font-bold text-sm rounded-xl border border-gray-200 hover:bg-gray-50 transition-all">Vazgeç</button>
-                                <button onClick={handleSaveNewPart} className="px-8 py-3 bg-[#0071e3] hover:bg-[#0077ed] text-white font-bold text-sm rounded-xl shadow-lg shadow-[#0071e3]/20 transition-all active:scale-95 flex items-center gap-2">
-                                    <CheckCircle size={18} /> Kaydı Tamamla
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                );
-            })()}
+            {/* Envanter girişi: KGB parçası, KBB (sökülen) parçası veya ödünç cihaz */}
+            {entryMode && (
+                <InventoryEntryModal
+                    mode={entryMode}
+                    stores={visibleServicePoints}
+                    defaultStoreId={(selectedStoreId && selectedStoreId !== 0) ? selectedStoreId : (currentUser?.storeId || '')}
+                    onClose={() => setEntryMode(null)}
+                    onSave={handleCreateEntry}
+                />
+            )}
 
             {/* Part Detail Modal */}
             {selectedPartDetails && (

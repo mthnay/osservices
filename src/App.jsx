@@ -5,7 +5,7 @@ import Dashboard from './components/Dashboard';
 import ServiceAcceptance from './components/ServiceAcceptance';
 import RepairCenter from './components/RepairCenter';
 import PendingRepairs from './components/PendingRepairs';
-import KBBManagement from './components/KBBManagement';
+
 import Reports from './components/Reports';
 import Technicians from './components/Technicians';
 import Settings from './components/Settings';
