@@ -79,6 +79,9 @@ const resolveProductKey = (group = '', model = '') => {
     return 'other';
 };
 
+// Kayıtta productGroup boş olabilir; cihaz adından da grup çıkarmak için dışa açık.
+export const getProductGroupKey = resolveProductKey;
+
 export const getProductImage = (group = '', model = '') => PRODUCT_PHOTOS[resolveProductKey(group, model)];
 
 // Son çare: veri URI olduğu için ağ/dosya hatası ihtimali yok, asla kırılmaz.
