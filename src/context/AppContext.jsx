@@ -740,10 +740,11 @@ export const AppProvider = ({ children }) => {
             newHistory = [...newHistory, { status: updates.status, date: new Date().toLocaleString(), note: updates.historyNote || 'Durum güncellendi.' }];
 
             // Performans Takibi için Tarihsel Damgalar
-            if (updates.status === 'İşlemde' && !repair.startedAt) {
+            // ('Onarımda' teknisyen atölyeden başlattığında yazılır; süre ölçümü buna dayanır)
+            if (['İşlemde', 'Onarımda'].includes(updates.status) && !repair.startedAt) {
                 extraUpdates.startedAt = new Date();
             }
-            if (['Tamamlandı', 'Cihaz Hazır', 'Teslim Edildi'].includes(updates.status) && !repair.completedAt) {
+            if (['Tamamlandı', 'Cihaz Hazır', 'Teslim Edildi', 'İade Hazır'].includes(updates.status) && !repair.completedAt) {
                 extraUpdates.completedAt = new Date();
             }
         }

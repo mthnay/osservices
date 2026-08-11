@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Users, Wrench, Clock, CheckCircle, Play, Search, Filter, Eye, Plus, X, UserPlus, Trash2, ShieldCheck, Mail, Award, Edit3, Activity, RotateCcw, Save, Pause, Box, FileText, ChevronRight, Zap, AlertCircle, Camera, ArrowRight, Phone } from 'lucide-react';
 import TechnicianWorkspace from './TechnicianWorkspace';
 import MyPhoneIcon from './LocalIcons';
 import RepairHistoryModal from './RepairHistoryModal';
 import TechnicianPerformance from './TechnicianPerformance';
+import TechnicianMetricsPanel from './TechnicianMetricsPanel';
+import { getTechnicianStats, formatDuration } from '../utils/technicianStats';
 import { useAppContext } from '../context/AppContext';
 // eslint-disable-next-line no-unused-vars
 import { appConfirm, appAlert } from '../utils/alert';
@@ -17,7 +19,17 @@ const Technicians = () => {
     const [filter, setFilter] = useState('pending');
     const [searchTerm, setSearchTerm] = useState('');
     const [viewMode, setViewMode] = useState('pool'); // 'pool' or 'stats'
-    
+    // Adına tıklanan teknisyenin metrikleri kendi kartının içinde açılır
+    const [openMetricsFor, setOpenMetricsFor] = useState(null);
+
+    // Her teknisyenin performans özeti (isim -> istatistik)
+    const statsByTech = useMemo(() => {
+        const map = new Map();
+        (technicians || []).forEach(tech => map.set(tech.name, getTechnicianStats(repairs, tech.name)));
+        return map;
+    }, [technicians, repairs]);
+
+
     // Modal States
     const [showAddModal, setShowAddModal] = useState(false);
     const [editingTech, setEditingTech] = useState(null);
@@ -141,13 +153,17 @@ const Technicians = () => {
                             const completedSteps = steps.filter(s => s.checked).length;
                             const progress = steps.length > 0 ? Math.round((completedSteps / steps.length) * 100) : 0;
                             const isBusy = tech.status === 'busy' || tech.currentJob;
+                            const techKey = tech._id || tech.id;
+                            const stats = statsByTech.get(tech.name);
+                            const metricsOpen = openMetricsFor === techKey;
 
                             return (
-                                <div key={tech._id || tech.id} className="group relative bg-white rounded-lg p-6 border border-gray-100 shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all duration-500 overflow-hidden flex flex-col">
+                                <div key={techKey} className={`group relative bg-white rounded-lg p-6 border shadow-lg hover:shadow-2xl transition-all duration-500 overflow-hidden flex flex-col ${metricsOpen ? 'border-[#0071e3]/40 md:col-span-2' : 'border-gray-100 hover:-translate-y-1'}`}>
                                     {/* Workload Badge */}
                                     <div className="absolute top-6 left-1/2 -translate-x-1/2 translate-y-[-50%] z-20 group-hover:translate-y-0 transition-transform">
                                         <div className="bg-indigo-600 text-white text-[10px] font-semibold px-3 py-1 rounded-full shadow-lg flex items-center gap-1.5 whitespace-nowrap">
-                                            <Activity size={10} strokeWidth={3} /> {repairs.filter(r => (r.technician === tech.name) && (r.status?.includes('İşlem'))).length} AKTİF İŞ
+                                            {/* Kartın alt kısmındaki "Açık İş" metriğiyle aynı hesap */}
+                                            <Activity size={10} strokeWidth={3} /> {stats?.active ?? 0} AKTİF İŞ
                                         </div>
                                     </div>
                                     {/* Admin Actions Overlay */}
@@ -180,12 +196,53 @@ const Technicians = () => {
                                             <span className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-4 border-white ${isBusy ? 'bg-orange-500' : tech.status === 'available' ? 'bg-emerald-500' : 'bg-gray-300'}`}></span>
                                         </div>
                                         <div className="min-w-0">
-                                            <h3 className="font-semibold text-gray-900 truncate leading-tight">{tech.name}</h3>
-                                            <span className="text-[10px] font-semibold uppercase text-indigo-600 tracking-wider flex items-center gap-1">
-                                                <Award size={10} /> {tech.specialty || 'Genel'}
-                                            </span>
+                                            {/* İsme tıklanınca performans verileri bu kartın içinde açılır */}
+                                            <button
+                                                type="button"
+                                                onClick={() => setOpenMetricsFor(metricsOpen ? null : techKey)}
+                                                aria-expanded={metricsOpen}
+                                                aria-controls={`tech-metrics-${techKey}`}
+                                                className="group/name text-left outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25 rounded-lg"
+                                            >
+                                                <h3 className="font-semibold text-gray-900 truncate leading-tight group-hover/name:text-[#0071e3] transition-colors flex items-center gap-1.5">
+                                                    {tech.name}
+                                                    <ChevronRight
+                                                        size={14}
+                                                        aria-hidden="true"
+                                                        className={`text-gray-400 shrink-0 transition-transform ${metricsOpen ? 'rotate-90 text-[#0071e3]' : ''}`}
+                                                    />
+                                                </h3>
+                                                <span className="text-[10px] font-semibold uppercase text-indigo-600 tracking-wider flex items-center gap-1">
+                                                    <Award size={10} /> {tech.specialty || 'Genel'}
+                                                </span>
+                                            </button>
                                         </div>
                                     </div>
+
+                                    {/* Teknisyenin kendi performans alanı */}
+                                    {metricsOpen && stats && (
+                                        <div id={`tech-metrics-${techKey}`} className="mb-6 animate-section-in">
+                                            <TechnicianMetricsPanel stats={stats} compact />
+                                        </div>
+                                    )}
+
+                                    {/* Kapalıyken de iki temel metrik özet olarak görünür */}
+                                    {!metricsOpen && stats && (
+                                        <div className="grid grid-cols-2 gap-2 mb-6">
+                                            <div className="rounded-xl bg-gray-50 border border-gray-100 px-3 py-2">
+                                                <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Ort. Süre</p>
+                                                <p className="text-sm font-bold text-[#1d1d1f] mt-0.5">
+                                                    {formatDuration(stats.avgDurationMinutes)}
+                                                </p>
+                                            </div>
+                                            <div className="rounded-xl bg-gray-50 border border-gray-100 px-3 py-2">
+                                                <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Günlük Cihaz</p>
+                                                <p className="text-sm font-bold text-[#1d1d1f] mt-0.5">
+                                                    {stats.perActiveDay != null ? stats.perActiveDay.toFixed(1) : '—'}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
 
                                     {tech.currentJob ? (
                                         <div className="mt-auto space-y-4">
