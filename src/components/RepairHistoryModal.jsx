@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/rules-of-hooks */
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
     X, CheckCircle, Clock, Truck, MessageCircle, Wrench, Phone, User,
     Calendar, ArrowRight, Printer, FileText, Shield, Eye, Package,
@@ -11,6 +11,7 @@ import DeliveryFormPrint from './DeliveryFormPrint';
 import { useAppContext } from '../context/AppContext';
 import { appPrompt, appAlert, appConfirm } from '../utils/alert';
 import CustomerNotificationModal from './CustomerNotificationModal';
+import RepairDiagnosisPanel from './RepairDiagnosisPanel';
 import { hasPermission } from '../utils/permissions';
 import { getSafeRepairImageUrl } from '../utils/productImages';
 
@@ -32,7 +33,7 @@ const REPAIR_TYPE_LABELS = {
     'returnbefore': 'Değiştirmeden Önce İade'
 };
 
-const RepairHistoryModal = ({ repair: initialRepair, onClose, onDiagnose }) => {
+const RepairHistoryModal = ({ repair: initialRepair, onClose, onSaveDiagnosis }) => {
     const { updateRepair, updateRepairStatus, removeRepair, repairs, servicePoints, currentUser, showToast, API_URL } = useAppContext();
     const repair = repairs.find(r => r.id === initialRepair.id) || initialRepair;
     
@@ -50,7 +51,27 @@ const RepairHistoryModal = ({ repair: initialRepair, onClose, onDiagnose }) => {
     const [invoiceNo, setInvoiceNo] = useState(repair?.invoiceNumber || '');
     const [showCustomerModal, setShowCustomerModal] = useState(false);
     const [showDeviceModal, setShowDeviceModal] = useState(false);
-    
+
+    // Teşhis, ayrı bir ekran değil; inceleme ekranının içinde açılan bir bölüm
+    const [showDiagnosis, setShowDiagnosis] = useState(false);
+    const diagnosisRef = useRef(null);
+    const scrollAreaRef = useRef(null);
+
+    const openDiagnosis = () => {
+        setShowDiagnosis(true);
+        // Bölüm DOM'a girdikten sonra üzerine kayarak gel ve odağı taşı
+        requestAnimationFrame(() => {
+            diagnosisRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            diagnosisRef.current?.focus({ preventScroll: true });
+        });
+    };
+
+    const closeDiagnosis = () => {
+        setShowDiagnosis(false);
+        scrollAreaRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+
     // Technicians should be able to edit basic info if they are the owner or admin
     const isAdmin = hasPermission(currentUser, 'manage_settings') || currentUser?.role === 'technician';
 
@@ -442,9 +463,49 @@ const RepairHistoryModal = ({ repair: initialRepair, onClose, onDiagnose }) => {
                     </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto custom-scrollbar bg-[#f5f5f7] p-6 lg:p-8">
+                <div ref={scrollAreaRef} className="flex-1 overflow-y-auto custom-scrollbar bg-[#f5f5f7] p-6 lg:p-8">
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 w-full max-w-[1600px] mx-auto pt-4">
-                        
+
+                        {/* ---------------- TEŞHİS BÖLÜMÜ (İnceleme ekranının içinde açılır) ---------------- */}
+                        {showDiagnosis && (
+                            <section
+                                id="diagnosis-section"
+                                ref={diagnosisRef}
+                                tabIndex={-1}
+                                aria-labelledby="diagnosis-section-title"
+                                className="lg:col-span-12 scroll-mt-6 rounded-[24px] border border-[#0071e3]/20 bg-white/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)] outline-none animate-section-in"
+                            >
+                                <header className="flex flex-wrap items-center justify-between gap-4 px-6 py-5 border-b border-gray-100">
+                                    <div className="flex items-center gap-4 min-w-0">
+                                        <div className="w-11 h-11 rounded-xl bg-[#0071e3] text-white flex items-center justify-center shrink-0">
+                                            <Wrench size={20} aria-hidden="true" />
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="text-[10px] font-bold uppercase tracking-widest text-[#0071e3]">Bu kaydın devamı</p>
+                                            <h2 id="diagnosis-section-title" className="text-[17px] font-semibold text-[#1d1d1f]">
+                                                Teknik Teşhis
+                                            </h2>
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={closeDiagnosis}
+                                        className="inline-flex items-center gap-2 h-10 px-4 rounded-xl border border-gray-200 bg-white text-[13px] font-semibold text-gray-600 hover:bg-[#f5f5f7] transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
+                                    >
+                                        <X size={15} aria-hidden="true" /> Bölümü kapat
+                                    </button>
+                                </header>
+                                <div className="p-5 sm:p-6">
+                                    <RepairDiagnosisPanel
+                                        embedded
+                                        repair={repair}
+                                        onSave={onSaveDiagnosis}
+                                        onCancel={closeDiagnosis}
+                                    />
+                                </div>
+                            </section>
+                        )}
+
                         {/* ---------------- SOL / ANA İÇERİK (8 KOLON) ---------------- */}
                         <div className="lg:col-span-8 flex flex-col gap-8">
                             
@@ -906,12 +967,18 @@ const RepairHistoryModal = ({ repair: initialRepair, onClose, onDiagnose }) => {
                     </div>
                     
                     <div className="flex flex-wrap gap-2">
-                        {onDiagnose && repair.status === 'Beklemede' && (
-                            <button 
-                                onClick={() => onDiagnose(repair)}
-                                className="px-6 py-2 bg-orange-500 text-white text-xs font-bold rounded-md hover:bg-orange-600 flex items-center gap-2 shadow-sm transition-all animate-pulse"
+                        {onSaveDiagnosis && repair.status === 'Beklemede' && (
+                            <button
+                                type="button"
+                                onClick={openDiagnosis}
+                                aria-expanded={showDiagnosis}
+                                aria-controls="diagnosis-section"
+                                className={`px-6 py-2 text-xs font-bold rounded-md flex items-center gap-2 shadow-sm transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25 ${showDiagnosis
+                                    ? 'bg-white text-[#0071e3] border border-[#0071e3]/30 hover:bg-[#0071e3]/5'
+                                    : 'bg-[#0071e3] text-white hover:bg-[#0077ed]'}`}
                             >
-                                <Wrench size={14} /> Teşhis Yap
+                                <Wrench size={14} aria-hidden="true" />
+                                {showDiagnosis ? 'Teşhis Bölümüne Dön' : 'Teşhis Yap'}
                             </button>
                         )}
                         <button onClick={handleWhatsApp} className="px-4 py-2 bg-[#25D366] text-white text-xs font-bold rounded-md hover:bg-[#128C7E] flex items-center gap-2 shadow-sm shadow-[#25D366]/20 transition-all">

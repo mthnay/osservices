@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "diagnosis-preview",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["vite", "--config", "_preview/vite.config.js"],
+      "port": 5199
+    }
+  ]
+}

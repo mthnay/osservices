@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Clock, User, ChevronRight, AlertCircle, Calendar, ArrowRight, Eye, Search, Filter, LayoutGrid, List as ListIcon, MoreHorizontal, Truck, Check, Fingerprint, Activity, ClipboardList, PackageSearch } from 'lucide-react';
 import MyPhoneIcon from './LocalIcons';
-import RepairDiagnosisModal from './RepairDiagnosisModal';
 import RepairHistoryModal from './RepairHistoryModal';
 import { useAppContext } from '../context/AppContext';
 import { appConfirm } from '../utils/alert';
@@ -27,7 +26,6 @@ const StatusBadge = ({ status }) => {
 
 const PendingRepairs = ({ setActiveTab }) => {
     const { repairs, updateRepair, currentUser, searchQuery, setSearchQuery, API_URL } = useAppContext();
-    const [selectedRepair, setSelectedRepair] = useState(null);
     const [selectedHistoryRepair, setSelectedHistoryRepair] = useState(null);
     const [viewMode, setViewMode] = useState('list'); // 'list' or 'board'
 
@@ -113,7 +111,8 @@ const PendingRepairs = ({ setActiveTab }) => {
         };
 
         updateRepair(result.originalRepair.id, updates);
-        setSelectedRepair(null);
+        // Teşhis inceleme ekranının içinde yapıldığı için kayıt bitince o ekran da kapanır
+        setSelectedHistoryRepair(null);
         if (await appConfirm(`Teşhis Kaydedildi!<br><br>Görünümü değiştirmek ister misiniz?`)) {
             setActiveTab(result.targetView);
         }
@@ -317,12 +316,11 @@ const PendingRepairs = ({ setActiveTab }) => {
             )}
 
             {/* Modals */}
-            {selectedRepair && <RepairDiagnosisModal repair={selectedRepair} onClose={() => setSelectedRepair(null)} onSave={handleSaveDiagnosis} />}
             {selectedHistoryRepair && (
-                <RepairHistoryModal 
-                    repair={selectedHistoryRepair} 
-                    onClose={() => setSelectedHistoryRepair(null)} 
-                    onDiagnose={(r) => { setSelectedHistoryRepair(null); setSelectedRepair(r); }} 
+                <RepairHistoryModal
+                    repair={selectedHistoryRepair}
+                    onClose={() => setSelectedHistoryRepair(null)}
+                    onSaveDiagnosis={handleSaveDiagnosis}
                 />
             )}
         </div>
