@@ -1,291 +1,586 @@
-import React, { useMemo, useState } from 'react';
-import { 
-    ChevronRight, AlertCircle, X, MapPin, Activity, Clock, 
-    CheckCircle, Award, TrendingUp, Users, Zap, RotateCcw, 
-    ArrowUpRight, Target
+import React, { useMemo, useState, useEffect, useId, useRef } from 'react';
+import {
+    ChevronRight, AlertCircle, X, MapPin, Activity, Clock,
+    Users, Search, CheckCircle2, CircleDashed, Gauge, ArrowRight, Building2
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
-// eslint-disable-next-line no-unused-vars
-import { hasPermission } from '../utils/permissions';
+import { parseRepairDate } from '../utils/archiveFilters';
+import {
+    getTechnicianStats, getRepairDurationMinutes, formatDuration, isCompletedRepair
+} from '../utils/technicianStats';
+
+// Kritik eşikler: bir kaydın "dikkat gerekli" sayılması için
+const SLA_DAYS = 14;            // açık kaydın yaşlanma sınırı
+const APPROVAL_SLA_DAYS = 3;    // müşteri onayı bekleme sınırı
+
+const CLOSED_STATUSES = ['Tamamlandı', 'Teslim Edildi', 'Cihaz Hazır', 'İade Edildi', 'İade Hazır', 'İptal'];
+
+const FILTERS = [
+    { id: 'all', label: 'Tümü' },
+    { id: 'attention', label: 'Dikkat gerekli' },
+    { id: 'operational', label: 'Operasyonel' }
+];
+
+const SORTS = [
+    { id: 'load', label: 'İş yüküne göre' },
+    { id: 'critical', label: 'Kritik sayısına göre' },
+    { id: 'rate', label: 'Tamamlama oranına göre' },
+    { id: 'name', label: 'Mağaza adına göre' }
+];
+
+const daysSince = (date, now) => (date ? Math.floor((now - date.getTime()) / 86400000) : null);
+
+// Kaydın neden kritik olduğunu döndürür; kritik değilse null
+const getCriticalReason = (repair, now) => {
+    const age = daysSince(parseRepairDate(repair.date) || parseRepairDate(repair.createdAt), now);
+    if (age == null) return null;
+
+    if (age >= SLA_DAYS) return { code: 'aged', label: `${age} gündür açık`, age };
+    if ((repair.status || '').includes('Onay') && age >= APPROVAL_SLA_DAYS) {
+        return { code: 'approval', label: `${age} gündür onay bekliyor`, age };
+    }
+    return null;
+};
+
+const StatusPill = ({ tone, icon, children }) => {
+    const Icon = icon;
+    const tones = {
+        critical: 'bg-[#fff5f5] text-[#c30000] border-[#c30000]/15',
+        ok: 'bg-[#e6f4ea] text-[#1e7e34] border-[#1e7e34]/15',
+        idle: 'bg-[#f5f5f7] text-gray-600 border-gray-200'
+    };
+    return (
+        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border ${tones[tone]}`}>
+            <Icon size={12} aria-hidden="true" />
+            {children}
+        </span>
+    );
+};
+
+const KpiTile = ({ icon, label, value, unit, hint }) => {
+    const Icon = icon;
+    return (
+        <div className="bg-white rounded-2xl border border-gray-200 p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+            <div className="flex items-center gap-2 mb-2">
+                <span className="w-8 h-8 rounded-lg bg-[#f5f5f7] text-[#1d1d1f] flex items-center justify-center shrink-0">
+                    <Icon size={15} aria-hidden="true" />
+                </span>
+                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{label}</span>
+            </div>
+            <p className="text-2xl font-semibold text-[#1d1d1f] tracking-tight tabular-nums">
+                {value}
+                {unit && <span className="text-[12px] font-medium text-gray-500 ml-1">{unit}</span>}
+            </p>
+            {hint && <p className="text-[11px] text-gray-500 mt-1 leading-snug">{hint}</p>}
+        </div>
+    );
+};
 
 const StoreOperations = () => {
-    // eslint-disable-next-line no-unused-vars
-    const { repairs, allRepairs, servicePoints, technicians, users } = useAppContext();
-    const [selectedStoreDetails, setSelectedStoreDetails] = useState(null);
+    const { repairs, allRepairs, servicePoints, technicians } = useAppContext();
+    const uid = useId();
+    const [selectedStore, setSelectedStore] = useState(null);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [filter, setFilter] = useState('all');
+    const [sortBy, setSortBy] = useState('load');
 
-    const storeStatusData = useMemo(() => {
-        const sourceRepairs = allRepairs || repairs;
-        
-        return servicePoints.map(sp => {
+    const dialogRef = useRef(null);
+    const lastTriggerRef = useRef(null);
+
+    // "Canlı" ekran: yaş hesapları dakikada bir tazelenir (render sırasında Date.now okunmaz)
+    const [now, setNow] = useState(() => Date.now());
+    useEffect(() => {
+        const timer = setInterval(() => setNow(Date.now()), 60000);
+        return () => clearInterval(timer);
+    }, []);
+
+    const sourceRepairs = useMemo(() => allRepairs || repairs || [], [allRepairs, repairs]);
+
+    const stores = useMemo(() => {
+        return (servicePoints || []).map(sp => {
             const storeRepairs = sourceRepairs.filter(r => String(r.storeId) === String(sp.id));
-            const activeRepairs = storeRepairs.filter(r => !['Tamamlandı', 'Teslim Edildi', 'İptal', 'İade Edildi'].includes(r.status));
-            const completedRepairs = storeRepairs.filter(r => ['Tamamlandı', 'Teslim Edildi', 'Cihaz Hazır'].includes(r.status));
-            
-            // Critical Repairs (Over 14 days or pending diagnosis)
-            const criticalRepairs = activeRepairs.filter(r => {
-                if (r.status?.includes('Bekliyor')) return true;
-                if (!r.date) return false;
-                const [d, m, y] = r.date.split(' ')[0].split('.');
-                if (!d || !m || !y) return false;
-                const repairDate = new Date(y, m - 1, d);
-                const daysPass = Math.floor((new Date() - repairDate) / (1000 * 60 * 60 * 24));
-                return daysPass > 14; 
-            });
+            const activeRepairs = storeRepairs.filter(r => !CLOSED_STATUSES.includes(r.status));
+            const completedRepairs = storeRepairs.filter(isCompletedRepair);
 
-            // Performance Metrics
-            let totalMinutes = 0;
-            let countWithTime = 0;
-            completedRepairs.forEach(r => {
-                if (r.startedAt && r.completedAt) {
-                    const diff = (new Date(r.completedAt) - new Date(r.startedAt)) / (1000 * 60);
-                    if (diff > 0) {
-                        totalMinutes += diff;
-                        countWithTime++;
-                    }
-                }
-            });
+            const criticalRepairs = activeRepairs
+                .map(repair => ({ repair, reason: getCriticalReason(repair, now) }))
+                .filter(entry => entry.reason)
+                .sort((a, b) => b.reason.age - a.reason.age);
 
-            const avgTime = countWithTime > 0 ? Math.round(totalMinutes / countWithTime) : 0;
-            const successRate = storeRepairs.length > 0 
-                ? Math.round((completedRepairs.length / storeRepairs.length) * 100) 
-                : 0;
+            // Süre ölçümü teknisyen ekranıyla aynı kaynaktan: damga yoksa kayıt geçmişinden
+            const durations = completedRepairs
+                .map(getRepairDurationMinutes)
+                .filter(minutes => minutes != null);
+            const avgDuration = durations.length
+                ? durations.reduce((total, m) => total + m, 0) / durations.length
+                : null;
 
-            const storeTechs = technicians.filter(t => String(t.storeId) === String(sp.id));
+            const since = now - 30 * 86400000;
+            const completedLast30 = completedRepairs.filter(r => {
+                const end = parseRepairDate(r.completedAt) || parseRepairDate(r.date);
+                return end && end.getTime() >= since;
+            }).length;
+
+            const completionRate = storeRepairs.length
+                ? Math.round((completedRepairs.length / storeRepairs.length) * 100)
+                : null;
+
+            const storeTechs = (technicians || []).filter(t => String(t.storeId) === String(sp.id));
 
             return {
                 ...sp,
+                storeRepairs,
+                activeRepairs,
+                completedRepairs,
+                criticalRepairs,
                 pendingCount: activeRepairs.length,
                 criticalCount: criticalRepairs.length,
-                activeRepairs,
-                criticalRepairs,
                 completedCount: completedRepairs.length,
-                avgTime,
-                successRate,
-                techCount: storeTechs.length
+                completedLast30,
+                avgDuration,
+                measuredCount: durations.length,
+                completionRate,
+                technicians: storeTechs
             };
-        }).sort((a,b) => b.pendingCount - a.pendingCount);
-    }, [servicePoints, allRepairs, repairs, technicians]);
+        });
+    }, [servicePoints, sourceRepairs, technicians, now]);
 
-    const calculateTechStats = (techName, storeRepairs) => {
-        const techRepairs = storeRepairs.filter(r => r.technician === techName);
-        const completed = techRepairs.filter(r => ['Tamamlandı', 'Teslim Edildi', 'Cihaz Hazır'].includes(r.status));
-        
-        let totalMin = 0;
-        let timeCount = 0;
-        completed.forEach(r => {
-            if (r.startedAt && r.completedAt) {
-                const diff = (new Date(r.completedAt) - new Date(r.startedAt)) / (1000 * 60);
-                if (diff > 0) { totalMin += diff; timeCount++; }
-            }
+    const visibleStores = useMemo(() => {
+        const query = searchTerm.trim().toLowerCase();
+        const list = stores.filter(store => {
+            const matchesQuery = !query
+                || (store.name || '').toLowerCase().includes(query)
+                || String(store.shipTo || '').toLowerCase().includes(query);
+            const matchesFilter = filter === 'all'
+                || (filter === 'attention' ? store.criticalCount > 0 : store.criticalCount === 0);
+            return matchesQuery && matchesFilter;
         });
 
-        const avg = timeCount > 0 ? Math.round(totalMin / timeCount) : 0;
-        const efficiency = techRepairs.length > 0 ? Math.round((completed.length / techRepairs.length) * 100) : 0;
+        return list.sort((a, b) => {
+            if (sortBy === 'critical') return b.criticalCount - a.criticalCount || b.pendingCount - a.pendingCount;
+            if (sortBy === 'rate') return (b.completionRate ?? -1) - (a.completionRate ?? -1);
+            if (sortBy === 'name') return (a.name || '').localeCompare(b.name || '', 'tr');
+            return b.pendingCount - a.pendingCount || b.criticalCount - a.criticalCount;
+        });
+    }, [stores, searchTerm, filter, sortBy]);
 
-        return { completed: completed.length, avg, efficiency };
+    const network = useMemo(() => {
+        const pending = stores.reduce((total, s) => total + s.pendingCount, 0);
+        const critical = stores.reduce((total, s) => total + s.criticalCount, 0);
+        const techCount = stores.reduce((total, s) => total + s.technicians.length, 0);
+
+        const durations = stores
+            .filter(s => s.avgDuration != null)
+            .map(s => ({ value: s.avgDuration, weight: s.measuredCount }));
+        const weight = durations.reduce((total, d) => total + d.weight, 0);
+        const avgDuration = weight
+            ? durations.reduce((total, d) => total + d.value * d.weight, 0) / weight
+            : null;
+
+        return { pending, critical, techCount, avgDuration, storeCount: stores.length };
+    }, [stores]);
+
+    // Detay diyaloğu: odak yönetimi ve Escape
+    useEffect(() => {
+        if (!selectedStore) return;
+        dialogRef.current?.focus();
+        const onKeyDown = (e) => {
+            if (e.key !== 'Escape') return;
+            setSelectedStore(null);
+            // Odak, diyaloğu açan karta geri döner
+            lastTriggerRef.current?.focus();
+        };
+        document.addEventListener('keydown', onKeyDown);
+        return () => document.removeEventListener('keydown', onKeyDown);
+    }, [selectedStore]);
+
+    const openStore = (store, event) => {
+        lastTriggerRef.current = event?.currentTarget || null;
+        setSelectedStore(store);
     };
 
+    const closeStore = () => {
+        setSelectedStore(null);
+        lastTriggerRef.current?.focus();
+    };
+
+    // Seçili mağaza, veri değiştikçe tazelensin
+    const activeStore = selectedStore ? stores.find(s => String(s.id) === String(selectedStore.id)) : null;
+
     return (
-        <div className="space-y-8 animate-fade-in pb-20">
-            {/* GSX Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="space-y-6 animate-fade-in pb-16">
+            {/* Başlık */}
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-5">
                 <div>
-                    <nav className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
+                    <nav className="flex items-center gap-2 text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">
                         <span>Yönetim Paneli</span>
-                        <ChevronRight size={10} />
-                        <span className="text-[#0071e3]">Mağaza Operasyonları</span>
+                        <ChevronRight size={10} aria-hidden="true" />
+                        <span className="text-[#0071e3]">Operasyon Şeması</span>
                     </nav>
-                    <h1 className="text-3xl font-bold text-[#1d1d1f] tracking-tight">Global Operasyon İzleme</h1>
+                    <h1 className="text-3xl font-semibold text-[#1d1d1f] tracking-tight">Operasyon Şeması</h1>
+                    <p className="text-sm text-gray-500 mt-1">
+                        {network.storeCount} lokasyonun anlık iş yükü, gecikme ve tamamlama performansı.
+                    </p>
                 </div>
 
-                <div className="flex items-center gap-4">
-                    <div className="px-4 py-2 bg-white border border-gray-200 rounded-xl shadow-sm flex items-center gap-3">
-                        <Activity size={16} className="text-green-500 animate-pulse" />
-                        <span className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">Canlı Sistem Aktif</span>
-                    </div>
-                </div>
+                <span className="inline-flex items-center gap-2 h-9 px-3.5 bg-white border border-gray-200 rounded-xl shadow-[0_1px_3px_rgba(0,0,0,0.04)] self-start md:self-auto">
+                    <span aria-hidden="true" className="w-1.5 h-1.5 rounded-full bg-[#1e7e34]" />
+                    <span className="text-[11px] font-semibold text-gray-600">Canlı veri</span>
+                </span>
             </div>
 
-            {/* Store Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {storeStatusData.map(sp => (
-                    <div 
-                        key={sp.id} 
-                        onClick={() => setSelectedStoreDetails(sp)}
-                        className="bg-white rounded-[32px] border border-gray-200 p-8 shadow-sm hover:border-[#0071e3] hover:shadow-xl hover:shadow-[#0071e3]/5 transition-all cursor-pointer group relative overflow-hidden"
+            {/* Ağ özeti */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                <KpiTile icon={Activity} label="Açık İş Yükü" value={network.pending} unit="cihaz" hint={`${network.storeCount} lokasyon toplamı`} />
+                <KpiTile
+                    icon={AlertCircle}
+                    label="Dikkat Gerekli"
+                    value={network.critical}
+                    unit="kayıt"
+                    hint={`${SLA_DAYS}+ gün açık ya da ${APPROVAL_SLA_DAYS}+ gün onay bekleyen`}
+                />
+                <KpiTile icon={Clock} label="Ort. Tamamlama" value={formatDuration(network.avgDuration)} hint="Ölçülebilen onarımların ortalaması" />
+                <KpiTile icon={Users} label="Teknisyen" value={network.techCount} unit="kişi" hint="Lokasyonlara atanmış" />
+            </div>
+
+            {/* Araç çubuğu */}
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4 flex flex-col lg:flex-row lg:items-end gap-4">
+                <div className="flex-1 min-w-0">
+                    <label htmlFor={`${uid}-search`} className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">
+                        Lokasyon ara
+                    </label>
+                    <div className="relative">
+                        <Search size={16} aria-hidden="true" className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <input
+                            id={`${uid}-search`}
+                            type="search"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            placeholder="Mağaza adı veya Ship-To…"
+                            className="w-full h-10 pl-11 pr-4 bg-white border border-gray-300 rounded-xl text-sm font-medium text-[#1d1d1f] placeholder:text-gray-400 outline-none transition-all focus-visible:border-[#0071e3] focus-visible:ring-4 focus-visible:ring-[#0071e3]/15"
+                        />
+                    </div>
+                </div>
+
+                <div>
+                    <span id={`${uid}-filter-label`} className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">
+                        Durum
+                    </span>
+                    <div role="group" aria-labelledby={`${uid}-filter-label`} className="inline-flex bg-[#f5f5f7] p-1 rounded-xl border border-gray-200">
+                        {FILTERS.map(option => {
+                            const isActive = filter === option.id;
+                            return (
+                                <button
+                                    key={option.id}
+                                    type="button"
+                                    onClick={() => setFilter(option.id)}
+                                    aria-pressed={isActive}
+                                    className={`px-4 h-8 rounded-lg text-[12px] font-semibold transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25 ${isActive
+                                        ? 'bg-white text-[#0071e3] shadow-sm'
+                                        : 'text-gray-600 hover:text-[#1d1d1f]'}`}
+                                >
+                                    {option.label}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                <div className="lg:w-56">
+                    <label htmlFor={`${uid}-sort`} className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">
+                        Sırala
+                    </label>
+                    <select
+                        id={`${uid}-sort`}
+                        value={sortBy}
+                        onChange={(e) => setSortBy(e.target.value)}
+                        className="w-full h-10 px-3 bg-white border border-gray-300 rounded-xl text-sm font-semibold text-[#1d1d1f] outline-none transition-all focus-visible:border-[#0071e3] focus-visible:ring-4 focus-visible:ring-[#0071e3]/15"
                     >
-                        {/* Status Glow */}
-                        <div className={`absolute top-0 right-0 w-24 h-24 blur-[60px] opacity-20 -mr-12 -mt-12 transition-colors ${sp.criticalCount > 0 ? 'bg-red-500' : 'bg-[#0071e3]'}`}></div>
-
-                        <div className="flex items-start justify-between mb-8 relative">
-                            <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-2xl bg-[#f5f5f7] flex items-center justify-center text-[#1d1d1f] group-hover:bg-[#0071e3] group-hover:text-white transition-all">
-                                    <MapPin size={24} />
-                                </div>
-                                <div>
-                                    <h4 className="font-bold text-lg text-[#1d1d1f]">{sp.name}</h4>
-                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Ship-To: {sp.shipTo || 'N/A'}</p>
-                                </div>
-                            </div>
-                            <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter border ${sp.criticalCount > 0 ? 'bg-red-50 text-red-600 border-red-100' : 'bg-green-50 text-green-600 border-green-100'}`}>
-                                {sp.criticalCount > 0 ? 'DİKKAT GEREKLİ' : 'OPERASYONEL'}
-                            </div>
-                        </div>
-
-                        {/* Quick Stats */}
-                        <div className="grid grid-cols-2 gap-4 mb-8">
-                            <div className="p-4 bg-[#f5f5f7] rounded-2xl">
-                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Aktif İş Yükü</p>
-                                <div className="flex items-end gap-2">
-                                    <span className="text-2xl font-black text-[#1d1d1f]">{sp.pendingCount}</span>
-                                    <span className="text-[10px] font-bold text-gray-400 mb-1.5">CİHAZ</span>
-                                </div>
-                            </div>
-                            <div className="p-4 bg-[#f5f5f7] rounded-2xl">
-                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Verimlilik</p>
-                                <div className="flex items-end gap-2">
-                                    <span className={`text-2xl font-black ${sp.successRate > 80 ? 'text-green-600' : 'text-orange-500'}`}>%{sp.successRate}</span>
-                                    <ArrowUpRight size={16} className={sp.successRate > 80 ? 'text-green-600 mb-1.5' : 'text-orange-500 mb-1.5'} />
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-                            <div className="flex items-center gap-3">
-                                <div className="flex -space-x-2">
-                                    {[...Array(Math.min(sp.techCount, 3))].map((_, i) => (
-                                        <div key={i} className="w-7 h-7 rounded-full bg-white border-2 border-[#f5f5f7] flex items-center justify-center text-[10px]">👨‍🔧</div>
-                                    ))}
-                                    {sp.techCount > 3 && <div className="w-7 h-7 rounded-full bg-gray-100 border-2 border-white flex items-center justify-center text-[8px] font-bold">+{sp.techCount - 3}</div>}
-                                </div>
-                                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-tighter">{sp.techCount} Teknisyen</span>
-                            </div>
-                            <div className="flex items-center gap-1.5 text-[#0071e3] font-bold text-xs">
-                                Detaylar <ChevronRight size={14} />
-                            </div>
-                        </div>
-                    </div>
-                ))}
+                        {SORTS.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
+                    </select>
+                </div>
             </div>
 
-            {/* Store Details Modal */}
-            {selectedStoreDetails && (
-                <div className="fixed inset-0 z-[110] bg-[#1d1d1f]/60 backdrop-blur-md flex items-center justify-center p-6 animate-fade-in" onClick={() => setSelectedStoreDetails(null)}>
-                    <div className="bg-white w-full max-w-5xl rounded-[40px] overflow-hidden shadow-2xl flex flex-col animate-scale-in max-h-[90vh]" onClick={e => e.stopPropagation()}>
-                        <div className="p-10 border-b border-gray-100 flex items-center justify-between bg-[#f5f5f7]/50">
-                            <div className="flex items-center gap-6">
-                                <div className="w-16 h-16 rounded-[24px] bg-white shadow-sm flex items-center justify-center text-[#0071e3]">
-                                    <MapPin size={32} />
-                                </div>
-                                <div>
-                                    <h3 className="text-2xl font-black text-[#1d1d1f] uppercase tracking-tight">{selectedStoreDetails.name}</h3>
-                                    <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-1">Operasyonel Performans Verileri</p>
+            <p aria-live="polite" className="text-[13px] font-semibold text-[#1d1d1f]">
+                {visibleStores.length} lokasyon
+                {visibleStores.length !== stores.length && <span className="font-medium text-gray-500"> / {stores.length}</span>}
+            </p>
+
+            {/* Lokasyon kartları */}
+            {stores.length === 0 ? (
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-[0_1px_3px_rgba(0,0,0,0.04)] py-16 text-center">
+                    <Building2 size={36} className="mx-auto text-gray-300 mb-3" aria-hidden="true" />
+                    <h2 className="text-lg font-semibold text-[#1d1d1f]">Görüntülenecek lokasyon yok</h2>
+                    <p className="text-sm text-gray-500 mt-1">Yetkiniz dâhilinde tanımlı bir servis noktası bulunmuyor.</p>
+                </div>
+            ) : visibleStores.length === 0 ? (
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-[0_1px_3px_rgba(0,0,0,0.04)] py-16 text-center">
+                    <Search size={36} className="mx-auto text-gray-300 mb-3" aria-hidden="true" />
+                    <h2 className="text-lg font-semibold text-[#1d1d1f]">Bu koşullara uyan lokasyon yok</h2>
+                    <button
+                        type="button"
+                        onClick={() => { setSearchTerm(''); setFilter('all'); }}
+                        className="mt-4 inline-flex items-center gap-2 h-10 px-4 rounded-xl bg-[#0071e3] text-white text-[13px] font-semibold hover:bg-[#0077ed] transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
+                    >
+                        Filtreleri temizle
+                    </button>
+                </div>
+            ) : (
+                <ul className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {visibleStores.map(store => {
+                        const tone = store.criticalCount > 0 ? 'critical' : store.pendingCount === 0 ? 'idle' : 'ok';
+                        const statusLabel = tone === 'critical' ? 'Dikkat gerekli' : tone === 'idle' ? 'Boşta' : 'Operasyonel';
+                        const statusIcon = tone === 'critical' ? AlertCircle : tone === 'idle' ? CircleDashed : CheckCircle2;
+                        const criticalShare = store.pendingCount
+                            ? Math.round((store.criticalCount / store.pendingCount) * 100)
+                            : 0;
+
+                        return (
+                            <li key={store.id}>
+                                <button
+                                    type="button"
+                                    onClick={(e) => openStore(store, e)}
+                                    aria-label={`${store.name}: ${store.pendingCount} açık iş, ${store.criticalCount} dikkat gerektiren kayıt, durum ${statusLabel}. Detayları aç`}
+                                    className="w-full h-full text-left bg-white rounded-2xl border border-gray-200 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-[#0071e3]/40 hover:shadow-[0_4px_16px_rgba(0,0,0,0.06)] transition-all group outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
+                                >
+                                    <div className="flex items-start justify-between gap-3 mb-5">
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <span className="w-10 h-10 rounded-xl bg-[#f5f5f7] text-[#1d1d1f] flex items-center justify-center shrink-0 group-hover:bg-[#0071e3]/10 group-hover:text-[#0071e3] transition-colors">
+                                                <MapPin size={18} aria-hidden="true" />
+                                            </span>
+                                            <span className="min-w-0">
+                                                <span className="block text-[15px] font-semibold text-[#1d1d1f] truncate">{store.name}</span>
+                                                <span className="block text-[11px] font-medium text-gray-500">
+                                                    Ship-To: {store.shipTo || '—'}
+                                                    {store.type && ` · ${store.type}`}
+                                                </span>
+                                            </span>
+                                        </div>
+                                        <StatusPill tone={tone} icon={statusIcon}>{statusLabel}</StatusPill>
+                                    </div>
+
+                                    <dl className="grid grid-cols-3 gap-2 mb-4">
+                                        <div className="rounded-xl bg-[#f5f5f7] px-3 py-2.5">
+                                            <dt className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Açık İş</dt>
+                                            <dd className="text-lg font-semibold text-[#1d1d1f] tabular-nums">{store.pendingCount}</dd>
+                                        </div>
+                                        <div className="rounded-xl bg-[#f5f5f7] px-3 py-2.5">
+                                            <dt className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Kritik</dt>
+                                            <dd className={`text-lg font-semibold tabular-nums ${store.criticalCount > 0 ? 'text-[#c30000]' : 'text-[#1d1d1f]'}`}>
+                                                {store.criticalCount}
+                                            </dd>
+                                        </div>
+                                        <div className="rounded-xl bg-[#f5f5f7] px-3 py-2.5">
+                                            <dt className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Ort. Süre</dt>
+                                            <dd className="text-[13px] font-semibold text-[#1d1d1f] mt-1">{formatDuration(store.avgDuration)}</dd>
+                                        </div>
+                                    </dl>
+
+                                    {/* İş yükü içindeki kritik payı */}
+                                    <div className="mb-4">
+                                        <div className="flex items-center justify-between text-[11px] font-medium text-gray-500 mb-1.5">
+                                            <span>Tamamlama oranı</span>
+                                            <span className="font-semibold text-[#1d1d1f] tabular-nums">
+                                                {store.completionRate != null ? `%${store.completionRate}` : '—'}
+                                            </span>
+                                        </div>
+                                        <div
+                                            className="h-1.5 rounded-full bg-[#e8e8ed] overflow-hidden"
+                                            role="progressbar"
+                                            aria-valuenow={store.completionRate ?? 0}
+                                            aria-valuemin={0}
+                                            aria-valuemax={100}
+                                            aria-label={`${store.name} tamamlama oranı`}
+                                        >
+                                            <div
+                                                className={`h-full rounded-full ${(store.completionRate ?? 0) >= 80 ? 'bg-[#1e7e34]' : 'bg-[#0071e3]'}`}
+                                                style={{ width: `${store.completionRate ?? 0}%` }}
+                                            />
+                                        </div>
+                                        {store.criticalCount > 0 && (
+                                            <p className="text-[11px] text-[#c30000] font-medium mt-1.5">
+                                                Açık işlerin %{criticalShare}’i gecikmede
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+                                        <span className="text-[11px] font-medium text-gray-500">
+                                            {store.technicians.length} teknisyen · son 30 günde {store.completedLast30} kayıt
+                                        </span>
+                                        <span className="inline-flex items-center gap-1 text-[12px] font-semibold text-[#0071e3]">
+                                            Detay <ArrowRight size={13} aria-hidden="true" />
+                                        </span>
+                                    </div>
+                                </button>
+                            </li>
+                        );
+                    })}
+                </ul>
+            )}
+
+            {/* Lokasyon detayı */}
+            {activeStore && (
+                <div className="fixed inset-0 z-[110] bg-[#1d1d1f]/50 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 fade-in" onClick={closeStore}>
+                    <div
+                        ref={dialogRef}
+                        tabIndex={-1}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby={`${uid}-dialog-title`}
+                        onClick={e => e.stopPropagation()}
+                        className="bg-[#f5f5f7] w-full max-w-4xl rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[92vh] animate-scale-up outline-none"
+                    >
+                        <div className="px-6 py-5 bg-white border-b border-gray-200 flex items-center justify-between gap-4 shrink-0">
+                            <div className="flex items-center gap-4 min-w-0">
+                                <span className="w-11 h-11 rounded-xl bg-[#f5f5f7] text-[#0071e3] flex items-center justify-center shrink-0">
+                                    <MapPin size={20} aria-hidden="true" />
+                                </span>
+                                <div className="min-w-0">
+                                    <h2 id={`${uid}-dialog-title`} className="text-[17px] font-semibold text-[#1d1d1f] truncate">
+                                        {activeStore.name}
+                                    </h2>
+                                    <p className="text-[12px] text-gray-500">
+                                        Ship-To: {activeStore.shipTo || '—'} · {activeStore.storeRepairs.length} toplam kayıt
+                                    </p>
                                 </div>
                             </div>
-                            <button onClick={() => setSelectedStoreDetails(null)} className="w-12 h-12 flex items-center justify-center bg-white border border-gray-200 rounded-full text-gray-400 hover:text-[#1d1d1f] hover:shadow-md transition-all">
-                                <X size={24} />
+                            <button
+                                type="button"
+                                onClick={closeStore}
+                                className="w-10 h-10 rounded-xl border border-gray-200 bg-white text-gray-500 hover:bg-[#f5f5f7] flex items-center justify-center shrink-0 transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
+                            >
+                                <X size={18} aria-hidden="true" />
+                                <span className="sr-only">Lokasyon detayını kapat</span>
                             </button>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto p-10 space-y-10">
-                            {/* Performance Analytics Grid */}
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
-                                    <Clock size={20} className="text-[#0071e3] mb-4" />
-                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Ort. Onarım Hızı</p>
-                                    <p className="text-2xl font-black text-[#1d1d1f] mt-1">{selectedStoreDetails.avgTime} <span className="text-xs text-gray-400">DK</span></p>
-                                </div>
-                                <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
-                                    <Target size={20} className="text-green-500 mb-4" />
-                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Başarı Oranı</p>
-                                    <p className="text-2xl font-black text-[#1d1d1f] mt-1">%{selectedStoreDetails.successRate}</p>
-                                </div>
-                                <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
-                                    <Users size={20} className="text-orange-500 mb-4" />
-                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Aktif İş Yükü</p>
-                                    <p className="text-2xl font-black text-[#1d1d1f] mt-1">{selectedStoreDetails.pendingCount} <span className="text-xs text-gray-400">CİHAZ</span></p>
-                                </div>
-                                <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
-                                    <Zap size={20} className="text-purple-500 mb-4" />
-                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Biten (Ay)</p>
-                                    <p className="text-2xl font-black text-[#1d1d1f] mt-1">{selectedStoreDetails.completedCount}</p>
-                                </div>
+                        <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-6">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                                <KpiTile
+                                    icon={Clock}
+                                    label="Ort. Tamamlama"
+                                    value={formatDuration(activeStore.avgDuration)}
+                                    hint={activeStore.measuredCount
+                                        ? `${activeStore.measuredCount} onarımdan hesaplandı`
+                                        : 'Ölçülebilir onarım yok'}
+                                />
+                                <KpiTile
+                                    icon={Gauge}
+                                    label="Tamamlama Oranı"
+                                    value={activeStore.completionRate != null ? `%${activeStore.completionRate}` : '—'}
+                                    hint={`${activeStore.completedCount} / ${activeStore.storeRepairs.length} kayıt kapandı`}
+                                />
+                                <KpiTile icon={Activity} label="Açık İş Yükü" value={activeStore.pendingCount} unit="cihaz" hint={`${activeStore.criticalCount} kayıt gecikmede`} />
+                                <KpiTile icon={CheckCircle2} label="Son 30 Gün" value={activeStore.completedLast30} unit="kayıt" hint="Kapanan iş sayısı" />
                             </div>
 
-                            {/* Technician Breakdown */}
-                            <div className="bg-white rounded-[32px] border border-gray-200 overflow-hidden">
-                                <div className="px-8 py-6 bg-[#f5f5f7] border-b border-gray-200 flex justify-between items-center">
-                                    <h4 className="text-sm font-black text-[#1d1d1f] uppercase tracking-widest flex items-center gap-2">
-                                        <Award size={18} className="text-[#0071e3]" /> Teknisyen Performans Tablosu
-                                    </h4>
-                                </div>
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-left">
-                                        <thead>
-                                            <tr className="bg-white border-b border-gray-50">
-                                                <th className="px-8 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Teknisyen</th>
-                                                <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Biten İş</th>
-                                                <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Ort. Süre</th>
-                                                <th className="px-8 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest text-right">Verimlilik</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-gray-50">
-                                            {technicians.filter(t => String(t.storeId) === String(selectedStoreDetails.id)).map(tech => {
-                                                const stats = calculateTechStats(tech.name, allRepairs || repairs);
-                                                return (
-                                                    <tr key={tech.id} className="hover:bg-gray-50/50 transition-colors">
-                                                        <td className="px-8 py-4">
-                                                            <div className="flex items-center gap-3">
-                                                                <span className="text-xl">{tech.avatar || '👨‍🔧'}</span>
-                                                                <div>
-                                                                    <p className="text-xs font-bold text-[#1d1d1f]">{tech.name}</p>
-                                                                    <p className="text-[9px] text-gray-400 font-bold uppercase">{tech.specialty}</p>
-                                                                </div>
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-6 py-4 text-xs font-bold text-[#1d1d1f]">{stats.completed}</td>
-                                                        <td className="px-6 py-4 text-xs font-bold text-[#0071e3]">{stats.avg} dk</td>
-                                                        <td className="px-8 py-4 text-right">
-                                                            <div className="flex items-center justify-end gap-3">
-                                                                <div className="w-24 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                                                    <div className="h-full bg-[#0071e3] rounded-full" style={{ width: `${stats.efficiency}%` }}></div>
-                                                                </div>
-                                                                <span className="text-[10px] font-black text-[#1d1d1f]">%{stats.efficiency}</span>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
+                            {/* Teknisyen tablosu */}
+                            <section className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+                                <header className="px-5 py-4 border-b border-gray-100">
+                                    <h3 className="text-[13px] font-semibold text-[#1d1d1f]">Teknisyen Performansı</h3>
+                                    <p className="text-[11px] text-gray-500 mt-0.5">Bu lokasyona atanmış ekip</p>
+                                </header>
 
-                            {/* Critical Repairs List */}
-                            {selectedStoreDetails.criticalCount > 0 && (
-                                <div className="space-y-4">
-                                    <h4 className="text-sm font-black text-red-600 uppercase tracking-widest flex items-center gap-2">
-                                        <AlertCircle size={18} /> Gecikmiş / Kritik Onarımlar ({selectedStoreDetails.criticalCount})
-                                    </h4>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        {selectedStoreDetails.criticalRepairs.map(r => (
-                                            <div key={r.id} className="p-4 bg-red-50 border border-red-100 rounded-2xl flex justify-between items-center group hover:bg-red-100 transition-colors">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-red-600 shadow-sm font-bold text-xs">#{r.id}</div>
-                                                    <div>
-                                                        <p className="text-xs font-bold text-[#1d1d1f]">{r.device}</p>
-                                                        <p className="text-[10px] text-red-500 font-medium">{r.customer}</p>
-                                                    </div>
-                                                </div>
-                                                <div className="text-right">
-                                                    <p className="text-[9px] font-bold text-red-400 uppercase">{r.status || 'Bekliyor'}</p>
-                                                    <p className="text-[10px] font-black text-red-600 mt-0.5">{r.date?.split(' ')[0]}</p>
-                                                </div>
-                                            </div>
-                                        ))}
+                                {activeStore.technicians.length === 0 ? (
+                                    <p className="px-5 py-8 text-center text-[13px] text-gray-500">
+                                        Bu lokasyona atanmış teknisyen bulunmuyor.
+                                    </p>
+                                ) : (
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-left">
+                                            <thead className="bg-[#f5f5f7]/60 border-b border-gray-100">
+                                                <tr className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+                                                    <th scope="col" className="px-5 py-3">Teknisyen</th>
+                                                    <th scope="col" className="px-4 py-3">Biten İş</th>
+                                                    <th scope="col" className="px-4 py-3">Ort. Süre</th>
+                                                    <th scope="col" className="px-4 py-3">Günlük Ort.</th>
+                                                    <th scope="col" className="px-5 py-3 text-right">Verimlilik</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-50">
+                                                {activeStore.technicians.map(tech => {
+                                                    const stats = getTechnicianStats(sourceRepairs, tech.name);
+                                                    return (
+                                                        <tr key={tech._id || tech.id || tech.name} className="hover:bg-[#f5f5f7]/50 transition-colors">
+                                                            <td className="px-5 py-3">
+                                                                <p className="text-[13px] font-semibold text-[#1d1d1f]">{tech.name}</p>
+                                                                <p className="text-[11px] text-gray-500">{tech.specialty || 'Genel'}</p>
+                                                            </td>
+                                                            <td className="px-4 py-3 text-[13px] font-semibold text-[#1d1d1f] tabular-nums">{stats.completed}</td>
+                                                            <td className="px-4 py-3 text-[13px] font-medium text-gray-700">{formatDuration(stats.avgDurationMinutes)}</td>
+                                                            <td className="px-4 py-3 text-[13px] font-medium text-gray-700 tabular-nums">
+                                                                {stats.perActiveDay != null ? stats.perActiveDay.toFixed(1) : '—'}
+                                                            </td>
+                                                            <td className="px-5 py-3">
+                                                                {stats.efficiency != null ? (
+                                                                    <div className="flex items-center justify-end gap-3">
+                                                                        <div
+                                                                            className="w-20 h-1.5 bg-[#e8e8ed] rounded-full overflow-hidden"
+                                                                            role="progressbar"
+                                                                            aria-valuenow={stats.efficiency}
+                                                                            aria-valuemin={0}
+                                                                            aria-valuemax={100}
+                                                                            aria-label={`${tech.name} verimlilik`}
+                                                                        >
+                                                                            <div
+                                                                                className={`h-full rounded-full ${stats.efficiency >= 70 ? 'bg-[#1e7e34]' : 'bg-[#0071e3]'}`}
+                                                                                style={{ width: `${stats.efficiency}%` }}
+                                                                            />
+                                                                        </div>
+                                                                        <span className="text-[12px] font-semibold text-[#1d1d1f] tabular-nums w-10 text-right">%{stats.efficiency}</span>
+                                                                    </div>
+                                                                ) : (
+                                                                    <span className="block text-right text-[12px] text-gray-400">—</span>
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
                                     </div>
-                                </div>
-                            )}
+                                )}
+                            </section>
+
+                            {/* Kritik kayıtlar */}
+                            <section className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+                                <header className="px-5 py-4 border-b border-gray-100 flex items-center justify-between gap-3">
+                                    <div>
+                                        <h3 className="text-[13px] font-semibold text-[#1d1d1f]">Dikkat Gerektiren Kayıtlar</h3>
+                                        <p className="text-[11px] text-gray-500 mt-0.5">
+                                            {SLA_DAYS}+ gündür açık olanlar ve {APPROVAL_SLA_DAYS}+ gündür onay bekleyenler
+                                        </p>
+                                    </div>
+                                    {activeStore.criticalCount > 0 && (
+                                        <StatusPill tone="critical" icon={AlertCircle}>{activeStore.criticalCount} kayıt</StatusPill>
+                                    )}
+                                </header>
+
+                                {activeStore.criticalCount === 0 ? (
+                                    <p className="px-5 py-8 text-center text-[13px] text-gray-500 inline-flex items-center justify-center gap-2 w-full">
+                                        <CheckCircle2 size={15} className="text-[#1e7e34]" aria-hidden="true" />
+                                        Gecikmiş kayıt yok.
+                                    </p>
+                                ) : (
+                                    <ul className="divide-y divide-gray-50">
+                                        {activeStore.criticalRepairs.map(({ repair, reason }) => (
+                                            <li key={repair.id} className="px-5 py-3.5 flex items-center justify-between gap-4">
+                                                <div className="min-w-0">
+                                                    <p className="text-[13px] font-semibold text-[#1d1d1f] truncate">
+                                                        <span className="font-mono text-[12px] text-gray-500">#{repair.id}</span> · {repair.device}
+                                                    </p>
+                                                    <p className="text-[11px] text-gray-500 truncate">{repair.customer}</p>
+                                                </div>
+                                                <div className="text-right shrink-0">
+                                                    <p className="text-[11px] font-semibold text-[#c30000]">{reason.label}</p>
+                                                    <p className="text-[11px] text-gray-500">{repair.status || 'Beklemede'}</p>
+                                                </div>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </section>
                         </div>
                     </div>
                 </div>
