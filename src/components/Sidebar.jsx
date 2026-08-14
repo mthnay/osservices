@@ -1,28 +1,34 @@
 import { Home, Wrench, Users, BarChart2, Settings, Truck, Clock, Package, LogOut, CheckCircle, Archive as ArchiveIcon, MessageCircle, Megaphone } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { hasPermission, ROLE_DISPLAY_NAMES } from '../utils/permissions';
+import { MODULE_MENU } from '../utils/moduleAccess';
 import MyPhoneIcon from './LocalIcons';
+
+const MENU_ICONS = {
+    dashboard: Home,
+    service: MyPhoneIcon,
+    'pending-repairs': Clock,
+    'approval-pending': MessageCircle,
+    customers: Users,
+    marketing: Megaphone,
+    stock: Package,
+    'in-store': Wrench,
+    'ready-pickup': CheckCircle,
+    archive: ArchiveIcon,
+    'apple-center': Truck,
+    technicians: Users,
+    reports: BarChart2,
+    settings: Settings,
+};
 
 const Sidebar = ({ activeTab, setActiveTab }) => {
     const { logout, currentUser, selectedStoreId, setSelectedStoreId, servicePoints, alerts } = useAppContext();
 
-    const menuItems = [
-        { id: 'dashboard', icon: Home, label: 'Genel Bakış' },
-        { id: 'service', icon: MyPhoneIcon, label: 'Servis Kabul' },
-        { id: 'pending-repairs', icon: Clock, label: 'İşlem Bekleyenler' },
-        { id: 'approval-pending', icon: MessageCircle, label: 'Müşteri Onayı' },
-        { id: 'customers', icon: Users, label: 'Müşteriler (CRM)' },
-        { id: 'marketing', icon: Megaphone, label: 'Pzr. & Otomasyon' },
-        { id: 'stock', icon: Package, label: 'Envanter ve Stok' },
-        { id: 'in-store', icon: Wrench, label: 'Mağaza İçi Onarım' },
-        { id: 'ready-pickup', icon: CheckCircle, label: 'Hazırlar' },
-        { id: 'archive', icon: ArchiveIcon, label: 'Servis Arşivi' },
-        { id: 'apple-center', icon: Truck, label: 'Apple Onarım Merk.' },
-        { id: 'technicians', icon: Users, label: 'Teknisyenler' },
-        { id: 'reports', icon: BarChart2, label: 'Raporlar' },
-        // Only show Settings for Admin
-        ...(hasPermission(currentUser, 'manage_settings') ? [{ id: 'settings', icon: Settings, label: 'Settings' }] : [])
-    ];
+    // Her modül bir yetkiye bağlıdır; yetkisi olmayan menüyü hiç görmez.
+    // Eşleşme tablosu App.jsx ile ortaktır (bkz. utils/moduleAccess).
+    const menuItems = MODULE_MENU
+        .filter(item => hasPermission(currentUser, item.permission))
+        .map(item => ({ ...item, icon: MENU_ICONS[item.id] }));
 
     return (
         <div className="h-screen w-72 glass flex flex-col fixed left-0 top-0 z-50 border-r border-white/40 shadow-2xl transition-all duration-300 backdrop-blur-3xl bg-white/70">

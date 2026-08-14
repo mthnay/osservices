@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MapPin, ChevronDown, Check, LayoutGrid } from 'lucide-react';
+import { MapPin, ChevronDown, Check, LayoutGrid, Lock } from 'lucide-react';
 import TopNav from './components/TopNav';
 import Dashboard from './components/Dashboard';
 import ServiceAcceptance from './components/ServiceAcceptance';
@@ -23,6 +23,7 @@ import StockManagement from './components/StockManagement';
 import GlobalDialogs from './components/GlobalDialogs';
 import { useAppContext } from './context/AppContext';
 import { hasPermission } from './utils/permissions';
+import { canOpenTab, firstAllowedTab, permissionForTab } from './utils/moduleAccess';
 
 function App() {
   const { currentUser, servicePoints, visibleServicePoints, selectedStoreId, setSelectedStoreId } = useAppContext();
@@ -32,6 +33,18 @@ function App() {
   useEffect(() => {
     sessionStorage.setItem('oss_active_tab', activeTab);
   }, [activeTab]);
+
+  // Yetkisi olmayan bir sekmede kalınmasın (ör. oturumdan gelen eski sekme
+  // ya da rolü değişmiş kullanıcı). İzinli ilk modüle yönlendirilir.
+  useEffect(() => {
+    if (!currentUser) return;
+    if (canOpenTab(hasPermission, currentUser, activeTab)) return;
+
+    const fallback = firstAllowedTab(hasPermission, currentUser);
+    if (fallback && fallback !== activeTab) setActiveTab(fallback);
+  }, [currentUser, activeTab]);
+
+  const allowed = (tabId) => canOpenTab(hasPermission, currentUser, tabId);
 
   const [showStoreSelect, setShowStoreSelect] = useState(false);
   const storeSelectRef = useRef(null);
@@ -90,21 +103,34 @@ function App() {
         ) : (
         <div className="max-w-[1200px] mx-auto">
           {/* Top Header with Notifications removed */}
-          {activeTab === 'dashboard' && <Dashboard />}
-          {activeTab === 'service' && <ServiceAcceptance setActiveTab={setActiveTab} initialData={serviceInitialData} clearInitialData={() => setServiceInitialData(null)} />}
-          {activeTab === 'pending-repairs' && <PendingRepairs setActiveTab={setActiveTab} />}
-          {activeTab === 'approval-pending' && <ApprovalPending setActiveTab={setActiveTab} />}
-          {activeTab === 'customers' && <Customers setActiveTab={setActiveTab} setServiceInitialData={setServiceInitialData} />}
-          {activeTab === 'marketing' && <MarketingAutomation />}
-          {activeTab === 'stock' && <StockManagement />}
-          {activeTab === 'in-store' && <RepairCenter type="in-store" setActiveTab={setActiveTab} />}
-          {activeTab === 'ready-pickup' && <ReadyForPickup />}
-          {activeTab === 'archive' && <Archive />}
-          {activeTab === 'apple-center' && <RepairCenter type="apple-center" setActiveTab={setActiveTab} />}
-          {activeTab === 'reports' && <Reports />}
-          {activeTab === 'technicians' && <Technicians />}
-          {activeTab === 'store-operations' && <StoreOperations />}
-          {activeTab === 'store-management' && <StoreManagement />}
+          {activeTab === 'dashboard' && allowed('dashboard') && <Dashboard />}
+          {activeTab === 'service' && allowed('service') && <ServiceAcceptance setActiveTab={setActiveTab} initialData={serviceInitialData} clearInitialData={() => setServiceInitialData(null)} />}
+          {activeTab === 'pending-repairs' && allowed('pending-repairs') && <PendingRepairs setActiveTab={setActiveTab} />}
+          {activeTab === 'approval-pending' && allowed('approval-pending') && <ApprovalPending setActiveTab={setActiveTab} />}
+          {activeTab === 'customers' && allowed('customers') && <Customers setActiveTab={setActiveTab} setServiceInitialData={setServiceInitialData} />}
+          {activeTab === 'marketing' && allowed('marketing') && <MarketingAutomation />}
+          {activeTab === 'stock' && allowed('stock') && <StockManagement />}
+          {activeTab === 'in-store' && allowed('in-store') && <RepairCenter type="in-store" setActiveTab={setActiveTab} />}
+          {activeTab === 'ready-pickup' && allowed('ready-pickup') && <ReadyForPickup />}
+          {activeTab === 'archive' && allowed('archive') && <Archive />}
+          {activeTab === 'apple-center' && allowed('apple-center') && <RepairCenter type="apple-center" setActiveTab={setActiveTab} />}
+          {activeTab === 'reports' && allowed('reports') && <Reports />}
+          {activeTab === 'technicians' && allowed('technicians') && <Technicians />}
+          {activeTab === 'store-operations' && allowed('store-operations') && <StoreOperations />}
+          {activeTab === 'store-management' && allowed('store-management') && <StoreManagement />}
+
+          {/* Yetkisiz erişim denemesi: menü gizli olsa da ekran açılmaz */}
+          {permissionForTab(activeTab) && !allowed(activeTab) && (
+            <div className="flex flex-col items-center justify-center h-[70vh] text-center">
+              <div className="w-14 h-14 rounded-2xl bg-white border border-gray-200 flex items-center justify-center mb-4">
+                <Lock size={24} className="text-gray-400" aria-hidden="true" />
+              </div>
+              <h2 className="text-[17px] font-semibold text-[#1d1d1f] mb-1">Bu bölüme erişim yetkiniz yok</h2>
+              <p className="text-[13px] font-medium text-gray-500 max-w-sm">
+                Erişim gerekiyorsa sistem yöneticinizden bu modül için yetki talep edin.
+              </p>
+            </div>
+          )}
           {activeTab !== 'dashboard' && activeTab !== 'service' && activeTab !== 'in-store' && activeTab !== 'ready-pickup' && activeTab !== 'archive' && activeTab !== 'apple-center' && activeTab !== 'pending-repairs' && activeTab !== 'approval-pending' && activeTab !== 'stock' && activeTab !== 'reports' && activeTab !== 'technicians' && activeTab !== 'store-operations' && activeTab !== 'store-management' && activeTab !== 'settings' && activeTab !== 'customers' && activeTab !== 'marketing' && (
             <div className="flex flex-col items-center justify-center h-[70vh] text-center">
               <h2 className="text-2xl font-bold text-gray-400 mb-2">Sayfa Yapım Aşamasında</h2>

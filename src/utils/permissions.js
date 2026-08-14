@@ -1,4 +1,5 @@
 // src/utils/permissions.js
+import { listHasPermission, PERMISSION_IDS, isLegacyPermissionSet } from './permissionCatalog';
 
 export const ROLES = {
     SUPER_ADMIN: 'superadmin',
@@ -57,27 +58,51 @@ const ROLE_PERMISSIONS = {
         'view_technicians'
     ],
     [ROLES.STORE_MANAGER]: [
-        'view_dashboard', 
-        'manage_stock', 
+        'view_dashboard',
+        'view_reports',
+        'manage_stock',
+        'transfer_stock',
         'edit_repairs',
+        'create_repair',
+        'view_repairs',
+        'delete_repairs',
+        'view_archive',
+        'view_customers',
+        'manage_customers',
+        'send_customer_message',
         'view_earnings',
+        'export_data',
         'view_kbb',
-        'view_technicians'
+        'view_technicians',
+        'manage_technicians',
+        'assign_jobs',
+        'view_store_operations'
     ],
     [ROLES.ACCOUNTANT]: [
         'view_earnings',
+        'export_data',
         'manage_stock',
         'view_kbb',
-        'view_dashboard'
+        'view_dashboard',
+        'view_reports',
+        'view_archive',
+        'view_customers'
     ],
     [ROLES.RECEPTION]: [
-        'create_repair', 
-        'view_repairs'
+        'create_repair',
+        'view_repairs',
+        'view_archive',
+        'view_customers',
+        'manage_customers',
+        'view_store_operations'
     ],
     [ROLES.TECHNICIAN]: [
-        'edit_repairs', 
+        'edit_repairs',
         'view_own_repairs',
-        'view_repairs'
+        'view_repairs',
+        'view_stock',
+        'view_kbb',
+        'view_technicians'
     ]
 };
 
@@ -117,25 +142,53 @@ export const canAccessStore = (user, storeId) => {
     return getAccessibleStoreIds(user).map(String).includes(String(storeId));
 };
 
+/** Rol adını sistemin tek sözlüğüne indirger */
+export const normalizeRoleName = (role) => {
+    let userRole = String(role || '').toLowerCase();
+    if (userRole === 'admin') return ROLES.SUPER_ADMIN;
+    if (userRole === 'teknisyen') return ROLES.TECHNICIAN;
+    if (userRole === 'yonetici') return ROLES.YONETICI;
+    if (userRole === 'muhasebe' || userRole === 'logistic') return ROLES.ACCOUNTANT;
+    if (userRole === 'servissorumlusu' || userRole === 'servis_sorumlusu') return ROLES.STORE_MANAGER;
+    return userRole;
+};
+
+/** Tam yetkili roller: yetki listesinden bağımsız olarak her şeye erişir */
+const FULL_ACCESS_ROLES = [ROLES.SUPER_ADMIN, ROLES.YONETICI];
+
+/** Bir rolün ham (kapsama uygulanmamış) yetki listesi */
+export const getRolePermissions = (role) => {
+    const userRole = normalizeRoleName(role);
+    if (FULL_ACCESS_ROLES.includes(userRole)) return [...PERMISSION_IDS];
+
+    const dynamicRole = dynamicRoles.find(r =>
+        String(r.name || '').toLowerCase() === userRole ||
+        String(r.displayName || '').toLowerCase() === userRole
+    );
+    const baseline = ROLE_PERMISSIONS[userRole] || [];
+
+    if (!dynamicRole) return baseline;
+
+    const granted = dynamicRole.permissions || [];
+
+    // Rol henüz yeni yetki ekranından kaydedilmediyse (sunucu tohumları çok dar
+    // listelerle geliyor) yerleşik rol varsayılanı taban olarak eklenir; böylece
+    // katalog genişlerken mevcut roller erişimini kaybetmez.
+    // İlk kayıttan sonra liste açıktır ve yetki kaldırma da geçerli olur.
+    if (isLegacyPermissionSet(granted)) {
+        return [...new Set([...baseline, ...granted])];
+    }
+    return granted;
+};
+
 export const hasPermission = (user, permission) => {
     if (!user || !user.role) return false;
-    
-    // Map roles for compatibility (case-insensitive normalization)
-    let userRole = user.role.toLowerCase();
-    if (userRole === 'admin') userRole = ROLES.SUPER_ADMIN;
-    if (userRole === 'teknisyen') userRole = ROLES.TECHNICIAN;
-    if (userRole === 'yonetici') userRole = ROLES.YONETICI;
-    if (userRole === 'muhasebe' || userRole === 'logistic') userRole = ROLES.ACCOUNTANT;
-    if (userRole === 'servissorumlusu' || userRole === 'servis_sorumlusu') userRole = ROLES.STORE_MANAGER;
 
-    // First check dynamic roles
-    const dynamicRole = dynamicRoles.find(r => r.name.toLowerCase() === userRole || r.displayName.toLowerCase() === userRole);
-    if (dynamicRole) {
-        // If it's a dynamic role, check its permissions array
-        return dynamicRole.permissions && dynamicRole.permissions.includes(permission);
-    }
+    const userRole = normalizeRoleName(user.role);
+    // Süper admin ve yönetici her zaman tam yetkilidir
+    if (FULL_ACCESS_ROLES.includes(userRole)) return true;
 
-    // Fallback to static mapping if dynamic role not found
-    const permissions = ROLE_PERMISSIONS[userRole];
-    return permissions ? permissions.includes(permission) : false;
+    // listHasPermission; kapsama (implies) ve eski isimleri (aliases) birlikte değerlendirir,
+    // böylece katalog büyüdüğünde mevcut roller erişimini kaybetmez.
+    return listHasPermission(getRolePermissions(user.role), permission);
 };

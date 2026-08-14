@@ -11,6 +11,7 @@ import WarehouseManagement from './WarehouseManagement';
 import KbbArchive from './KbbArchive';
 import DeviceModels from './DeviceModels';
 import SecurityCenter from './SecurityCenter';
+import RoleManagement from './RoleManagement';
 
 const Settings = () => {
     const {
@@ -23,7 +24,7 @@ const Settings = () => {
         notificationSettings, setNotificationSettings,
         notificationTemplates, setNotificationTemplates,
         earnings, addEarning,
-        roles, addRole, updateRole, deleteRole,
+        roles,
         serviceTerms, setServiceTerms
     } = useAppContext();
 
@@ -276,61 +277,6 @@ const Settings = () => {
                 timer: 2000,
                 showConfirmButton: false
             });
-        }
-    };
-
-    // --- Role Management ---
-    const [showRoleModal, setShowRoleModal] = useState(false);
-    const [editingRole, setEditingRole] = useState(null);
-    const [roleForm, setRoleForm] = useState({ name: '', displayName: '', permissions: [] });
-
-    const availablePermissions = [
-        { id: 'view_all_stores', label: 'Tüm Mağazaları Gör' },
-        { id: 'manage_settings', label: 'Sistem Settingsı Yönetimi (Admin)' },
-        { id: 'manage_users', label: 'Kullanıcı Yönetimi' },
-        { id: 'manage_stock', label: 'Stok Yönetimi' },
-        { id: 'view_dashboard', label: 'Dashboard Görüntüleme' },
-        { id: 'edit_repairs', label: 'Servis Kayıtlarını Düzenle' },
-        { id: 'delete_repairs', label: 'Servis Kayıtlarını Sil' },
-        { id: 'view_earnings', label: 'Ciro / Gelir Gör' },
-        { id: 'create_repair', label: 'Yeni Servis Kaydı Aç' },
-        { id: 'view_own_repairs', label: 'Sadece Kendi Kayıtlarını Gör' }
-    ];
-
-    const handleSaveRole = async () => {
-        if (!roleForm.name || !roleForm.displayName) {
-            Swal.fire('Hata', 'Lütfen rol adı ve görünen adı doldurun.', 'error');
-            return;
-        }
-        let success;
-        if (editingRole) {
-            success = await updateRole(editingRole._id, roleForm);
-        } else {
-            success = await addRole(roleForm);
-        }
-        if (success) {
-            Swal.fire('Başarılı', `Rol başarıyla ${editingRole ? 'güncellendi' : 'eklendi'}.`, 'success');
-            setShowRoleModal(false);
-            setRoleForm({ name: '', displayName: '', permissions: [] });
-            setEditingRole(null);
-        }
-    };
-
-    const handleDeleteRole = async (role) => {
-        if (role.isSystem) return;
-        const confirmed = await Swal.fire({
-            title: 'Emin misiniz?',
-            text: `${role.displayName} rolü silinecek.`,
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonText: 'Evet, Sil!',
-            cancelButtonText: 'İptal'
-        });
-        if (confirmed.isConfirmed) {
-            const success = await deleteRole(role._id);
-            if (success) {
-                Swal.fire('Silindi', 'Rol başarıyla silindi.', 'success');
-            }
         }
     };
 
@@ -1474,163 +1420,7 @@ const Settings = () => {
                     </div>
                 );
             case 'roles':
-                return (
-                    <div className="space-y-8 animate-fade-in">
-                        <div className="flex justify-between items-center bg-white p-8 rounded-lg border border-gray-100 shadow-sm">
-                            <div>
-                                <h4 className="text-xl font-semibold text-gray-900 leading-none">Yetki Grupları (Roller)</h4>
-                                <p className="text-gray-500 text-sm mt-2 font-medium">Sistemdeki kullanıcıların yetki düzeylerini buradan yönetin.</p>
-                            </div>
-                            <button
-                                onClick={() => {
-                                    setEditingRole(null);
-                                    setRoleForm({ name: '', displayName: '', permissions: [] });
-                                    setShowRoleModal(true);
-                                }}
-                                className="bg-gray-900 text-white px-8 py-3.5 rounded-md font-semibold text-xs hover:bg-black transition-all shadow-xl shadow-gray-200 hover:-translate-y-1 active:scale-95 flex items-center gap-2 text-xs uppercase tracking-wide"
-                            >
-                                <Plus size={18} /> Yeni Rol Oluştur
-                            </button>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                            {(roles || []).map((role) => (
-                                <div key={role._id} className="bg-white rounded-lg border border-gray-100 p-8 shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
-                                    {role.isSystem && (
-                                        <div className="absolute top-0 right-0 px-4 py-1.5 bg-gray-100 text-gray-400 text-[9px] font-semibold text-xs uppercase tracking-wide rounded-bl-2xl">
-                                            SİSTEM
-                                        </div>
-                                    )}
-                                    <div className="flex items-center gap-4 mb-6">
-                                        <div className="w-14 h-14 bg-rose-50 text-rose-600 rounded-md flex items-center justify-center">
-                                            <Shield size={28} />
-                                        </div>
-                                        <div>
-                                            <h4 className="text-lg font-semibold text-gray-900">{role.displayName}</h4>
-                                            <p className="text-xs font-mono text-gray-400 font-bold">{role.name}</p>
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-2 mb-8">
-                                        <p className="text-[10px] font-semibold text-gray-400 text-xs uppercase tracking-wide mb-3">Aktif Yetkiler ({role.permissions?.length || 0})</p>
-                                        <div className="flex flex-wrap gap-1.5">
-                                            {role.permissions?.slice(0, 4).map(p => (
-                                                <span key={p} className="bg-gray-50 text-gray-500 text-[9px] font-bold px-2 py-1 rounded-lg border border-gray-100 uppercase">
-                                                    {availablePermissions.find(ap => ap.id === p)?.label || p}
-                                                </span>
-                                            ))}
-                                            {role.permissions?.length > 4 && (
-                                                <span className="text-[9px] font-bold text-gray-400 ml-1">+{role.permissions.length - 4} Daha</span>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    <div className="flex gap-2 pt-4 border-t border-gray-50">
-                                        {!(isYonetici(currentUser) && (role.name?.toLowerCase() === 'superadmin' || role.name?.toLowerCase() === 'admin')) ? (
-                                            <button
-                                                onClick={() => {
-                                                    setEditingRole(role);
-                                                    setRoleForm({ ...role });
-                                                    setShowRoleModal(true);
-                                                }}
-                                                className="flex-1 bg-gray-50 hover:bg-indigo-50 text-gray-500 hover:text-indigo-600 py-3 rounded-md font-semibold text-[10px] text-xs uppercase tracking-wide transition-all"
-                                            >
-                                                DÜZENLE
-                                            </button>
-                                        ) : (
-                                            <span className="flex-1 text-center py-3 bg-gray-50 text-orange-400 font-bold text-[10px] text-xs uppercase rounded-md border border-orange-100/50">
-                                                KİLİTLİ
-                                            </span>
-                                        )}
-                                        {!role.isSystem && !(isYonetici(currentUser) && (role.name?.toLowerCase() === 'superadmin' || role.name?.toLowerCase() === 'admin')) && (
-                                            <button
-                                                onClick={() => handleDeleteRole(role)}
-                                                className="w-12 h-12 flex items-center justify-center bg-gray-50 hover:bg-red-50 text-gray-300 hover:text-red-600 rounded-md transition-all"
-                                            >
-                                                <Trash2 size={18} />
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-
-                        {/* Role Modal */}
-                        {showRoleModal && (
-                            <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex items-center justify-center p-4">
-                                <div className="bg-white rounded-lg w-full max-w-2xl p-10 shadow-2xl animate-scale-up border border-white/20">
-                                    <div className="flex justify-between items-center mb-8">
-                                        <h3 className="text-2xl font-semibold text-gray-900">{editingRole ? 'Rolü Düzenle' : 'Yeni Rol Oluştur'}</h3>
-                                        <button onClick={() => setShowRoleModal(false)} className="w-12 h-12 bg-gray-50 text-gray-400 hover:text-gray-900 rounded-md flex items-center justify-center transition-all">
-                                            <X size={24} />
-                                        </button>
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-6 mb-8">
-                                        <div className="space-y-2">
-                                            <label className="text-[10px] font-semibold text-gray-400 text-xs uppercase tracking-wide ml-1">Sistem Adı (ID)</label>
-                                            <input
-                                                type="text"
-                                                disabled={!!editingRole}
-                                                value={roleForm.name}
-                                                onChange={(e) => setRoleForm({ ...roleForm, name: e.target.value })}
-                                                placeholder="Orn: ServiceManager"
-                                                className="w-full px-5 py-4 bg-gray-50 rounded-[20px] border border-transparent focus:bg-white focus:border-rose-500 outline-none transition-all font-mono font-bold text-sm disabled:opacity-50"
-                                            />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <label className="text-[10px] font-semibold text-gray-400 text-xs uppercase tracking-wide ml-1">Görünen Ad</label>
-                                            <input
-                                                type="text"
-                                                value={roleForm.displayName}
-                                                onChange={(e) => setRoleForm({ ...roleForm, displayName: e.target.value })}
-                                                placeholder="Orn: Servis Müdürü"
-                                                className="w-full px-5 py-4 bg-gray-50 rounded-[20px] border border-transparent focus:bg-white focus:border-rose-500 outline-none transition-all font-bold text-sm"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-4 mb-10">
-                                        <label className="text-[10px] font-semibold text-gray-400 text-xs uppercase tracking-wide ml-1">İzinleri Seçin</label>
-                                        <div className="grid grid-cols-2 gap-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                                            {availablePermissions.map(p => (
-                                                <label key={p.id} className={`flex items-center gap-3 p-4 rounded-md border transition-all cursor-pointer ${roleForm.permissions.includes(p.id) ? 'bg-rose-50 border-rose-200 text-rose-900' : 'bg-gray-50 border-transparent text-gray-500 hover:bg-white hover:border-gray-200'}`}>
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={roleForm.permissions.includes(p.id)}
-                                                        onChange={(e) => {
-                                                            const newPerms = e.target.checked
-                                                                ? [...roleForm.permissions, p.id]
-                                                                : roleForm.permissions.filter(id => id !== p.id);
-                                                            setRoleForm({ ...roleForm, permissions: newPerms });
-                                                        }}
-                                                        className="w-5 h-5 rounded-lg text-rose-600 focus:ring-rose-500 border-gray-300"
-                                                    />
-                                                    <span className="text-xs font-semibold uppercase tracking-tight">{p.label}</span>
-                                                </label>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    <div className="flex gap-4">
-                                        <button
-                                            onClick={() => setShowRoleModal(false)}
-                                            className="flex-1 py-5 rounded-lg font-semibold text-[11px] uppercase tracking-[0.2em] text-gray-400 hover:text-gray-900 transition-all"
-                                        >
-                                            VAZGEÇ
-                                        </button>
-                                        <button
-                                            onClick={handleSaveRole}
-                                            className="flex-[2] bg-rose-600 hover:bg-rose-700 text-white py-5 rounded-lg font-semibold text-[11px] uppercase tracking-[0.2em] shadow-2xl shadow-rose-200 transition-all active:scale-95"
-                                        >
-                                            {editingRole ? 'GÜNCELLEMELERİ KAYDET' : 'ROLÜ OLUŞTUR'}
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                );
+                return <RoleManagement />;
             case 'service_terms':
                 return (
                     <div className="space-y-8 animate-fade-in max-w-5xl">

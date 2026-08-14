@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Home, Wrench, Users, BarChart2, Settings, Truck, Clock, Package, LogOut, CheckCircle, Archive as ArchiveIcon, MessageCircle, Megaphone, Search, ChevronDown, X, Recycle, ClipboardList } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { hasPermission, ROLES, ROLE_DISPLAY_NAMES } from '../utils/permissions';
+import { canOpenTab } from '../utils/moduleAccess';
 import MyPhoneIcon from './LocalIcons';
 import NotificationCenter from './NotificationCenter';
 import RepairHistoryModal from './RepairHistoryModal';
@@ -52,28 +53,17 @@ const TopNav = ({ activeTab, setActiveTab }) => {
                 { id: 'store-operations', icon: Home, label: 'Operasyon Şeması' },
                 { id: 'store-management', icon: ClipboardList, label: 'Mağaza İçi Yönetim' },
                 { id: 'reports', icon: BarChart2, label: 'Raporlar' },
-                ...(hasPermission(currentUser, 'manage_settings') ? [{ id: 'settings', icon: Settings, label: 'Sistem Ayarları' }] : [])
+                { id: 'settings', icon: Settings, label: 'Sistem Ayarları' }
             ]
         }
     ];
 
-    const filteredCategories = CATEGORIES.map(category => {
-        const filteredItems = category.items.filter(item => {
-            if (item.id === 'settings') {
-                return hasPermission(currentUser, 'manage_settings');
-            }
-            if (['technicians', 'store-operations', 'reports'].includes(item.id)) {
-                const role = currentUser?.role?.toLowerCase();
-                return ['superadmin', 'admin', 'yonetici', 'storemanager', 'servis_sorumlusu', 'servissorumlusu'].includes(role);
-            }
-            return true;
-        });
-
-        return {
-            ...category,
-            items: filteredItems
-        };
-    }).filter(category => category.items.length > 0);
+    // Erişim, sabit rol adlarına göre değil yetkiye göre belirlenir.
+    // Modül -> yetki eşleşmesi Sidebar ve App.jsx ile ortaktır.
+    const filteredCategories = CATEGORIES.map(category => ({
+        ...category,
+        items: category.items.filter(item => canOpenTab(hasPermission, currentUser, item.id)),
+    })).filter(category => category.items.length > 0);
 
     const [hoveredCategory, setHoveredCategory] = useState(null);
     const [searchOpen, setSearchOpen] = useState(false);
