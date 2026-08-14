@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Home, Wrench, Users, BarChart2, Settings, Truck, Clock, Package, LogOut, CheckCircle, Archive as ArchiveIcon, MessageCircle, Megaphone, Search, ChevronDown, X, Recycle, ClipboardList } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { hasPermission, ROLES, ROLE_DISPLAY_NAMES } from '../utils/permissions';
-import { canOpenTab } from '../utils/moduleAccess';
 import MyPhoneIcon from './LocalIcons';
 import NotificationCenter from './NotificationCenter';
 import RepairHistoryModal from './RepairHistoryModal';
@@ -58,11 +57,12 @@ const TopNav = ({ activeTab, setActiveTab }) => {
         }
     ];
 
-    // Erişim, sabit rol adlarına göre değil yetkiye göre belirlenir.
-    // Modül -> yetki eşleşmesi Sidebar ve App.jsx ile ortaktır.
+    // Tüm modüller herkese açıktır; yalnızca Ayarlar bölümü yetki ister.
     const filteredCategories = CATEGORIES.map(category => ({
         ...category,
-        items: category.items.filter(item => canOpenTab(hasPermission, currentUser, item.id)),
+        items: category.items.filter(item =>
+            item.id !== 'settings' || hasPermission(currentUser, 'manage_settings')
+        ),
     })).filter(category => category.items.length > 0);
 
     const [hoveredCategory, setHoveredCategory] = useState(null);

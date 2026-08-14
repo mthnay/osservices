@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { appConfirm } from '../utils/alert';
-import { isSuperAdmin, isYonetici } from '../utils/permissions';
+import { hasPermission } from '../utils/permissions';
 import {
     DEVICE_TYPES, FALLBACK_DEVICE_CATALOG, buildDeviceCombinations,
     normalizeDeviceModel, resolveDeviceCatalog,
@@ -60,7 +60,7 @@ const DeviceModels = () => {
         importDeviceModels, currentUser,
     } = useAppContext();
 
-    const canManage = isSuperAdmin(currentUser) || isYonetici(currentUser);
+    const canManage = hasPermission(currentUser, 'manage_device_catalog');
 
     const [term, setTerm] = useState('');
     const [typeFilter, setTypeFilter] = useState('all');

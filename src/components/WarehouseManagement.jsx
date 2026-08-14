@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { appConfirm } from '../utils/alert';
-import { isSuperAdmin, isYonetici } from '../utils/permissions';
+import { hasPermission } from '../utils/permissions';
 import Collapse from './ui/Collapse';
 import useAnimatedClose from './ui/useAnimatedClose';
 
@@ -153,7 +153,9 @@ const WarehouseManagement = () => {
     } = useAppContext();
 
     const points = allServicePoints?.length ? allServicePoints : (servicePoints || []);
-    const canManage = isSuperAdmin(currentUser) || isYonetici(currentUser);
+    // Ambar tanımı ve transfer ayrı yetkilerdir
+    const canManage = hasPermission(currentUser, 'manage_warehouses');
+    const canTransfer = hasPermission(currentUser, 'transfer_stock');
 
     const [query, setQuery] = useState('');
     const [expandedId, setExpandedId] = useState(null);
@@ -300,13 +302,15 @@ const WarehouseManagement = () => {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2.5">
-                        <button
-                            type="button"
-                            onClick={() => openTransfer()}
-                            className="inline-flex items-center gap-2 h-11 px-5 rounded-xl bg-white border border-gray-200 text-[13px] font-semibold text-[#1d1d1f] hover:bg-[#f5f5f7] transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
-                        >
-                            <RefreshCw size={15} aria-hidden="true" /> Stok Transferi
-                        </button>
+                        {canTransfer && (
+                            <button
+                                type="button"
+                                onClick={() => openTransfer()}
+                                className="inline-flex items-center gap-2 h-11 px-5 rounded-xl bg-white border border-gray-200 text-[13px] font-semibold text-[#1d1d1f] hover:bg-[#f5f5f7] transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
+                            >
+                                <RefreshCw size={15} aria-hidden="true" /> Stok Transferi
+                            </button>
+                        )}
                         {canManage && (
                             <button
                                 type="button"
@@ -520,13 +524,15 @@ const WarehouseManagement = () => {
                                                 className={`transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}
                                             />
                                         </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => openTransfer(point.id)}
-                                            className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-xl text-[12px] font-semibold text-gray-600 hover:bg-[#f5f5f7] transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
-                                        >
-                                            <Truck size={14} aria-hidden="true" /> Bu ambardan transfer
-                                        </button>
+                                        {canTransfer && (
+                                            <button
+                                                type="button"
+                                                onClick={() => openTransfer(point.id)}
+                                                className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-xl text-[12px] font-semibold text-gray-600 hover:bg-[#f5f5f7] transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
+                                            >
+                                                <Truck size={14} aria-hidden="true" /> Bu ambardan transfer
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
 

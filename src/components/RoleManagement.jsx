@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { appConfirm } from '../utils/alert';
-import { isSuperAdmin, isYonetici, normalizeRoleName } from '../utils/permissions';
+import { hasPermission, isYonetici, normalizeRoleName } from '../utils/permissions';
 import {
     PERMISSION_CATEGORIES, PERMISSIONS, PERMISSION_MAP, RISK_LABELS,
     expandPermissions, isLegacyPermissionSet, permissionsByCategory,
@@ -46,7 +46,7 @@ const SummaryTile = ({ icon: Icon, label, value, unit, tone = 'bg-white border-g
 const RoleManagement = () => {
     const { roles, addRole, updateRole, deleteRole, users, currentUser, showToast } = useAppContext();
 
-    const canManage = isSuperAdmin(currentUser) || isYonetici(currentUser);
+    const canManage = hasPermission(currentUser, 'manage_roles');
 
     const [term, setTerm] = useState('');
     const [editorOpen, setEditorOpen] = useState(false);
@@ -122,7 +122,7 @@ const RoleManagement = () => {
                         <p className="text-[10px] font-bold uppercase tracking-widest text-[#0071e3]">Erişim Yönetimi</p>
                         <h3 className="text-[22px] font-semibold text-[#1d1d1f] tracking-tight">Yetki ve Rol Yönetimi</h3>
                         <p className="text-[13px] font-medium text-gray-500 mt-1">
-                            Rollerin sistemde neye erişebileceğini {PERMISSIONS.length} ayrı yetki alanıyla belirleyin.
+                            Tüm ekranlar herkese açıktır. Buradaki {PERMISSIONS.length} yetki yalnızca ekleme, düzenleme, silme ve gönderme işlemlerini belirler.
                         </p>
                     </div>
 

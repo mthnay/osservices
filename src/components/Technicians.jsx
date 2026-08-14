@@ -8,12 +8,16 @@ import TechnicianMetricsPanel from './TechnicianMetricsPanel';
 import Collapse from './ui/Collapse';
 import { getTechnicianStats, formatDuration } from '../utils/technicianStats';
 import { useAppContext } from '../context/AppContext';
+import { hasPermission } from '../utils/permissions';
 // eslint-disable-next-line no-unused-vars
 import { appConfirm, appAlert } from '../utils/alert';
 
 const Technicians = () => {
     // eslint-disable-next-line no-unused-vars
     const { repairs, technicians, assignTechnician, currentUser, addTechnician, removeTechnician, updateTechnician, showToast, servicePoints, updateRepair, completeJob, inventory, updateInventoryItem, usePart, sendWhatsApp, uploadMedia } = useAppContext();
+
+    // İşlem yetkisi: teknisyen kadrosunu değiştirme (görüntüleme herkese açık)
+    const canManageTech = hasPermission(currentUser, 'manage_technicians');
     const [activeRepairId, setActiveRepairId] = useState(null);
     const [selectedHistoryRepair, setSelectedHistoryRepair] = useState(null);
     // eslint-disable-next-line no-unused-vars
@@ -45,7 +49,6 @@ const Technicians = () => {
         storeId: currentUser?.storeId || '1'
     });
 
-    const isAdmin = currentUser?.role === 'admin';
 
     // Filter Logic
     const filteredRepairs = repairs.filter(r => {
@@ -129,8 +132,8 @@ const Technicians = () => {
                         </button>
                     </div>
 
-                    {isAdmin && (
-                        <button 
+                    {canManageTech && (
+                        <button
                             onClick={() => {
                                 setEditingTech(null);
                                 setNewTech({ name: '', specialty: 'iPhone', email: '', phone: '', avatar: '👨‍🔧', storeId: currentUser?.storeId || '1' });
@@ -167,8 +170,8 @@ const Technicians = () => {
                                             <Activity size={10} strokeWidth={3} /> {stats?.active ?? 0} AKTİF İŞ
                                         </div>
                                     </div>
-                                    {/* Admin Actions Overlay */}
-                                    {isAdmin && (
+                                    {/* Düzenleme/silme yalnızca yetkili kullanıcıya */}
+                                    {canManageTech && (
                                         <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                             <button 
                                                 onClick={() => {

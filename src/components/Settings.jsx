@@ -6,7 +6,7 @@ import { useAppContext } from '../context/AppContext';
 import Swal from 'sweetalert2';
 import ConfirmationModal from './ConfirmationModal';
 import MyPhoneIcon from './LocalIcons';
-import { isSuperAdmin, isYonetici, ROLE_DISPLAY_NAMES } from '../utils/permissions';
+import { hasPermission, isSuperAdmin, isYonetici, ROLE_DISPLAY_NAMES } from '../utils/permissions';
 import WarehouseManagement from './WarehouseManagement';
 import KbbArchive from './KbbArchive';
 import DeviceModels from './DeviceModels';
@@ -27,6 +27,9 @@ const Settings = () => {
         roles,
         serviceTerms, setServiceTerms
     } = useAppContext();
+
+    // İşlem yetkisi: personel hesabı yönetimi
+    const canManageUsers = hasPermission(currentUser, 'manage_users');
 
     const [activeTab, setActiveTab] = useState('general');
     const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: () => { } });
@@ -1009,7 +1012,8 @@ const Settings = () => {
             case 'users':
                 return (
                     <div className="space-y-8 animate-fade-in">
-                        {/* Kullanıcı Ekleme Formu */}
+                        {/* Kullanıcı Ekleme Formu — yalnızca yetkili kullanıcıya */}
+                        {canManageUsers && (
                         <div className="glass p-8 rounded-lg border border-white/60">
                             <h4 className="font-bold text-gray-900 mb-6 flex items-center gap-2 text-lg">
                                 <div className="p-2 bg-gray-100 rounded-md">
@@ -1087,6 +1091,7 @@ const Settings = () => {
                                 <button onClick={handleAddUser} className="bg-gray-900 text-white px-6 py-3 rounded-md font-bold hover:bg-black transition-all shadow-lg hover:shadow-xl h-12">Hesap Oluştur</button>
                             </div>
                         </div>
+                        )}
 
                         {/* Yatay Personel Listesi */}
                         <div className="grid grid-cols-1 gap-4">
@@ -1213,7 +1218,7 @@ const Settings = () => {
 
                                                 <div className="shrink-0 flex items-center gap-2 pt-4 md:pt-0 border-t md:border-t-0 border-gray-50 w-full md:w-auto justify-end">
                                                     {/* Yönetici, SuperAdmin hesaplarını düzenleyemez */}
-                                                    {!(isYonetici(currentUser) && isSuperAdmin(u)) && (
+                                                    {canManageUsers && !(isYonetici(currentUser) && isSuperAdmin(u)) && (
                                                         <button 
                                                             onClick={() => { 
                                                                 const userId = u._id || u.id;
@@ -1231,7 +1236,7 @@ const Settings = () => {
                                                         </span>
                                                     )}
                                                     {/* Yönetici, SuperAdmin hesaplarını silemez */}
-                                                    {u.id !== currentUser?.id && u._id !== currentUser?._id && !(isYonetici(currentUser) && isSuperAdmin(u)) && (
+                                                    {canManageUsers && u.id !== currentUser?.id && u._id !== currentUser?._id && !(isYonetici(currentUser) && isSuperAdmin(u)) && (
                                                         <button 
                                                             onClick={async () => {
                                                                 const userId = u._id || u.id;

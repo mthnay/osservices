@@ -20,6 +20,9 @@ const StockManagement = () => {
         repairs, updateRepair, returnKbbStock
     } = useAppContext();
 
+    // İşlem yetkisi: stok hareketi (görüntüleme herkese açık)
+    const canManageStock = hasPermission(currentUser, 'manage_stock');
+
     // Role-based access
     const isManager = (() => {
         const role = currentUser?.role?.toLowerCase();
@@ -428,12 +431,14 @@ const StockManagement = () => {
                                 />
                             </div>
                             {/* Hangi ambarda isek o ambara ekler */}
-                            <button
-                                onClick={() => setEntryMode(warehouseType)}
-                                className="bg-[#0071e3] hover:bg-[#0077ed] text-white h-10 px-6 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 shadow-lg shadow-[#0071e3]/20 flex-shrink-0 active:scale-95 outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
-                            >
-                                <Plus size={18} /> {warehouseType} Parça Ekle
-                            </button>
+                            {canManageStock && (
+                                <button
+                                    onClick={() => setEntryMode(warehouseType)}
+                                    className="bg-[#0071e3] hover:bg-[#0077ed] text-white h-10 px-6 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 shadow-lg shadow-[#0071e3]/20 flex-shrink-0 active:scale-95 outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
+                                >
+                                    <Plus size={18} /> {warehouseType} Parça Ekle
+                                </button>
+                            )}
                         </div>
                     </div>
 

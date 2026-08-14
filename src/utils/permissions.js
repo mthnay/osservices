@@ -33,78 +33,42 @@ export const setGlobalRoles = (roles) => {
 };
 
 const ROLE_PERMISSIONS = {
+    // Not: Görüntüleme herkese açıktır; buradaki yetkiler yalnızca
+    // ekleme/düzenleme/silme gibi işlemleri belirler.
     [ROLES.SUPER_ADMIN]: [
-        'view_all_stores', 
-        'manage_settings', 
-        'manage_users', 
-        'view_dashboard', 
-        'manage_stock', 
-        'edit_repairs',
-        'delete_repairs',
-        'view_earnings',
-        'view_kbb',
-        'view_technicians'
+        'create_repair', 'edit_repairs', 'delete_repairs', 'assign_jobs', 'manage_kbb',
+        'manage_customers', 'delete_customers', 'send_customer_message',
+        'manage_stock', 'transfer_stock', 'manage_warehouses', 'manage_device_catalog',
+        'manage_technicians', 'manage_store_operations',
+        'view_earnings', 'manage_earnings', 'export_data',
+        'view_all_stores', 'manage_settings', 'manage_users', 'manage_roles', 'manage_security'
     ],
     [ROLES.YONETICI]: [
-        'view_all_stores',
-        'manage_settings',
-        'manage_users',
-        'view_dashboard',
-        'manage_stock',
-        'edit_repairs',
-        'delete_repairs',
-        'view_earnings',
-        'view_kbb',
-        'view_technicians'
+        'create_repair', 'edit_repairs', 'delete_repairs', 'assign_jobs', 'manage_kbb',
+        'manage_customers', 'delete_customers', 'send_customer_message',
+        'manage_stock', 'transfer_stock', 'manage_warehouses', 'manage_device_catalog',
+        'manage_technicians', 'manage_store_operations',
+        'view_earnings', 'manage_earnings', 'export_data',
+        'view_all_stores', 'manage_settings', 'manage_users', 'manage_roles', 'manage_security'
     ],
     [ROLES.STORE_MANAGER]: [
-        'view_dashboard',
-        'view_reports',
-        'manage_stock',
-        'transfer_stock',
-        'edit_repairs',
-        'create_repair',
-        'view_repairs',
-        'delete_repairs',
-        'view_archive',
-        'view_customers',
-        'manage_customers',
-        'send_customer_message',
-        'view_earnings',
-        'export_data',
-        'view_kbb',
-        'view_technicians',
-        'manage_technicians',
-        'assign_jobs',
-        'view_store_operations'
+        'create_repair', 'edit_repairs', 'delete_repairs', 'assign_jobs', 'manage_kbb',
+        'manage_customers', 'send_customer_message',
+        'manage_stock', 'transfer_stock',
+        'manage_technicians', 'manage_store_operations',
+        'view_earnings', 'export_data'
     ],
     [ROLES.ACCOUNTANT]: [
-        'view_earnings',
-        'export_data',
-        'manage_stock',
-        'view_kbb',
-        'view_dashboard',
-        'view_reports',
-        'view_archive',
-        'view_customers'
+        'view_earnings', 'manage_earnings', 'export_data', 'manage_stock'
     ],
     [ROLES.RECEPTION]: [
-        'create_repair',
-        'view_repairs',
-        'view_archive',
-        'view_customers',
-        'manage_customers',
-        'view_store_operations'
+        'create_repair', 'edit_repairs', 'manage_customers', 'send_customer_message'
     ],
     [ROLES.TECHNICIAN]: [
-        'edit_repairs',
-        'view_own_repairs',
-        'view_repairs',
-        'view_stock',
-        'view_kbb',
-        'view_technicians'
+        'edit_repairs', 'manage_kbb'
     ]
 };
+
 
 export const isSuperAdmin = (user) => {
     if (!user || !user.role) return false;

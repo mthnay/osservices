@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, Plus, Search, Filter, Mail, MapPin, MoreHorizontal, Edit, Calendar, DollarSign, Tag, Clock, ChevronRight, MessageCircle, Trash2 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
+import { hasPermission } from '../utils/permissions';
 import MyPhoneIcon from './LocalIcons';
 import Collapse from './ui/Collapse';
 // eslint-disable-next-line no-unused-vars
@@ -8,6 +9,10 @@ import { appConfirm, appAlert } from '../utils/alert';
 
 const Customers = ({ setActiveTab, setServiceInitialData }) => {
     const { customers, addCustomer, updateCustomer, repairs, sendWhatsApp, removeCustomer, currentUser } = useAppContext();
+    // İşlem yetkileri (görüntüleme herkese açık)
+    const canManageCustomers = hasPermission(currentUser, 'manage_customers');
+    const canDeleteCustomers = hasPermission(currentUser, 'delete_customers');
+
     const [searchTerm, setSearchTerm] = useState('');
     const [showModal, setShowModal] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
@@ -153,12 +158,14 @@ const Customers = ({ setActiveTab, setServiceInitialData }) => {
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
-                    <button
-                        onClick={openAddModal}
-                        className="h-10 px-4 bg-gray-900 text-white rounded-md text-[11px] font-bold uppercase tracking-wider hover:bg-black transition-all flex items-center gap-2 shadow-md active:scale-95"
-                    >
-                        <Plus size={16} /> YENİ MÜŞTERİ
-                    </button>
+                    {canManageCustomers && (
+                        <button
+                            onClick={openAddModal}
+                            className="h-10 px-4 bg-gray-900 text-white rounded-md text-[11px] font-bold uppercase tracking-wider hover:bg-black transition-all flex items-center gap-2 shadow-md active:scale-95"
+                        >
+                            <Plus size={16} /> YENİ MÜŞTERİ
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -221,7 +228,7 @@ const Customers = ({ setActiveTab, setServiceInitialData }) => {
                                                     )}
 
                                                     {/* Quick Delete for Superadmin */}
-                                                    {currentUser?.role?.toLowerCase() === 'superadmin' && (
+                                                    {canDeleteCustomers && (
                                                         <button
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
@@ -265,7 +272,7 @@ const Customers = ({ setActiveTab, setServiceInitialData }) => {
                                     </button>
                                     
                                     <div className="flex gap-3 ml-auto">
-                                        {currentUser?.role?.toLowerCase() === 'superadmin' && (
+                                        {canDeleteCustomers && (
                                             <button
                                                 onClick={() => confirmAndDeleteCustomer(selectedCustomer)}
                                                 className="border border-red-200 px-4 py-2 hover:bg-red-50 bg-white rounded-md text-sm font-semibold flex items-center gap-2 text-red-600 transition-colors"
@@ -274,12 +281,14 @@ const Customers = ({ setActiveTab, setServiceInitialData }) => {
                                                 <Trash2 size={16} /> Sil
                                             </button>
                                         )}
-                                        <button
-                                            onClick={() => openEditModal(selectedCustomer)}
-                                            className="border border-[#d2d2d7] px-4 py-2 hover:bg-[#f5f5f7] bg-white rounded-md text-sm font-semibold flex items-center gap-2 text-gray-700"
-                                        >
-                                            <Edit size={16} /> Düzenle
-                                        </button>
+                                        {canManageCustomers && (
+                                            <button
+                                                onClick={() => openEditModal(selectedCustomer)}
+                                                className="border border-[#d2d2d7] px-4 py-2 hover:bg-[#f5f5f7] bg-white rounded-md text-sm font-semibold flex items-center gap-2 text-gray-700"
+                                            >
+                                                <Edit size={16} /> Düzenle
+                                            </button>
+                                        )}
                                         <button
                                             onClick={handleNewRepair}
                                             className="gsx-button-primary px-4 py-2 text-sm"

@@ -80,6 +80,9 @@ const RepairHistoryModal = ({ repair: initialRepair, onClose, onSaveDiagnosis })
 
     // Technicians should be able to edit basic info if they are the owner or admin
     const isAdmin = hasPermission(currentUser, 'manage_settings') || currentUser?.role === 'technician';
+    // İşlem yetkileri (görüntüleme herkese açık)
+    const canEdit = hasPermission(currentUser, 'edit_repairs');
+    const canDelete = hasPermission(currentUser, 'delete_repairs');
 
     // Edit Form State
     const [editForm, setEditForm] = useState({
@@ -443,7 +446,7 @@ const RepairHistoryModal = ({ repair: initialRepair, onClose, onSaveDiagnosis })
                             {isEditing ? (
                                 <button onClick={handleSave} className="h-10 px-5 bg-green-500 hover:bg-green-600 text-white rounded-md flex items-center gap-2 font-bold shadow transition-all"><Save size={16} /> Kaydet</button>
                             ) : (
-                                <button onClick={() => setIsEditing(true)} className="h-10 w-10 bg-white hover:bg-gray-50 text-gray-400 hover:text-blue-600 rounded-md flex items-center justify-center border border-gray-200 shadow-sm transition-all"><Pencil size={18} /></button>
+                                canEdit && <button onClick={() => setIsEditing(true)} className="h-10 w-10 bg-white hover:bg-gray-50 text-gray-400 hover:text-blue-600 rounded-md flex items-center justify-center border border-gray-200 shadow-sm transition-all"><Pencil size={18} /></button>
                             )}
                             <button onClick={requestClose} className="h-10 w-10 bg-white hover:bg-gray-50 text-gray-400 hover:text-red-500 rounded-md flex items-center justify-center border border-gray-200 shadow-sm transition-all"><X size={20} /></button>
                         </div>
@@ -906,9 +909,11 @@ const RepairHistoryModal = ({ repair: initialRepair, onClose, onSaveDiagnosis })
                                             <p className="text-sm text-red-700 font-medium">Kayıt veritabanından kalıcı olarak silinecektir. Bu işlem geri alınamaz.</p>
                                         </div>
                                     </div>
-                                    <button onClick={handleDeleteRepair} className="w-full md:w-auto px-8 py-4 bg-red-600 hover:bg-red-700 text-white rounded-md text-sm font-semibold transition-all flex items-center justify-center gap-3 shadow-xl hover:shadow-red-500/30 active:scale-95">
-                                        <Trash2 size={18} /> Sistemi Temizle ve Sil
-                                    </button>
+                                    {canDelete && (
+                                        <button onClick={handleDeleteRepair} className="w-full md:w-auto px-8 py-4 bg-red-600 hover:bg-red-700 text-white rounded-md text-sm font-semibold transition-all flex items-center justify-center gap-3 shadow-xl hover:shadow-red-500/30 active:scale-95">
+                                            <Trash2 size={18} /> Sistemi Temizle ve Sil
+                                        </button>
+                                    )}
                                 </div>
                             )}
 

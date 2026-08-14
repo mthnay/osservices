@@ -1,196 +1,152 @@
 /* ------------------------------------------------------------------
    Yetki Kataloğu — TEK KAYNAK
    ------------------------------------------------------------------
-   Sistemdeki tüm yetki alanları burada tanımlanır. Rol yönetimi ekranı
-   bu katalogdan beslenir; hasPermission() de aynı katalogdaki kapsama
-   (implies) ve eski ad (aliases) bilgilerini kullanır.
+   TASARIM KURALI:
+   Görüntüleme serbesttir. Sistemdeki tüm modülleri (servis, stok, arşiv,
+   raporlar…) her kullanıcı görebilir. Yetkiler yalnızca VERİ DEĞİŞTİREN
+   işlemleri kısıtlar: ekleme, düzenleme, silme, gönderme, transfer.
 
-   Kategori  -> ekranda gruplama
-   risk      -> 'normal' | 'high' | 'critical' (kritik yetkiler uyarı ister)
-   implies   -> bu yetki verildiğinde otomatik kazanılan alt yetkiler
-   aliases   -> geçmişte kullanılmış eski isimler (geriye dönük uyumluluk)
+   Bu yüzden katalogda "…gör" tipi yetki yoktur; tek istisna, hangi
+   mağazaların verisinin görüneceğini belirleyen kapsam kuralıdır
+   (view_all_stores) — bu bir menü kısıtı değil, veri izolasyonudur.
+
+   risk     -> 'normal' | 'high' | 'critical' (kritik yetkiler ek onay ister)
+   implies  -> bu yetki verildiğinde otomatik kazanılan alt yetkiler
+   aliases  -> geçmişte kullanılmış eski isimler (geriye dönük uyumluluk)
 ------------------------------------------------------------------ */
 
 export const PERMISSION_CATEGORIES = [
-    { id: 'repairs', label: 'Servis Kayıtları', description: 'Servis kabul, onarım ve arşiv işlemleri' },
-    { id: 'customers', label: 'Müşteriler', description: 'CRM kayıtları ve müşteri iletişimi' },
-    { id: 'inventory', label: 'Envanter & Ambar', description: 'Stok, ambar ve KBB süreçleri' },
-    { id: 'operations', label: 'Teknisyen & Operasyon', description: 'Atama, teknisyen ve mağaza operasyonu' },
-    { id: 'finance', label: 'Finans & Raporlama', description: 'Ciro, hakediş ve raporlar' },
-    { id: 'system', label: 'Sistem & Güvenlik', description: 'Ayarlar, kullanıcı ve yetki yönetimi' },
+    { id: 'repairs', label: 'Servis Kayıtları', description: 'Kayıt açma, düzenleme, silme ve iş atama' },
+    { id: 'customers', label: 'Müşteriler', description: 'Müşteri kaydı ve müşteriye gönderilen bildirimler' },
+    { id: 'inventory', label: 'Envanter & Ambar', description: 'Stok hareketleri, transfer ve ambar tanımları' },
+    { id: 'operations', label: 'Teknisyen & Operasyon', description: 'Teknisyen kadrosu ve mağaza operasyonu' },
+    { id: 'finance', label: 'Finans & Veri', description: 'Ciro verisi ve dışa aktarma' },
+    { id: 'system', label: 'Sistem & Güvenlik', description: 'Ayarlar, kullanıcı, rol ve erişim yönetimi' },
 ];
 
 export const PERMISSIONS = [
     /* --------------------------- Servis Kayıtları --------------------------- */
     {
         id: 'create_repair', category: 'repairs', risk: 'normal',
-        label: 'Servis kaydı aç',
-        description: 'Yeni servis kabul kaydı oluşturabilir.',
-        implies: ['view_repairs'],
-    },
-    {
-        id: 'view_repairs', category: 'repairs', risk: 'normal',
-        label: 'Servis kayıtlarını gör',
-        description: 'Mağazasındaki tüm servis kayıtlarını görüntüler.',
-    },
-    {
-        id: 'view_own_repairs', category: 'repairs', risk: 'normal',
-        label: 'Yalnızca kendi kayıtlarını gör',
-        description: 'Sadece kendisine atanmış kayıtları görür (kısıtlayıcı yetki).',
+        label: 'Servis kaydı açabilir',
+        description: 'Yeni servis kabul kaydı oluşturur.',
     },
     {
         id: 'edit_repairs', category: 'repairs', risk: 'normal',
-        label: 'Servis kayıtlarını düzenle',
-        description: 'Kayıt bilgilerini, teşhis ve notları güncelleyebilir.',
-        implies: ['view_repairs'],
+        label: 'Servis kaydını düzenleyebilir',
+        description: 'Kayıt bilgilerini, teşhis ve notları günceller.',
     },
     {
         id: 'delete_repairs', category: 'repairs', risk: 'critical',
-        label: 'Servis kaydı sil',
-        description: 'Servis kaydını veritabanından kalıcı olarak siler.',
+        label: 'Servis kaydı silebilir',
+        description: 'Kaydı veritabanından kalıcı olarak siler. Geri alınamaz.',
         aliases: ['delete_repair'],
     },
     {
-        id: 'view_archive', category: 'repairs', risk: 'normal',
-        label: 'Servis arşivini gör',
-        description: 'Kapanmış/teslim edilmiş kayıtların arşivine erişir.',
-        aliases: ['view_repairs'],
+        id: 'assign_jobs', category: 'repairs', risk: 'normal',
+        label: 'Teknisyene iş atayabilir',
+        description: 'Servis kayıtlarını teknisyenlere atar, iş akışını değiştirir.',
+    },
+    {
+        id: 'manage_kbb', category: 'repairs', risk: 'normal',
+        label: 'KBB işlemleri yapabilir',
+        description: 'Sökülen eski parçayı Apple’a gönderir ve iade kaydı işler.',
+        aliases: ['view_kbb'],
     },
 
     /* ------------------------------ Müşteriler ------------------------------ */
     {
-        id: 'view_customers', category: 'customers', risk: 'normal',
-        label: 'Müşterileri gör',
-        description: 'CRM müşteri listesini görüntüler.',
-        aliases: ['view_repairs', 'create_repair'],
-    },
-    {
         id: 'manage_customers', category: 'customers', risk: 'normal',
-        label: 'Müşteri ekle / düzenle',
+        label: 'Müşteri ekleyebilir / düzenleyebilir',
         description: 'Müşteri kaydı oluşturur ve bilgilerini günceller.',
-        implies: ['view_customers'],
     },
     {
         id: 'delete_customers', category: 'customers', risk: 'high',
-        label: 'Müşteri sil',
+        label: 'Müşteri silebilir',
         description: 'Müşteri kaydını kalıcı olarak siler.',
     },
     {
         id: 'send_customer_message', category: 'customers', risk: 'high',
-        label: 'Müşteriye mesaj / bildirim gönder',
-        description: 'WhatsApp, SMS ve e-posta bildirimleri ile pazarlama gönderimleri.',
-        implies: ['view_customers'],
+        label: 'Müşteriye bildirim gönderebilir',
+        description: 'WhatsApp, SMS, e-posta bildirimleri ve pazarlama gönderimleri.',
     },
 
     /* --------------------------- Envanter & Ambar --------------------------- */
     {
-        id: 'view_stock', category: 'inventory', risk: 'normal',
-        label: 'Stoğu gör',
-        description: 'Envanter ve parça listesini görüntüler.',
-        aliases: ['manage_stock'],
-    },
-    {
         id: 'manage_stock', category: 'inventory', risk: 'normal',
-        label: 'Stok yönetimi',
-        description: 'Parça girişi, çıkışı ve stok düzeltmesi yapar.',
-        implies: ['view_stock'],
+        label: 'Stok hareketi yapabilir',
+        description: 'Parça girişi, çıkışı ve stok düzeltmesi işler.',
     },
     {
         id: 'transfer_stock', category: 'inventory', risk: 'high',
-        label: 'Ambarlar arası transfer',
+        label: 'Ambarlar arası transfer yapabilir',
         description: 'Parça ve ödünç cihazları ambarlar arasında taşır.',
-        implies: ['view_stock'],
     },
     {
         id: 'manage_warehouses', category: 'inventory', risk: 'critical',
-        label: 'Ambar ekle / kaldır',
+        label: 'Ambar ekleyebilir / kaldırabilir',
         description: 'Ambar tanımlarını oluşturur veya sistemden kaldırır.',
-        implies: ['view_stock'],
     },
     {
-        id: 'view_kbb', category: 'inventory', risk: 'normal',
-        label: 'KBB süreçlerini gör',
-        description: 'Sökülen eski parça (KBB) yönetimi ve arşivi.',
+        id: 'manage_device_catalog', category: 'inventory', risk: 'normal',
+        label: 'Cihaz kataloğunu düzenleyebilir',
+        description: 'Cihaz modeli ekler, düzenler ve siler.',
     },
 
     /* ------------------------ Teknisyen & Operasyon ------------------------ */
     {
-        id: 'view_technicians', category: 'operations', risk: 'normal',
-        label: 'Teknisyenleri gör',
-        description: 'Teknisyen listesi ve performans verileri.',
-    },
-    {
         id: 'manage_technicians', category: 'operations', risk: 'high',
-        label: 'Teknisyen yönetimi',
+        label: 'Teknisyen yönetebilir',
         description: 'Teknisyen ekler, düzenler ve sistemden kaldırır.',
-        implies: ['view_technicians'],
     },
     {
-        id: 'assign_jobs', category: 'operations', risk: 'normal',
-        label: 'İş atama',
-        description: 'Servis kayıtlarını teknisyenlere atar ve iş akışını yönetir.',
-        implies: ['view_technicians'],
-    },
-    {
-        id: 'view_store_operations', category: 'operations', risk: 'normal',
-        label: 'Mağaza operasyonlarını gör',
-        description: 'Vardiya, görev ve mağaza duyuruları ekranı.',
+        id: 'manage_store_operations', category: 'operations', risk: 'normal',
+        label: 'Mağaza operasyonunu yönetebilir',
+        description: 'Vardiya, görev ve mağaza duyurularını düzenler.',
     },
 
-    /* -------------------------- Finans & Raporlama -------------------------- */
-    {
-        id: 'view_dashboard', category: 'finance', risk: 'normal',
-        label: 'Genel bakış panelini gör',
-        description: 'Ana gösterge paneline erişir.',
-    },
-    {
-        id: 'view_reports', category: 'finance', risk: 'normal',
-        label: 'Raporları gör',
-        description: 'Performans ve operasyon raporlarını görüntüler.',
-        aliases: ['view_dashboard'],
-    },
+    /* ----------------------------- Finans & Veri ----------------------------- */
     {
         id: 'view_earnings', category: 'finance', risk: 'high',
-        label: 'Ciro / hakediş gör',
-        description: 'Gelir, ciro ve hakediş verilerine erişir.',
+        label: 'Ciro / hakediş verisine erişebilir',
+        description: 'Gelir ve hakediş rakamlarını görür. (Finansal veri kapsamı)',
+    },
+    {
+        id: 'manage_earnings', category: 'finance', risk: 'high',
+        label: 'Hakediş kaydı işleyebilir',
+        description: 'Hakediş kayıtlarını ekler ve günceller.',
     },
     {
         id: 'export_data', category: 'finance', risk: 'high',
-        label: 'Veri dışa aktar',
-        description: 'Toplu dışa aktarma ve PDF/Excel çıktısı alır.',
+        label: 'Veri dışa aktarabilir',
+        description: 'Toplu dışa aktarma, PDF ve Excel çıktısı alır.',
     },
 
     /* --------------------------- Sistem & Güvenlik --------------------------- */
     {
         id: 'view_all_stores', category: 'system', risk: 'high',
-        label: 'Tüm mağazaları gör',
-        description: 'Kendi mağazası dışındaki tüm mağaza verilerine erişir.',
+        label: 'Tüm mağazaların verisine erişebilir',
+        description: 'Kendi mağazası dışındaki kayıtları da görür. (Veri kapsamı kuralı)',
     },
     {
         id: 'manage_settings', category: 'system', risk: 'critical',
-        label: 'Sistem ayarlarını yönet',
-        description: 'Ayarlar bölümünün tamamına erişir (kurumsal kimlik, ambar, katalog).',
-        implies: ['view_dashboard'],
+        label: 'Sistem ayarlarını yönetebilir',
+        description: 'Ayarlar bölümüne erişir (kurumsal kimlik, ambar, katalog, metinler).',
     },
     {
         id: 'manage_users', category: 'system', risk: 'critical',
-        label: 'Kullanıcı yönetimi',
+        label: 'Kullanıcı yönetebilir',
         description: 'Personel hesabı oluşturur, düzenler ve siler.',
     },
     {
         id: 'manage_roles', category: 'system', risk: 'critical',
-        label: 'Rol ve yetki yönetimi',
+        label: 'Rol ve yetki yönetebilir',
         description: 'Rolleri ve bu rollerin yetkilerini değiştirir.',
     },
     {
         id: 'manage_security', category: 'system', risk: 'critical',
-        label: 'Güvenlik yönetimi',
-        description: 'Şifre belirler ve kullanıcıların sistem erişimini açar/kapatır.',
-    },
-    {
-        id: 'view_audit_logs', category: 'system', risk: 'high',
-        label: 'Sistem günlüklerini gör',
-        description: 'Denetim kayıtlarını (audit log) görüntüler.',
+        label: 'Güvenlik yönetebilir',
+        description: 'Şifre belirler, kullanıcıların sistem erişimini açar/kapatır.',
     },
 ];
 
@@ -225,8 +181,8 @@ export const expandPermissions = (granted) => {
 
 /**
  * Bir rolün yetki listesinde `permissionId` var mı?
- * Doğrudan verilmiş olabilir, kapsama yoluyla gelmiş olabilir ya da
- * eski bir isimle (alias) kayıtlı olabilir.
+ * Doğrudan verilmiş, kapsama yoluyla gelmiş ya da eski bir isimle
+ * (alias) kayıtlı olabilir.
  */
 export const listHasPermission = (granted, permissionId) => {
     const expanded = expandPermissions(granted);
@@ -240,7 +196,7 @@ export const permissionsByCategory = (categoryId) =>
     PERMISSIONS.filter(p => p.category === categoryId);
 
 /**
- * Katalog genişlemeden önce sistemde var olan yetki isimleri.
+ * Katalog yenilenmeden önce sistemde kullanılan yetki isimleri.
  * Sunucudaki rol tohumları çok dar listelerle geliyor
  * (ör. ['manage_stock','delete_repair']); bu roller yeni ekrandan
  * bir kez kaydedilene kadar rol varsayılanlarıyla desteklenir.
@@ -252,7 +208,7 @@ export const LEGACY_PERMISSION_IDS = [
     'view_kbb', 'view_technicians',
 ];
 
-/** Yalnızca genişletilmiş katalogda bulunan yetkiler */
+/** Yalnızca yeni katalogda bulunan yetkiler */
 export const CATALOG_ONLY_IDS = PERMISSION_IDS.filter(id => !LEGACY_PERMISSION_IDS.includes(id));
 
 /**

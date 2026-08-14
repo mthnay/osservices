@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { appConfirm } from '../utils/alert';
-import { isSuperAdmin, isYonetici, ROLE_DISPLAY_NAMES } from '../utils/permissions';
+import { hasPermission, isSuperAdmin, isYonetici, ROLE_DISPLAY_NAMES } from '../utils/permissions';
 import Collapse from './ui/Collapse';
 import useAnimatedClose from './ui/useAnimatedClose';
 
@@ -59,7 +59,7 @@ const SummaryTile = ({ icon: Icon, label, value, unit, tone = 'bg-white border-g
 const SecurityCenter = ({ onReboot }) => {
     const { users, updateUser, currentUser, showToast, allServicePoints, API_URL } = useAppContext();
 
-    const canManage = isSuperAdmin(currentUser) || isYonetici(currentUser);
+    const canManage = hasPermission(currentUser, 'manage_security');
 
     const [term, setTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
