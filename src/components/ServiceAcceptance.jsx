@@ -40,6 +40,14 @@ import { appConfirm } from '../utils/alert';
 import { hasPermission, ROLES, getAccessibleStoreIds } from '../utils/permissions';
 import MyPhoneIcon from './LocalIcons';
 import { getProductImage } from '../utils/productImages';
+import PickerModal from './ui/PickerModal';
+import { PROVINCES, districtsOf } from '../utils/turkeyRegions';
+
+const STEPS = [
+    { id: 1, label: 'MÜŞTERİ' },
+    { id: 2, label: 'CİHAZ' },
+    { id: 3, label: 'İMZA' },
+];
 
 const PRODUCT_GROUPS = [
     { id: 'iphone', label: 'iPhone', icon: MyPhoneIcon, color: 'bg-blue-600', img: getProductImage('iphone') },
@@ -86,6 +94,10 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
     const [deviceSuggestions, setDeviceSuggestions] = useState([]);
     const suggestionsRef = useRef(null);
     const [showStoreSelect, setShowStoreSelect] = useState(false);
+    // Popup seçiciler: ürün grubu, il, ilçe
+    const [showProductPicker, setShowProductPicker] = useState(false);
+    const [showCityPicker, setShowCityPicker] = useState(false);
+    const [showDistrictPicker, setShowDistrictPicker] = useState(false);
     const storeSelectRef = useRef(null);
 
     // Click outside to close suggestions and store select
@@ -117,11 +129,14 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
         findMyOff: false,
         backupTaken: false,
         customerName: '',
-        customerType: 'positive', // positive | negative
+        customerType: 'bireysel', // bireysel | kurumsal
         customerTC: '',
         customerPhone: '',
         customerEmail: '',
         customerAddress: '',
+        customerCity: '',
+        customerDistrict: '',
+        satisfaction: '', // '' | 'memnun' | 'memnun_degil'
         issueDescription: '',
         beforeImages: [],
         afterImages: [],
@@ -135,11 +150,12 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
     const handlePrepareSubmission = () => {
         try {
             // 1. Zorunlu Alan Kontrolü
-            if (!formData.serialNumber) { showToast('Lütfen Seri Numarası giriniz.', 'error'); return; }
-            if (!formData.deviceModel) { showToast('Lütfen Cihaz Modeli seçiniz.', 'error'); return; }
-            if (!formData.warrantyStatus) { showToast('Lütfen Garanti Durumu seçiniz.', 'error'); return; }
-            if (!formData.customerName) { showToast('Lütfen Müşteri Adı giriniz.', 'error'); return; }
-            if (!formData.customerPhone) { showToast('Lütfen Müşteri Telefonu giriniz.', 'error'); return; }
+            if (!formData.customerName) { setStep(1); showToast('Lütfen Müşteri Adı giriniz.', 'error'); return; }
+            if (!formData.customerPhone) { setStep(1); showToast('Lütfen Cep Numarası giriniz.', 'error'); return; }
+            if (!formData.productGroup) { setStep(2); showToast('Lütfen Ürün Grubu seçiniz.', 'error'); return; }
+            if (!formData.serialNumber) { setStep(2); showToast('Lütfen Seri Numarası giriniz.', 'error'); return; }
+            if (!formData.deviceModel) { setStep(2); showToast('Lütfen Cihaz Modeli seçiniz.', 'error'); return; }
+            if (!formData.warrantyStatus) { setStep(2); showToast('Lütfen Garanti Durumu seçiniz.', 'error'); return; }
             if (canPickStore && !formData.storeId) { showToast('Lütfen kaydın bağlı olacağı Mağazayı seçiniz.', 'error'); return; }
             if (!formData.findMyOff) { showToast('Lütfen "Cihazımı Bul" özelliğinin kapalı olduğunu teyit ediniz.', 'error'); return; }
 
@@ -176,6 +192,10 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                 customerPhone: formData.customerPhone,
                 customerEmail: formData.customerEmail,
                 customerAddress: formData.customerAddress,
+                customerCity: formData.customerCity,
+                customerDistrict: formData.customerDistrict,
+                customerType: formData.customerType,
+                satisfaction: formData.satisfaction,
                 tcNo: formData.customerTC,
                 issue: formData.issueDescription,
                 status: formData.serviceType !== 'repair' ? 'Cihaz Hazır' : 'Beklemede',
@@ -201,9 +221,11 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                             name: formData.customerName,
                             phone: formData.customerPhone,
                             email: formData.customerEmail,
-                            address: formData.customerAddress || '',
+                            address: [formData.customerAddress, formData.customerDistrict, formData.customerCity].filter(Boolean).join(', '),
+                            city: formData.customerCity || '',
+                            district: formData.customerDistrict || '',
                             tc: formData.customerTC || '',
-                            type: 'bireysel',
+                            type: formData.customerType || 'bireysel',
                             notes: 'Servis kaydı sırasında otomatik oluşturuldu.'
                         };
                         addCustomer(newCustomerData);
@@ -322,7 +344,9 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
             customerPhone: customer.phone || prev.customerPhone,
             customerEmail: customer.email || prev.customerEmail,
             customerAddress: customer.address || prev.customerAddress,
-            customerType: customer.type || prev.customerType || 'positive'
+            customerCity: customer.city || prev.customerCity,
+            customerDistrict: customer.district || prev.customerDistrict,
+            customerType: customer.type === 'kurumsal' ? 'kurumsal' : 'bireysel'
         }));
         showToast('Müşteri bilgileri aktarıldı.', 'success');
     };
@@ -412,6 +436,24 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
 
     const isTCValid = validateTC(formData.customerTC);
 
+    const selectedProductGroup = PRODUCT_GROUPS.find(g => g.id === formData.productGroup) || null;
+
+    /** Ürün grubu seçimi: varsayılan işlem türü ve yer tutucu görsel de ayarlanır */
+    const applyProductGroup = (groupId) => {
+        const group = PRODUCT_GROUPS.find(g => g.id === groupId);
+        if (!group) return;
+        const isExchangeDefault = ['watch', 'airpods', 'other'].includes(group.id);
+        setFormData(prev => {
+            const uploadedFiles = (prev.mediaFiles || []).filter(f => !f.isDefault);
+            return {
+                ...prev,
+                productGroup: group.id,
+                serviceType: isExchangeDefault ? 'exchange' : 'repair',
+                mediaFiles: [...uploadedFiles, { url: group.img || PRODUCT_IMAGES[group.id], id: 'placeholder', isDefault: true, productGroup: group.id }]
+            };
+        });
+    };
+
     const clearSignature = () => sigCanvas.current.clear();
 
     const handleClosePrintModal = async () => {
@@ -423,7 +465,10 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                 serialNumber: '', imei1: '', imei2: '', deviceModel: '', warrantyStatus: '', visualCondition: [],
                 findMyOff: false, backupTaken: false, customerName: '', customerTC: '',
                 customerPhone: '', customerEmail: '', customerAddress: '', issueDescription: '',
-                mediaFiles: [], notes: ''
+                mediaFiles: [], notes: '',
+                customerType: 'bireysel', customerCity: '', customerDistrict: '', satisfaction: '',
+                productGroup: '', serviceType: 'repair', estimatedCost: '', beforeImages: [], afterImages: [],
+                storeId: currentUser?.storeId || '', createdBy: currentUser?.name || ''
             });
             if (sigCanvas.current) sigCanvas.current.clear();
             setStep(1);
@@ -486,11 +531,17 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                         </div>
                     )}
                     <div className="flex items-center gap-2 bg-white p-1 rounded-md border border-gray-200 shadow-sm">
-                        {[1, 2].map(s => (
-                            <div key={s} onClick={() => setStep(s)} className={`px-4 py-2 rounded-md text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${step === s ? 'bg-gray-100 text-gray-900 shadow-sm' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}`}>
-                                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${step === s ? 'bg-gray-900 text-white' : 'bg-gray-200 text-gray-500'}`}>{s}</span>
-                                <span className="hidden sm:inline">{s === 1 ? 'BİLGİLER' : 'İMZA'}</span>
-                            </div>
+                        {STEPS.map(({ id, label }) => (
+                            <button
+                                key={id}
+                                type="button"
+                                onClick={() => setStep(id)}
+                                aria-current={step === id ? 'step' : undefined}
+                                className={`px-4 py-2 rounded-md text-xs font-bold transition-all flex items-center gap-2 outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25 ${step === id ? 'bg-gray-100 text-gray-900 shadow-sm' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}`}
+                            >
+                                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${step === id ? 'bg-gray-900 text-white' : 'bg-gray-200 text-gray-500'}`}>{id}</span>
+                                <span className="hidden sm:inline">{label}</span>
+                            </button>
                         ))}
                     </div>
                 </div>
@@ -499,6 +550,203 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 <div className="lg:col-span-8 space-y-6">
                     {step === 1 && (
+                        <div className="space-y-6 animate-scale-up">
+                            <div className="gsx-card p-6">
+                                <h3 className="text-xl font-semibold text-gray-900 mb-8 flex items-center gap-3">
+                                    <div className="p-3 bg-blue-50 rounded-md text-blue-600"><User size={24} strokeWidth={2.5} /></div>
+                                    Müşteri Bilgileri
+                                </h3>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                                    {/* Ad Soyad */}
+                                    <div className="md:col-span-2 space-y-2">
+                                        <label htmlFor="sa-name" className="text-[10px] font-bold uppercase tracking-widest text-gray-500 ml-1">
+                                            Ad Soyad <span className="text-[#e30000]" aria-hidden="true">*</span>
+                                        </label>
+                                        <input
+                                            id="sa-name" type="text" placeholder="Örn: Ayşe Yılmaz"
+                                            className="w-full px-5 py-4 rounded-md bg-gray-50 border border-gray-200 outline-none font-bold text-gray-900 focus:bg-white focus:border-[#0071e3] focus-visible:ring-4 focus-visible:ring-[#0071e3]/25 transition-all"
+                                            value={formData.customerName}
+                                            onChange={(e) => setFormData({ ...formData, customerName: e.target.value })}
+                                        />
+                                    </div>
+
+                                    {/* Müşteri tipi */}
+                                    <div className="md:col-span-2 space-y-2">
+                                        <p id="sa-type-label" className="text-[10px] font-bold uppercase tracking-widest text-gray-500 ml-1">Müşteri Tipi</p>
+                                        <div role="group" aria-labelledby="sa-type-label" className="grid grid-cols-2 gap-3">
+                                            {[
+                                                { id: 'bireysel', label: 'Bireysel', hint: 'TC kimlik numarası ile' },
+                                                { id: 'kurumsal', label: 'Kurumsal', hint: 'Vergi kimlik numarası ile' },
+                                            ].map(opt => {
+                                                const active = formData.customerType === opt.id;
+                                                return (
+                                                    <button
+                                                        key={opt.id} type="button"
+                                                        onClick={() => setFormData({ ...formData, customerType: opt.id })}
+                                                        aria-pressed={active}
+                                                        className={`flex flex-col items-start gap-1 p-4 rounded-lg border transition-all text-left outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25 ${active
+                                                            ? 'bg-[#0071e3] border-[#0071e3] text-white shadow-sm shadow-[#0071e3]/20'
+                                                            : 'bg-gray-50 border-gray-200 text-[#1d1d1f] hover:bg-white'}`}
+                                                    >
+                                                        <span className="text-sm font-bold">{opt.label}</span>
+                                                        <span className={`text-[11px] font-medium ${active ? 'text-white/75' : 'text-gray-500'}`}>{opt.hint}</span>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    {/* TC / VKN */}
+                                    <div className="space-y-2">
+                                        <label htmlFor="sa-tc" className="text-[10px] font-bold uppercase tracking-widest text-gray-500 ml-1">
+                                            {formData.customerType === 'kurumsal' ? 'Vergi Kimlik No' : 'TC Kimlik Numarası'}
+                                        </label>
+                                        <div className="relative">
+                                            <input
+                                                id="sa-tc" type="text" maxLength={formData.customerType === 'kurumsal' ? 10 : 11}
+                                                placeholder={formData.customerType === 'kurumsal' ? '10 haneli' : '11 haneli'}
+                                                aria-invalid={formData.customerType === 'bireysel' && isTCValid === false ? 'true' : undefined}
+                                                aria-describedby="sa-tc-status"
+                                                className={`w-full pl-5 pr-10 py-4 rounded-md border outline-none font-mono font-bold text-sm transition-all ${formData.customerType === 'bireysel' && isTCValid === true ? 'bg-green-50 border-green-500 text-green-900' : formData.customerType === 'bireysel' && isTCValid === false ? 'bg-red-50 border-red-500 text-red-900' : 'bg-gray-50 border-gray-200 focus:bg-white focus:border-[#0071e3]'}`}
+                                                value={formData.customerTC}
+                                                onChange={(e) => setFormData({ ...formData, customerTC: e.target.value.replace(/\D/g, '') })}
+                                            />
+                                            {formData.customerType === 'bireysel' && isTCValid === true && <div className="absolute right-3 top-1/2 -translate-y-1/2 text-green-600"><CheckCircle size={18} strokeWidth={3} /></div>}
+                                            {formData.customerType === 'bireysel' && isTCValid === false && <div className="absolute right-3 top-1/2 -translate-y-1/2 text-red-500"><AlertCircle size={18} strokeWidth={3} /></div>}
+                                        </div>
+                                        <p id="sa-tc-status" className="sr-only" aria-live="polite">
+                                            {formData.customerType === 'bireysel' && isTCValid === false ? 'TC kimlik numarası geçersiz' : ''}
+                                        </p>
+                                    </div>
+
+                                    {/* Cep numarası */}
+                                    <div className="space-y-2">
+                                        <label htmlFor="sa-phone" className="text-[10px] font-bold uppercase tracking-widest text-gray-500 ml-1">
+                                            Cep Numarası <span className="text-[#e30000]" aria-hidden="true">*</span>
+                                        </label>
+                                        <input
+                                            id="sa-phone" type="tel" placeholder="0 (5XX) 000 00 00"
+                                            className="w-full px-5 py-4 rounded-md bg-gray-50 border border-gray-200 outline-none font-bold text-gray-900 text-sm focus:bg-white focus:border-[#0071e3] focus-visible:ring-4 focus-visible:ring-[#0071e3]/25 transition-all"
+                                            value={formData.customerPhone}
+                                            onChange={(e) => setFormData({ ...formData, customerPhone: e.target.value })}
+                                        />
+                                    </div>
+
+                                    {/* E-posta */}
+                                    <div className="md:col-span-2 space-y-2">
+                                        <label htmlFor="sa-email" className="text-[10px] font-bold uppercase tracking-widest text-gray-500 ml-1">Mail Adresi</label>
+                                        <input
+                                            id="sa-email" type="email" placeholder="ornek@email.com"
+                                            className="w-full px-5 py-4 rounded-md bg-gray-50 border border-gray-200 outline-none font-medium text-gray-900 text-sm focus:bg-white focus:border-[#0071e3] focus-visible:ring-4 focus-visible:ring-[#0071e3]/25 transition-all"
+                                            value={formData.customerEmail}
+                                            onChange={(e) => setFormData({ ...formData, customerEmail: e.target.value })}
+                                        />
+                                    </div>
+
+                                    {/* İl */}
+                                    <div className="space-y-2">
+                                        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 ml-1">İl</p>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowCityPicker(true)}
+                                            aria-haspopup="dialog"
+                                            className="w-full px-5 py-4 rounded-md bg-gray-50 border border-gray-200 flex items-center justify-between gap-3 text-left hover:bg-white hover:border-gray-300 transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
+                                        >
+                                            <span className={`text-sm font-bold truncate ${formData.customerCity ? 'text-gray-900' : 'text-gray-400'}`}>
+                                                {formData.customerCity || 'İl seçiniz'}
+                                            </span>
+                                            <MapPin size={18} className="text-gray-400 shrink-0" aria-hidden="true" />
+                                        </button>
+                                    </div>
+
+                                    {/* İlçe */}
+                                    <div className="space-y-2">
+                                        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 ml-1">İlçe</p>
+                                        <button
+                                            type="button"
+                                            onClick={() => formData.customerCity && setShowDistrictPicker(true)}
+                                            disabled={!formData.customerCity}
+                                            aria-haspopup="dialog"
+                                            className="w-full px-5 py-4 rounded-md bg-gray-50 border border-gray-200 flex items-center justify-between gap-3 text-left hover:bg-white hover:border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
+                                        >
+                                            <span className={`text-sm font-bold truncate ${formData.customerDistrict ? 'text-gray-900' : 'text-gray-400'}`}>
+                                                {formData.customerDistrict || (formData.customerCity ? 'İlçe seçiniz' : 'Önce il seçiniz')}
+                                            </span>
+                                            <ChevronDown size={18} className="text-gray-400 shrink-0" aria-hidden="true" />
+                                        </button>
+                                    </div>
+
+                                    {/* Açık adres */}
+                                    <div className="md:col-span-2 space-y-2">
+                                        <label htmlFor="sa-address" className="text-[10px] font-bold uppercase tracking-widest text-gray-500 ml-1">Açık Adres</label>
+                                        <textarea
+                                            id="sa-address" rows="3" placeholder="Mahalle, cadde, sokak, kapı no…"
+                                            className="w-full px-5 py-4 rounded-md bg-gray-50 border border-gray-200 outline-none font-medium text-gray-900 text-sm resize-none focus:bg-white focus:border-[#0071e3] focus-visible:ring-4 focus-visible:ring-[#0071e3]/25 transition-all"
+                                            value={formData.customerAddress}
+                                            onChange={(e) => setFormData({ ...formData, customerAddress: e.target.value })}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Kayıtlı müşteri eşleşmesi */}
+                                {matchingCustomer && (
+                                    <button
+                                        type="button"
+                                        onClick={() => handleSelectCustomer(matchingCustomer)}
+                                        className="mt-6 w-full p-4 bg-white border border-blue-100 rounded-xl shadow-lg text-left hover:bg-blue-50 transition-all relative overflow-hidden outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
+                                    >
+                                        <span className="absolute top-0 left-0 w-1 h-full bg-blue-500" aria-hidden="true"></span>
+                                        <span className="flex items-center gap-4">
+                                            <span className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-lg shrink-0">{matchingCustomer.name?.[0] || 'M'}</span>
+                                            <span className="flex-1 min-w-0">
+                                                <span className="flex items-center gap-2">
+                                                    <span className="font-bold text-gray-900 text-sm truncate">{matchingCustomer.name}</span>
+                                                    <span className="text-[9px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full font-bold uppercase shrink-0">Kayıtlı</span>
+                                                </span>
+                                                <span className="block text-[11px] text-gray-500 font-medium">{matchingCustomer.phone} — bilgileri aktarmak için tıklayın</span>
+                                            </span>
+                                            <ChevronRight size={20} className="text-blue-500 shrink-0" aria-hidden="true" />
+                                        </span>
+                                    </button>
+                                )}
+                            </div>
+
+                            {/* Memnuniyet anketi */}
+                            <div className="gsx-card p-6">
+                                <h3 className="font-semibold text-gray-900 mb-6 flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-gray-100 rounded-md flex items-center justify-center text-gray-500"><CheckCircle size={20} strokeWidth={2.5} /></div>
+                                    Memnuniyet Anketi
+                                </h3>
+                                <p id="sa-sat-label" className="text-[12px] font-medium text-gray-500 mb-4">
+                                    Müşterinin önceki servis deneyimine dair değerlendirmesi. Bu bilgi servis kaydında görünür.
+                                </p>
+                                <div role="group" aria-labelledby="sa-sat-label" className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                    {[
+                                        { id: 'memnun', label: 'Memnun', tone: 'bg-[#008000] border-[#008000]' },
+                                        { id: 'memnun_degil', label: 'Memnun Değil', tone: 'bg-[#e30000] border-[#e30000]' },
+                                        { id: '', label: 'Belirtilmedi', tone: 'bg-[#1d1d1f] border-[#1d1d1f]' },
+                                    ].map(opt => {
+                                        const active = (formData.satisfaction || '') === opt.id;
+                                        return (
+                                            <button
+                                                key={opt.id || 'none'} type="button"
+                                                onClick={() => setFormData({ ...formData, satisfaction: opt.id })}
+                                                aria-pressed={active}
+                                                className={`py-4 px-4 rounded-lg border text-sm font-bold transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25 ${active
+                                                    ? `${opt.tone} text-white shadow-sm`
+                                                    : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-white'}`}
+                                            >
+                                                {opt.label}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {step === 2 && (
                         <div className="space-y-6 animate-scale-up">
                             <div className="gsx-card p-6">
                                 <div className="flex items-center justify-between mb-8">
@@ -513,29 +761,41 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                                     </button>
                                 </div>
 
-                                <div className="mb-10">
-                                    <label className="text-[10px] font-semibold text-gray-400 text-xs uppercase tracking-wide mb-4 block ml-1">Ürün Grubu Seçiniz</label>
-                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
-                                        {PRODUCT_GROUPS.map((group) => (
-                                            <button
-                                                key={group.id}
-                                                onClick={() => {
-                                                    const isExchangeDefault = ['watch', 'airpods', 'other'].includes(group.id);
-                                                    setFormData(prev => {
-                                                        const uploadedFiles = (prev.mediaFiles || []).filter(f => !f.isDefault);
-                                                        return { 
-                                                            ...prev, productGroup: group.id, serviceType: isExchangeDefault ? 'exchange' : 'repair',
-                                                            mediaFiles: [...uploadedFiles, { url: group.img || PRODUCT_IMAGES[group.id], id: 'placeholder', isDefault: true, productGroup: group.id }]
-                                                        };
-                                                    });
-                                                }}
-                                                className={`flex flex-col items-center gap-3 p-4 rounded-lg border-2 transition-all duration-300 ${formData.productGroup === group.id ? `border-blue-500 bg-blue-50/50 shadow-lg shadow-blue-200/50 scale-105` : 'border-transparent bg-gray-50 hover:bg-white hover:border-gray-200 transform hover:-translate-y-1'}`}
-                                            >
-                                                <div className={`w-12 h-12 rounded-md flex items-center justify-center text-white shadow-md ${formData.productGroup === group.id ? group.color : 'bg-gray-400 opacity-60'}`}><group.icon size={24} /></div>
-                                                <span className={`text-[10px] font-semibold uppercase tracking-wider ${formData.productGroup === group.id ? 'text-blue-700' : 'text-gray-500'}`}>{group.label}</span>
-                                            </button>
-                                        ))}
-                                    </div>
+                                <div className="mb-10 space-y-2">
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 ml-1">
+                                        Ürün Grubu <span className="text-[#e30000]" aria-hidden="true">*</span>
+                                    </p>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowProductPicker(true)}
+                                        aria-haspopup="dialog"
+                                        className="w-full p-4 rounded-lg bg-gray-50 border border-gray-200 flex items-center justify-between gap-4 text-left hover:bg-white hover:border-gray-300 transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
+                                    >
+                                        <span className="flex items-center gap-4 min-w-0">
+                                            {selectedProductGroup ? (
+                                                <>
+                                                    <span className={`w-12 h-12 rounded-md flex items-center justify-center text-white shadow-md shrink-0 ${selectedProductGroup.color}`}>
+                                                        <selectedProductGroup.icon size={24} />
+                                                    </span>
+                                                    <span className="min-w-0">
+                                                        <span className="block text-sm font-bold text-gray-900 truncate">{selectedProductGroup.label}</span>
+                                                        <span className="block text-[11px] font-medium text-gray-500">Değiştirmek için tıklayın</span>
+                                                    </span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <span className="w-12 h-12 rounded-md bg-gray-200 text-gray-400 flex items-center justify-center shrink-0">
+                                                        <Package size={24} />
+                                                    </span>
+                                                    <span className="min-w-0">
+                                                        <span className="block text-sm font-bold text-gray-400">Ürün Grubu Seçiniz</span>
+                                                        <span className="block text-[11px] font-medium text-gray-400">iPhone, iPad, Mac, Watch, AirPods…</span>
+                                                    </span>
+                                                </>
+                                            )}
+                                        </span>
+                                        <ChevronDown size={18} className="text-gray-400 shrink-0" aria-hidden="true" />
+                                    </button>
                                 </div>
 
                                 {formData.productGroup && (
@@ -697,7 +957,7 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                         </div>
                     )}
 
-                    {step === 2 && (
+                    {step === 3 && (
                         <div className="space-y-6 animate-scale-up">
                             <div className="gsx-card p-6">
                                 <h3 className="text-xl font-semibold text-gray-900 mb-8 flex items-center gap-3"><div className="p-3 bg-green-50 rounded-md text-green-600"><FileText size={24} strokeWidth={2.5} /></div>Onay ve Teslim</h3>
@@ -718,52 +978,119 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
 
                 <div className="lg:col-span-4 space-y-6">
                     <div className="gsx-card p-6 sticky top-32">
-                        <h3 className="font-semibold text-gray-900 mb-8 flex items-center gap-3"><div className="w-10 h-10 bg-gray-100 rounded-md flex items-center justify-center text-gray-500"><User size={20} strokeWidth={2.5} /></div>Müşteri Bilgileri</h3>
-                        <div className="space-y-5">
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide ml-1">Ad Soyad</label>
-                                <input type="text" placeholder="Ad Soyad" className="w-full px-5 py-4 rounded-md bg-gray-50 border border-gray-200 outline-none font-bold text-gray-900" value={formData.customerName} onChange={(e) => setFormData({ ...formData, customerName: e.target.value })} />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide ml-1">TC Kimlik</label>
-                                <div className="relative">
-                                    <input type="text" maxLength="11" placeholder="11 Haneli" className={`w-full pl-5 pr-10 py-4 rounded-md border outline-none font-mono font-bold text-sm ${isTCValid === true ? 'bg-green-50 border-green-500 text-green-900' : isTCValid === false ? 'bg-red-50 border-red-500 text-red-900' : 'bg-gray-50 border-gray-200'}`} value={formData.customerTC} onChange={(e) => setFormData({ ...formData, customerTC: e.target.value.replace(/\D/g, '') })} />
-                                    {isTCValid === true && <div className="absolute right-3 top-1/2 -translate-y-1/2 text-green-600"><CheckCircle size={18} strokeWidth={3} /></div>}
-                                    {isTCValid === false && <div className="absolute right-3 top-1/2 -translate-y-1/2 text-red-500"><AlertCircle size={18} strokeWidth={3} /></div>}
+                        <h3 className="font-semibold text-gray-900 mb-6 flex items-center gap-3">
+                            <div className="w-10 h-10 bg-gray-100 rounded-md flex items-center justify-center text-gray-500"><FileText size={20} strokeWidth={2.5} /></div>
+                            Kayıt Özeti
+                        </h3>
+
+                        <dl className="space-y-3">
+                            {[
+                                { label: 'Müşteri', value: formData.customerName, step: 1 },
+                                { label: 'Tip', value: formData.customerType === 'kurumsal' ? 'Kurumsal' : 'Bireysel', step: 1 },
+                                { label: 'Telefon', value: formData.customerPhone, step: 1 },
+                                {
+                                    label: 'Konum',
+                                    value: [formData.customerCity, formData.customerDistrict].filter(Boolean).join(' / '),
+                                    step: 1,
+                                },
+                                { label: 'Ürün Grubu', value: selectedProductGroup?.label, step: 2 },
+                                { label: 'Cihaz', value: formData.deviceModel, step: 2 },
+                                { label: 'Seri No', value: formData.serialNumber, step: 2, mono: true },
+                            ].map(row => (
+                                <div key={row.label} className="flex items-start justify-between gap-3 py-2 border-b border-gray-50 last:border-0">
+                                    <dt className="text-[10px] font-bold uppercase tracking-widest text-gray-400 shrink-0 pt-0.5">{row.label}</dt>
+                                    <dd className={`text-[13px] font-semibold text-right min-w-0 truncate ${row.value ? 'text-[#1d1d1f]' : 'text-gray-300'} ${row.mono ? 'font-mono' : ''}`}>
+                                        {row.value || '—'}
+                                    </dd>
                                 </div>
-                                {matchingCustomer && (
-                                    <div onClick={() => handleSelectCustomer(matchingCustomer)} className="mt-3 p-4 bg-white border border-blue-100 rounded-xl shadow-xl cursor-pointer hover:bg-blue-50 transition-all group relative overflow-hidden">
-                                        <div className="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-lg">{matchingCustomer.name?.[0] || 'M'}</div>
-                                            <div className="flex-1"><div className="flex items-center gap-2"><h4 className="font-bold text-gray-900 text-sm">{matchingCustomer.name}</h4><span className="text-[9px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full font-bold uppercase">Kayıtlı</span></div><p className="text-[11px] text-gray-500 font-medium">{matchingCustomer.phone}</p></div>
-                                            <div className="text-blue-500"><ChevronRight size={20} /></div>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                            <div className="space-y-2"><label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide ml-1">Telefon</label><input type="tel" placeholder="0 (5XX)..." className="w-full px-5 py-4 rounded-md bg-gray-50 border border-gray-200 outline-none font-bold text-gray-900 text-sm" value={formData.customerPhone} onChange={(e) => setFormData({ ...formData, customerPhone: e.target.value })} /></div>
-                            <div className="space-y-2"><label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide ml-1">E-Posta</label><input type="email" placeholder="ornek@email.com" className="w-full px-5 py-4 rounded-md bg-gray-50 border border-gray-200 outline-none font-medium text-gray-900 text-sm" value={formData.customerEmail} onChange={(e) => setFormData({ ...formData, customerEmail: e.target.value })} /></div>
-                            <div className="space-y-2"><label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide ml-1">Adres</label><textarea rows="3" placeholder="Tam adres..." className="w-full px-5 py-4 rounded-md bg-gray-50 border border-gray-200 outline-none font-medium text-gray-900 text-sm resize-none" value={formData.customerAddress} onChange={(e) => setFormData({ ...formData, customerAddress: e.target.value })}></textarea></div>
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide ml-1">Müşteri Tipi</label>
-                                <div className="flex bg-gray-50 p-1.5 rounded-md border border-gray-200">
-                                    <button onClick={() => setFormData({ ...formData, customerType: 'positive' })} className={`flex-1 py-2.5 rounded-md text-xs font-bold transition-all flex items-center justify-center gap-2 ${formData.customerType === 'positive' ? 'bg-white text-green-600 shadow-sm border border-gray-100' : 'text-gray-400 hover:text-gray-600'}`}>Olumlu</button>
-                                    <button onClick={() => setFormData({ ...formData, customerType: 'negative' })} className={`flex-1 py-2.5 rounded-md text-xs font-bold transition-all flex items-center justify-center gap-2 ${formData.customerType === 'negative' ? 'bg-white text-red-600 shadow-sm border border-gray-100' : 'text-gray-400 hover:text-gray-600'}`}>Olumsuz</button>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="mt-10 pt-8 border-t border-gray-100 flex gap-3">
-                            {step > 1 && <button onClick={() => setStep(step - 1)} className="px-5 py-4 rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50 font-bold transition-all"><ArrowLeft size={20} /></button>}
-                            {step < 2 ? (
-                                <button onClick={() => setStep(step + 1)} className="flex-1 bg-gray-900 text-white px-6 py-4 rounded-md font-bold hover:bg-black transition-all flex items-center justify-center gap-3 shadow-xl">Sonraki Adım <ChevronRight size={18} /></button>
+                            ))}
+                        </dl>
+
+                        {formData.satisfaction === 'memnun_degil' && (
+                            <p className="flex items-start gap-2 mt-4 p-3 rounded-xl bg-[#e30000]/[0.05] border border-[#e30000]/20 text-[11px] font-semibold text-[#c30000]">
+                                <AlertTriangle size={13} aria-hidden="true" className="shrink-0 mt-0.5" />
+                                Müşteri önceki deneyimden memnun değil.
+                            </p>
+                        )}
+                        {formData.satisfaction === 'memnun' && (
+                            <p className="flex items-start gap-2 mt-4 p-3 rounded-xl bg-[#008000]/[0.06] border border-[#008000]/20 text-[11px] font-semibold text-[#1d7a4c]">
+                                <CheckCircle size={13} aria-hidden="true" className="shrink-0 mt-0.5" />
+                                Müşteri önceki deneyimden memnun.
+                            </p>
+                        )}
+
+                        <div className="mt-8 pt-6 border-t border-gray-100 flex gap-3">
+                            {step > 1 && (
+                                <button
+                                    type="button"
+                                    onClick={() => setStep(step - 1)}
+                                    aria-label="Önceki adım"
+                                    className="px-5 py-4 rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50 font-bold transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
+                                >
+                                    <ArrowLeft size={20} />
+                                </button>
+                            )}
+                            {step < 3 ? (
+                                <button
+                                    type="button"
+                                    onClick={() => setStep(step + 1)}
+                                    className="flex-1 bg-gray-900 text-white px-6 py-4 rounded-md font-bold hover:bg-black transition-all flex items-center justify-center gap-3 shadow-xl outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
+                                >
+                                    Sonraki Adım <ChevronRight size={18} />
+                                </button>
                             ) : (
-                                <button onClick={handlePrepareSubmission} disabled={!formData.findMyOff || uploading} className={`flex-1 px-6 py-4 rounded-md font-bold transition-all flex items-center justify-center gap-3 shadow-xl ${(!formData.findMyOff || uploading) ? 'bg-gray-400 cursor-not-allowed opacity-50' : 'bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-blue-200'}`}>{uploading ? 'Görsel Yükleniyor...' : <><Save size={18} strokeWidth={2.5} /> Kaydı Tamamla</>}</button>
+                                <button
+                                    type="button"
+                                    onClick={handlePrepareSubmission}
+                                    disabled={!formData.findMyOff || uploading}
+                                    className={`flex-1 px-6 py-4 rounded-md font-bold transition-all flex items-center justify-center gap-3 shadow-xl outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25 ${(!formData.findMyOff || uploading) ? 'bg-gray-400 cursor-not-allowed opacity-50' : 'bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-blue-200'}`}
+                                >
+                                    {uploading ? 'Görsel Yükleniyor...' : <><Save size={18} strokeWidth={2.5} /> Kaydı Tamamla</>}
+                                </button>
                             )}
                         </div>
                     </div>
                 </div>
             </div>
+
+            {/* Ürün grubu seçimi */}
+            {showProductPicker && (
+                <PickerModal
+                    title="Ürün Grubu Seçiniz"
+                    description="Cihazın ait olduğu ürün ailesini seçin."
+                    placeholder="Ürün grubu ara…"
+                    value={formData.productGroup}
+                    options={PRODUCT_GROUPS.map(g => ({ value: g.id, label: g.label }))}
+                    onSelect={(val) => applyProductGroup(val)}
+                    onClose={() => setShowProductPicker(false)}
+                />
+            )}
+
+            {/* İl seçimi */}
+            {showCityPicker && (
+                <PickerModal
+                    title="İl Seçiniz"
+                    description="Türkiye'deki 81 il arasından arayarak seçebilirsiniz."
+                    placeholder="İl ara…"
+                    value={formData.customerCity}
+                    options={PROVINCES}
+                    onSelect={(city) => setFormData(prev => ({ ...prev, customerCity: city, customerDistrict: '' }))}
+                    onClose={() => setShowCityPicker(false)}
+                />
+            )}
+
+            {/* İlçe seçimi */}
+            {showDistrictPicker && (
+                <PickerModal
+                    title="İlçe Seçiniz"
+                    description={`${formData.customerCity} ilinin ilçeleri`}
+                    placeholder="İlçe ara…"
+                    value={formData.customerDistrict}
+                    options={districtsOf(formData.customerCity)}
+                    onSelect={(district) => setFormData(prev => ({ ...prev, customerDistrict: district }))}
+                    onClose={() => setShowDistrictPicker(false)}
+                />
+            )}
 
             {showKioskModal && (
                 <div className="fixed inset-0 bg-white z-[100] flex flex-col md:flex-row animate-in slide-in-from-bottom-5">

@@ -548,9 +548,32 @@ const RepairHistoryModal = ({ repair: initialRepair, onClose, onSaveDiagnosis })
                                             <p className="font-semibold text-gray-900 text-xl tracking-tight">{repair.customer}</p>
                                             <p className="text-sm text-gray-500 mt-2 font-medium">{repair.customerPhone}</p>
                                             
+                                            {/* Servis kabulünde girilen müşteri bilgileri */}
+                                            <div className="flex flex-wrap items-center gap-1.5 mt-3">
+                                                <span className="text-[9px] font-bold uppercase tracking-widest text-gray-600 bg-[#f5f5f7] border border-gray-200 rounded-full px-2 py-0.5">
+                                                    {repair.customerType === 'kurumsal' ? 'Kurumsal' : 'Bireysel'}
+                                                </span>
+                                                {repair.satisfaction === 'memnun_degil' && (
+                                                    <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-[#c30000] bg-[#e30000]/8 border border-[#e30000]/20 rounded-full px-2 py-0.5">
+                                                        <AlertCircle size={9} aria-hidden="true" /> Memnun Değil
+                                                    </span>
+                                                )}
+                                                {repair.satisfaction === 'memnun' && (
+                                                    <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-[#1d7a4c] bg-[#008000]/8 border border-[#008000]/20 rounded-full px-2 py-0.5">
+                                                        <CheckCircle size={9} aria-hidden="true" /> Memnun
+                                                    </span>
+                                                )}
+                                            </div>
+
                                             <div className="mt-3 space-y-1">
                                                 {repair.tcNo && (
-                                                    <p className="text-xs text-gray-400 font-mono"><span className="font-bold text-gray-400">TC/VKN:</span> {repair.tcNo}</p>
+                                                    <p className="text-xs text-gray-400 font-mono"><span className="font-bold text-gray-400">{repair.customerType === 'kurumsal' ? 'VKN:' : 'TC:'}</span> {repair.tcNo}</p>
+                                                )}
+                                                {repair.customerEmail && (
+                                                    <p className="text-xs text-gray-400 truncate" title={repair.customerEmail}><span className="font-bold text-gray-400">E-Posta:</span> {repair.customerEmail}</p>
+                                                )}
+                                                {(repair.customerCity || repair.customerDistrict) && (
+                                                    <p className="text-xs text-gray-400"><span className="font-bold text-gray-400">İl / İlçe:</span> {[repair.customerCity, repair.customerDistrict].filter(Boolean).join(' / ')}</p>
                                                 )}
                                                 {repair.customerAddress && (
                                                     <p className="text-xs text-gray-400 line-clamp-2" title={repair.customerAddress}><span className="font-bold text-gray-400">Adres:</span> {repair.customerAddress}</p>
