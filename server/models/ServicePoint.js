@@ -6,7 +6,11 @@ const servicePointSchema = new mongoose.Schema({
     type: { type: String, default: 'Şube' },
     address: { type: String },
     phone: { type: String },
-    shipTo: { type: String, unique: true }
+    shipTo: { type: String, unique: true },
+    // Lokasyon ağı: il/ilçe kırılımı ve iletişim
+    city: { type: String },
+    district: { type: String },
+    email: { type: String }
 }, { timestamps: true });
 
 export default mongoose.models.ServicePoint || mongoose.model('ServicePoint', servicePointSchema);

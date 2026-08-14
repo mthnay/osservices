@@ -9,6 +9,8 @@ const customerSchema = new mongoose.Schema({
     tc: { type: String },
     type: { type: String, default: 'bireysel' },
     notes: { type: String },
+    // Segmentasyon etiketleri (VIP, Kurumsal, Sadık Müşteri…)
+    tags: [{ type: String }],
     storeId: { type: Number, default: 1 }
 }, { timestamps: true });
 

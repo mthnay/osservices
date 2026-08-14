@@ -673,7 +673,17 @@ export const AppProvider = ({ children }) => {
                 setUsers(prev => [...prev, saved]);
                 return true;
             }
-        } catch (error) { console.error("Error adding user:", error); return false; }
+            // Sunucunun gerekçesi (yinelenen e-posta, yetki) kullanıcıya gösterilmeli
+            const message = await readErrorMessage(res, 'Personel hesabı oluşturulamadı.');
+            showToast(/duplicate key|E11000/i.test(message)
+                ? 'Bu e-posta adresi başka bir hesapta kayıtlı.'
+                : message, 'error');
+            return false;
+        } catch (error) {
+            console.error("Error adding user:", error);
+            showToast(error.message || 'Personel hesabı oluşturulamadı.', 'error');
+            return false;
+        }
     };
 
     const updateUser = async (id, updates) => {
@@ -960,7 +970,13 @@ export const AppProvider = ({ children }) => {
                 setCustomers(prev => [...prev, saved]);
                 return saved;
             }
-        } catch (error) { console.error("Error adding customer:", error); return null; }
+            showToast(await readErrorMessage(res, 'Müşteri kaydedilemedi.'), 'error');
+            return null;
+        } catch (error) {
+            console.error("Error adding customer:", error);
+            showToast(error.message || 'Müşteri kaydedilemedi.', 'error');
+            return null;
+        }
     };
 
     const updateCustomer = async (id, updates) => {
@@ -975,7 +991,13 @@ export const AppProvider = ({ children }) => {
                 setCustomers(prev => prev.map(c => (c._id === updated._id || c.id === id) ? updated : c));
                 return true;
             }
-        } catch (error) { console.error("Error updating customer:", error); return false; }
+            showToast(await readErrorMessage(res, 'Müşteri güncellenemedi.'), 'error');
+            return false;
+        } catch (error) {
+            console.error("Error updating customer:", error);
+            showToast(error.message || 'Müşteri güncellenemedi.', 'error');
+            return false;
+        }
     };
 
     const removeCustomer = async (id) => {

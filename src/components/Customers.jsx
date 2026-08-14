@@ -1,51 +1,473 @@
-import React, { useState, useEffect } from 'react';
-import { User, Plus, Search, Filter, Mail, MapPin, MoreHorizontal, Edit, Calendar, DollarSign, Tag, Clock, ChevronRight, MessageCircle, Trash2 } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {
+    User, Users, Plus, Search, Mail, MapPin, Trash2, Pencil, X, Check, Copy,
+    ChevronDown, MessageCircle, Tag, Clock, Building2, FileText,
+    Wrench, CheckCircle,
+} from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { hasPermission } from '../utils/permissions';
+import { ARCHIVE_STATUSES, parseRepairDate } from '../utils/archiveFilters';
 import MyPhoneIcon from './LocalIcons';
 import Collapse from './ui/Collapse';
-// eslint-disable-next-line no-unused-vars
-import { appConfirm, appAlert } from '../utils/alert';
+import useAnimatedClose from './ui/useAnimatedClose';
+import { StatTile, Field, TextAreaField, SelectField, SegmentButton, EmptyState } from './ui/FormControls';
+import { appConfirm } from '../utils/alert';
+
+/* ------------------------------------------------------------------
+   Müşteri Rehberi
+   Solda gruplanmış müşteri listesi, sağda seçili müşterinin künyesi ve
+   servis geçmişi. Tüm sayılar gerçek kayıtlardan türetilir.
+------------------------------------------------------------------ */
+
+const TR_FOLD = { 'ç': 'c', 'ğ': 'g', 'ı': 'i', 'ö': 'o', 'ş': 's', 'ü': 'u', 'â': 'a', 'î': 'i', 'û': 'u' };
+const normalize = (value) => String(value ?? '')
+    .toLocaleLowerCase('tr')
+    .replace(/[çğıöşüâîû]/g, (ch) => TR_FOLD[ch] || ch);
+
+const CUSTOMER_TAGS = ['VIP', 'Kurumsal', 'Sadık Müşteri', 'Sorunlu'];
+const TYPE_FILTERS = [
+    { id: 'all', label: 'Tümü' },
+    { id: 'bireysel', label: 'Bireysel' },
+    { id: 'kurumsal', label: 'Kurumsal' },
+];
+
+const customerKey = (customer) => customer?._id || customer?.id;
+const isCorporate = (customer) => normalize(customer?.type) === 'kurumsal';
+const isClosed = (repair) => ARCHIVE_STATUSES.includes(repair?.status);
+
+const initialsOf = (name) => String(name || '?')
+    .split(' ')
+    .filter(Boolean)
+    .map(part => part[0])
+    .join('')
+    .toLocaleUpperCase('tr')
+    .substring(0, 2);
+
+const formatDay = (value) => {
+    const date = parseRepairDate(value);
+    if (!date) return String(value || '—');
+    return date.toLocaleDateString('tr-TR', { day: '2-digit', month: 'short', year: 'numeric' });
+};
+
+/* ------------------------------- liste satırı ------------------------------- */
+
+const CustomerRow = ({ customer, selected, canDelete, onSelect, onDelete }) => {
+    const tags = customer.tags || [];
+
+    return (
+        <li>
+            <div className={`flex items-stretch gap-1 rounded-[16px] border transition-all ${selected
+                ? 'border-[#0071e3] bg-[#0071e3]/5'
+                : 'border-gray-200 bg-white hover:border-[#0071e3]/30'}`}
+            >
+                <button
+                    type="button"
+                    onClick={() => onSelect(customer)}
+                    aria-current={selected ? 'true' : undefined}
+                    className="flex-1 min-w-0 flex items-center gap-3 px-3.5 py-3 text-left rounded-[16px] outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
+                >
+                    <span
+                        aria-hidden="true"
+                        className={`w-9 h-9 rounded-xl flex items-center justify-center text-[11px] font-semibold shrink-0 ${selected
+                            ? 'bg-[#0071e3] text-white'
+                            : 'bg-[#f5f5f7] text-[#1d1d1f] border border-gray-200'}`}
+                    >
+                        {initialsOf(customer.name)}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                        <span className="block text-[13px] font-semibold text-[#1d1d1f] truncate">{customer.name}</span>
+                        <span className="block text-[11px] font-medium text-gray-500 truncate font-mono">
+                            {customer.phone || 'Telefon yok'}
+                        </span>
+                    </span>
+                    <span className="flex items-center gap-1 shrink-0">
+                        {isCorporate(customer) && (
+                            <span className="text-[9px] font-bold uppercase tracking-widest text-gray-500 bg-[#f5f5f7] border border-gray-200 rounded-full px-2 py-0.5">
+                                Kurumsal
+                            </span>
+                        )}
+                        {tags.includes('VIP') && (
+                            <span className="text-[9px] font-bold uppercase tracking-widest text-[#bf5b04] bg-[#ff9500]/10 border border-[#ff9500]/25 rounded-full px-2 py-0.5">
+                                VIP
+                            </span>
+                        )}
+                    </span>
+                </button>
+
+                {canDelete && (
+                    <button
+                        type="button"
+                        onClick={() => onDelete(customer)}
+                        className="w-10 shrink-0 rounded-r-[16px] text-gray-400 hover:text-[#e30000] hover:bg-[#e30000]/5 flex items-center justify-center transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#e30000]/25"
+                    >
+                        <Trash2 size={14} aria-hidden="true" />
+                        <span className="sr-only">{customer.name} müşterisini sil</span>
+                    </button>
+                )}
+            </div>
+        </li>
+    );
+};
+
+/* ------------------------------ künye satırı ------------------------------ */
+
+const ContactLine = ({ icon: Icon, label, value, mono, onCopy, action }) => (
+    <div className="flex items-center gap-3 py-2.5">
+        {/* Yerel ikon bileşeni aria özniteliği almadığı için sarmalayıcıda gizlenir */}
+        <span aria-hidden="true" className="text-gray-400 shrink-0 flex items-center">
+            <Icon size={14} />
+        </span>
+        <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500">{label}</p>
+            <p className={`text-[13px] font-semibold text-[#1d1d1f] truncate ${mono ? 'font-mono' : ''}`}>
+                {value || <span className="font-medium text-gray-400">Tanımlı değil</span>}
+            </p>
+        </div>
+        {value && onCopy && (
+            <button
+                type="button"
+                onClick={onCopy}
+                className="h-8 w-8 rounded-lg border border-gray-200 bg-white text-gray-400 hover:text-[#0071e3] hover:border-[#0071e3]/30 flex items-center justify-center transition-all shrink-0 outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
+            >
+                <Copy size={13} aria-hidden="true" />
+                <span className="sr-only">{label} kopyala</span>
+            </button>
+        )}
+        {action}
+    </div>
+);
+
+/* -------------------------------- düzenleyici -------------------------------- */
+
+const CustomerEditor = ({ customer, existingCustomers, onClose, onSubmit }) => {
+    const { closing, requestClose } = useAnimatedClose(onClose, 200);
+    const dialogRef = useRef(null);
+    const isEdit = Boolean(customer);
+
+    const [form, setForm] = useState(() => ({
+        name: customer?.name || '',
+        phone: customer?.phone || '',
+        email: customer?.email || '',
+        type: isCorporate(customer) ? 'Kurumsal' : 'Bireysel',
+        address: customer?.address || '',
+        notes: customer?.notes || '',
+    }));
+    const [errors, setErrors] = useState({});
+    const [busy, setBusy] = useState(false);
+
+    useEffect(() => { dialogRef.current?.focus(); }, []);
+
+    const closeRef = useRef(requestClose);
+    closeRef.current = requestClose;
+    useEffect(() => {
+        const onKeyDown = (e) => { if (e.key === 'Escape') closeRef.current(); };
+        document.addEventListener('keydown', onKeyDown);
+        return () => document.removeEventListener('keydown', onKeyDown);
+    }, []);
+
+    const setField = (key, value) => {
+        setForm(prev => ({ ...prev, [key]: value }));
+        setErrors(prev => ({ ...prev, [key]: undefined }));
+    };
+
+    const validate = () => {
+        const next = {};
+        if (!form.name.trim()) next.name = 'Ad soyad / ünvan zorunludur.';
+
+        const digits = form.phone.replace(/\D/g, '');
+        if (!digits) {
+            next.phone = 'Telefon zorunludur.';
+        } else if (digits.length < 10) {
+            next.phone = 'Telefon en az 10 hane olmalıdır.';
+        } else if (existingCustomers.some(c =>
+            customerKey(c) !== customerKey(customer) &&
+            String(c.phone || '').replace(/\D/g, '') === digits
+        )) {
+            next.phone = 'Bu telefon numarası başka bir müşteride kayıtlı.';
+        }
+
+        if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+            next.email = 'Geçerli bir e-posta adresi girin.';
+        }
+
+        setErrors(next);
+        return Object.keys(next).length === 0;
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        if (busy || !validate()) return;
+
+        setBusy(true);
+        try {
+            const ok = await onSubmit({
+                name: form.name.trim(),
+                phone: form.phone.trim(),
+                email: form.email.trim(),
+                type: form.type,
+                address: form.address.trim(),
+                notes: form.notes.trim(),
+            });
+            if (ok) requestClose();
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    return (
+        <div
+            className={`fixed inset-0 z-[120] bg-[#1d1d1f]/50 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 ${closing ? 'animate-out fade-out duration-200 pointer-events-none' : 'animate-in fade-in'}`}
+            onMouseDown={(e) => { if (e.target === e.currentTarget) requestClose(); }}
+        >
+            <form
+                ref={dialogRef}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="customer-editor-title"
+                tabIndex={-1}
+                noValidate
+                onSubmit={handleSubmit}
+                className={`bg-white w-full max-w-2xl rounded-[24px] shadow-2xl border border-white/20 overflow-hidden flex flex-col max-h-[92vh] outline-none ${closing ? 'animate-out fade-out zoom-out-95 duration-200' : 'animate-scale-up'}`}
+            >
+                <header className="flex items-center justify-between gap-4 px-6 sm:px-7 py-5 border-b border-gray-100 shrink-0">
+                    <div className="flex items-center gap-3.5 min-w-0">
+                        <span aria-hidden="true" className="w-11 h-11 rounded-xl bg-[#0071e3] text-white flex items-center justify-center shrink-0">
+                            {isEdit ? <Pencil size={18} /> : <Plus size={19} />}
+                        </span>
+                        <div className="min-w-0">
+                            <h3 id="customer-editor-title" className="text-[17px] font-semibold text-[#1d1d1f] truncate">
+                                {isEdit ? 'Müşteriyi Düzenle' : 'Yeni Müşteri'}
+                            </h3>
+                            <p className="text-[12px] font-medium text-gray-500 truncate">
+                                {isEdit ? customer.name : 'Servis kaydı açarken bu bilgiler otomatik dolar.'}
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={requestClose}
+                        aria-label="Pencereyi kapat"
+                        className="h-10 w-10 shrink-0 rounded-xl border border-gray-200 bg-white text-gray-400 hover:text-[#1d1d1f] hover:bg-[#f5f5f7] flex items-center justify-center transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
+                    >
+                        <X size={18} aria-hidden="true" />
+                    </button>
+                </header>
+
+                <div className="p-6 sm:p-7 overflow-y-auto custom-scrollbar">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                        <div className="sm:col-span-2">
+                            <Field
+                                id="cst-name" label="Ad Soyad / Ünvan" required error={errors.name}
+                                value={form.name} onChange={(v) => setField('name', v)}
+                                placeholder="Örn: Ayşe Yılmaz"
+                            />
+                        </div>
+                        <Field
+                            id="cst-phone" label="Telefon" type="tel" inputMode="tel" mono required error={errors.phone}
+                            value={form.phone} onChange={(v) => setField('phone', v)}
+                            placeholder="0532 000 00 00"
+                        />
+                        <Field
+                            id="cst-email" label="E-Posta" type="email" error={errors.email}
+                            value={form.email} onChange={(v) => setField('email', v)}
+                            placeholder="ad.soyad@ornek.com"
+                        />
+                        <SelectField
+                            id="cst-type" label="Müşteri Tipi"
+                            value={form.type} onChange={(v) => setField('type', v)}
+                            options={[
+                                { value: 'Bireysel', label: 'Bireysel Müşteri' },
+                                { value: 'Kurumsal', label: 'Kurumsal Müşteri' },
+                            ]}
+                        />
+                        <div className="sm:col-span-2">
+                            <TextAreaField
+                                id="cst-address" label="Adres"
+                                value={form.address} onChange={(v) => setField('address', v)}
+                                placeholder="Mahalle, cadde, no, ilçe / il"
+                                rows={2}
+                            />
+                        </div>
+                        <div className="sm:col-span-2">
+                            <TextAreaField
+                                id="cst-notes" label="Özel Notlar"
+                                value={form.notes} onChange={(v) => setField('notes', v)}
+                                placeholder="Müşteriyle ilgili hatırlatmalar…"
+                                rows={2}
+                                hint="Bu not yalnızca ekip içinde görünür, müşteriye gönderilmez."
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                <footer className="flex flex-wrap justify-end gap-3 px-6 sm:px-7 py-5 bg-[#f5f5f7] border-t border-gray-100 shrink-0">
+                    <button
+                        type="button"
+                        onClick={requestClose}
+                        className="h-11 px-5 rounded-xl text-[13px] font-semibold text-gray-600 hover:bg-white transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
+                    >
+                        Vazgeç
+                    </button>
+                    <button
+                        type="submit"
+                        disabled={busy}
+                        className="inline-flex items-center gap-2 h-11 px-6 rounded-xl bg-[#0071e3] text-white text-[13px] font-semibold hover:bg-[#0077ed] disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm shadow-[#0071e3]/20 outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
+                    >
+                        <Check size={16} aria-hidden="true" />
+                        {busy ? 'Kaydediliyor…' : (isEdit ? 'Değişiklikleri Kaydet' : 'Müşteriyi Kaydet')}
+                    </button>
+                </footer>
+            </form>
+        </div>
+    );
+};
+
+/* --------------------------------- ana ekran --------------------------------- */
 
 const Customers = ({ setActiveTab, setServiceInitialData }) => {
-    const { customers, addCustomer, updateCustomer, repairs, sendWhatsApp, removeCustomer, currentUser } = useAppContext();
-    // İşlem yetkileri (görüntüleme herkese açık)
+    const {
+        customers, addCustomer, updateCustomer, removeCustomer,
+        repairs, sendWhatsApp, currentUser, showToast,
+    } = useAppContext();
+
     const canManageCustomers = hasPermission(currentUser, 'manage_customers');
     const canDeleteCustomers = hasPermission(currentUser, 'delete_customers');
+    const canMessage = hasPermission(currentUser, 'send_customer_message');
 
-    const [searchTerm, setSearchTerm] = useState('');
-    const [showModal, setShowModal] = useState(false);
-    const [isEditing, setIsEditing] = useState(false);
-    const [selectedCustomer, setSelectedCustomer] = useState(null); // For detail view
+    const [query, setQuery] = useState('');
+    const [typeFilter, setTypeFilter] = useState('all');
+    const [groupBy, setGroupBy] = useState('letter'); // 'letter' | 'type'
+    const [collapsedGroups, setCollapsedGroups] = useState([]);
+    const [selectedId, setSelectedId] = useState(null);
+    const [editorOpen, setEditorOpen] = useState(false);
+    const [editing, setEditing] = useState(null);
 
-    // --- Customer Form ---
-    const [formData, setFormData] = useState({
-        name: '', phone: '', email: '', type: 'Bireysel', address: '', notes: ''
-    });
+    const list = customers || [];
 
-    const openAddModal = () => {
-        setIsEditing(false);
-        setFormData({ name: '', phone: '', email: '', type: 'Bireysel', address: '', notes: '' });
-        setShowModal(true);
+    /** Seçili müşteri her zaman güncel listeden okunur; düzenleme sonrası tazelenir */
+    const selectedCustomer = useMemo(
+        () => list.find(c => String(customerKey(c)) === String(selectedId)) || null,
+        [list, selectedId]
+    );
+
+    const totals = useMemo(() => {
+        const withHistory = new Set(
+            (repairs || []).map(r => normalize(r.customerPhone || '')).filter(Boolean)
+        );
+        return {
+            all: list.length,
+            corporate: list.filter(isCorporate).length,
+            individual: list.filter(c => !isCorporate(c)).length,
+            active: list.filter(c => withHistory.has(normalize(c.phone || ''))).length,
+        };
+    }, [list, repairs]);
+
+    const filtered = useMemo(() => {
+        const q = normalize(query.trim());
+        return list
+            .filter(c => typeFilter === 'all' || (typeFilter === 'kurumsal' ? isCorporate(c) : !isCorporate(c)))
+            .filter(c => !q || [c.name, c.phone, c.email, c.id, c.address]
+                .some(v => normalize(v).includes(q)))
+            .slice()
+            .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'tr'));
+    }, [list, query, typeFilter]);
+
+    /** Harfe ya da tipe göre gruplar */
+    const groups = useMemo(() => {
+        const map = new Map();
+        filtered.forEach(customer => {
+            const key = groupBy === 'letter'
+                ? (String(customer.name || '#').charAt(0).toLocaleUpperCase('tr') || '#')
+                : (isCorporate(customer) ? 'Kurumsal' : 'Bireysel');
+            if (!map.has(key)) map.set(key, []);
+            map.get(key).push(customer);
+        });
+        return [...map.entries()].sort(([a], [b]) => a.localeCompare(b, 'tr'));
+    }, [filtered, groupBy]);
+
+    // Gruplama biçimi değişince kapatılmış grupları sıfırla (hepsi açık başlar)
+    useEffect(() => { setCollapsedGroups([]); }, [groupBy]);
+
+    const allCollapsed = groups.length > 0 && groups.every(([key]) => collapsedGroups.includes(key));
+
+    const toggleGroup = (key) => {
+        setCollapsedGroups(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
     };
 
-    const openEditModal = (customer) => {
-        setIsEditing(true);
-        setFormData(customer);
-        setShowModal(true);
+    /** Seçili müşterinin servis geçmişi, tarihe göre yeniden eskiye */
+    const history = useMemo(() => {
+        if (!selectedCustomer) return [];
+        const name = normalize(selectedCustomer.name);
+        const phone = String(selectedCustomer.phone || '').replace(/\D/g, '');
+        return (repairs || [])
+            .filter(r => {
+                if (phone && String(r.customerPhone || '').replace(/\D/g, '') === phone) return true;
+                return Boolean(name) && normalize(r.customer) === name;
+            })
+            .slice()
+            .sort((a, b) => {
+                const da = parseRepairDate(a.date);
+                const db = parseRepairDate(b.date);
+                if (!da && !db) return 0;
+                if (!da) return 1;
+                if (!db) return -1;
+                return db - da;
+            });
+    }, [selectedCustomer, repairs]);
+
+    const historyStats = useMemo(() => ({
+        total: history.length,
+        open: history.filter(r => !isClosed(r)).length,
+        closed: history.filter(isClosed).length,
+        last: history[0]?.date || null,
+    }), [history]);
+
+    const openEditor = (customer = null) => {
+        setEditing(customer);
+        setEditorOpen(true);
     };
 
-    const handleSaveCustomer = async (e) => {
-        e.preventDefault();
-        if (isEditing) {
-            await updateCustomer(formData._id || formData.id, formData);
-            if (selectedCustomer?.id === formData.id) {
-                setSelectedCustomer(prev => ({ ...prev, ...formData }));
-            }
-        } else {
-            await addCustomer(formData);
+    const closeEditor = () => {
+        setEditorOpen(false);
+        setEditing(null);
+    };
+
+    const handleSubmit = async (data) => {
+        if (editing) {
+            const ok = await updateCustomer(customerKey(editing), data);
+            if (ok) showToast('Müşteri bilgileri güncellendi.', 'success');
+            return ok;
         }
-        setShowModal(false);
+        const saved = await addCustomer(data);
+        if (saved) {
+            showToast(`${data.name} rehbere eklendi.`, 'success');
+            setSelectedId(customerKey(saved));
+            return true;
+        }
+        return false;
+    };
+
+    const handleDelete = async (customer) => {
+        const confirmed = await appConfirm(
+            `${customer.name} müşterisi veritabanından kalıcı olarak silinecek. Servis kayıtları silinmez ancak müşteri kartıyla bağı kopar. Onaylıyor musunuz?`
+        );
+        if (!confirmed) return;
+
+        const ok = await removeCustomer(customerKey(customer));
+        if (ok) {
+            if (String(customerKey(customer)) === String(selectedId)) setSelectedId(null);
+            showToast(`${customer.name} rehberden silindi.`, 'success');
+        } else {
+            showToast('Müşteri silinemedi. Yetkinizi kontrol edin.', 'error');
+        }
+    };
+
+    const toggleTag = async (tag) => {
+        if (!selectedCustomer) return;
+        const current = selectedCustomer.tags || [];
+        const next = current.includes(tag) ? current.filter(t => t !== tag) : [...current, tag];
+        const ok = await updateCustomer(customerKey(selectedCustomer), { tags: next });
+        if (ok) showToast(current.includes(tag) ? `"${tag}" etiketi kaldırıldı.` : `"${tag}" etiketi eklendi.`, 'success');
     };
 
     const handleNewRepair = () => {
@@ -55,467 +477,374 @@ const Customers = ({ setActiveTab, setServiceInitialData }) => {
             customerPhone: selectedCustomer.phone,
             customerEmail: selectedCustomer.email,
             customerAddress: selectedCustomer.address,
-            customerTC: selectedCustomer.id // Using ID as Account ID/TC
+            customerTC: selectedCustomer.tc || '',
         });
         setActiveTab('service');
     };
 
-    const toggleTag = (tag) => {
-        if (!selectedCustomer) return;
-        const currentTags = selectedCustomer.tags || [];
-        const newTags = currentTags.includes(tag)
-            ? currentTags.filter(t => t !== tag)
-            : [...currentTags, tag];
-
-        updateCustomer(selectedCustomer.id, { tags: newTags });
-        setSelectedCustomer(prev => ({ ...prev, tags: newTags }));
-    };
-
-    const confirmAndDeleteCustomer = async (customer) => {
-        if (!customer) return;
-        
-        const confirmed = await appConfirm(
-            `<div class="text-red-600 font-bold mb-2">DİKKAT: MÜŞTERİ SİLİNİYOR</div>
-            <span><b>${customer.name}</b> isimli müşteri veritabanından kalıcı olarak silinecektir. Onaylıyor musunuz?</span>`
-        );
-
-        if (confirmed) {
-            const success = await removeCustomer(customer._id || customer.id);
-            if (success !== false) {
-                if (selectedCustomer?.id === customer.id || selectedCustomer?._id === customer._id) {
-                    setSelectedCustomer(null);
-                }
-            }
+    const copy = async (value, label) => {
+        try {
+            await navigator.clipboard.writeText(String(value));
+            showToast(`${label} kopyalandı.`, 'success');
+        } catch {
+            showToast(`Kopyalanamadı: ${value}`, 'warning');
         }
     };
-
-    // Filter Logic
-    const filteredCustomers = customers.filter(c =>
-        c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        c.phone.includes(searchTerm) ||
-        c.id.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
-    // eslint-disable-next-line no-unused-vars
-    const [groupBy, setGroupBy] = useState('letter'); // 'letter' | 'type'
-    const [collapsedGroups, setCollapsedGroups] = useState([]);
-
-    // Sort and Group
-    const groupedCustomers = filteredCustomers.sort((a, b) => a.name.localeCompare(b.name, 'tr')).reduce((acc, customer) => {
-        let key = '';
-        if (groupBy === 'letter') {
-            key = customer.name.charAt(0).toUpperCase();
-        } else {
-            key = customer.type || 'Bireysel';
-        }
-        if (!acc[key]) acc[key] = [];
-        acc[key].push(customer);
-        return acc;
-    }, {});
-
-    const sortedGroups = Object.keys(groupedCustomers).sort((a, b) => a.localeCompare(b, 'tr'));
-
-    // Default collapse all groups on first load
-    useEffect(() => {
-        setCollapsedGroups(sortedGroups);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [groupBy]);
-
-    const toggleGroup = (key) => {
-        setCollapsedGroups(prev => 
-            prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
-        );
-    };
-
-    // Get History for Selected Customer
-    const customerHistory = selectedCustomer
-        ? repairs.filter(r => r.customer?.toLowerCase() === selectedCustomer.name.toLowerCase() || r.customerPhone === selectedCustomer.phone)
-        : [];
 
     return (
-        <div className="space-y-6 animate-fade-in">
-
-            {/* Header - Ana Sayfa Stili */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 py-4 border-b border-gray-100 mb-6">
-                <div className="flex items-center gap-4">
-                    <div className="p-3 bg-blue-50 rounded-md text-blue-600 border border-blue-100 shadow-sm">
-                        <User size={28} />
-                    </div>
+        <div className="space-y-8 animate-fade-in">
+            {/* Başlık + özet */}
+            <header className="space-y-6">
+                <div className="flex flex-wrap items-end justify-between gap-4">
                     <div>
-                        <h2 className="text-3xl font-semibold text-gray-900 tracking-tight">Müşteri Rehberi</h2>
-                        <p className="text-gray-500 mt-1 font-medium">Müşteri portföyünüzü ve servis geçmişlerini yönetin.</p>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-[#0071e3]">Müşteri Yönetimi</p>
+                        <h3 className="text-[22px] font-semibold text-[#1d1d1f] tracking-tight">Müşteri Rehberi</h3>
+                        <p className="text-[13px] font-medium text-gray-500 mt-1">
+                            Müşteri künyelerini ve servis geçmişlerini tek ekrandan yönetin.
+                        </p>
                     </div>
-                </div>
 
-                <div className="flex items-center gap-3">
-                    <div className="relative w-full md:w-80">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                        <input
-                            type="text"
-                            placeholder="Müşteri Ara..."
-                            className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-md text-sm font-bold focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all shadow-sm"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
-                    </div>
                     {canManageCustomers && (
                         <button
-                            onClick={openAddModal}
-                            className="h-10 px-4 bg-gray-900 text-white rounded-md text-[11px] font-bold uppercase tracking-wider hover:bg-black transition-all flex items-center gap-2 shadow-md active:scale-95"
+                            type="button"
+                            onClick={() => openEditor()}
+                            className="inline-flex items-center gap-2 h-11 px-5 rounded-xl bg-[#0071e3] text-white text-[13px] font-semibold hover:bg-[#0077ed] transition-all shadow-sm shadow-[#0071e3]/20 outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
                         >
-                            <Plus size={16} /> YENİ MÜŞTERİ
+                            <Plus size={16} aria-hidden="true" /> Yeni Müşteri
+                        </button>
+                    )}
+                </div>
+
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <StatTile icon={Users} label="Toplam Müşteri" value={totals.all} unit="kayıt" />
+                    <StatTile icon={User} label="Bireysel" value={totals.individual} unit="kayıt" />
+                    <StatTile icon={Building2} label="Kurumsal" value={totals.corporate} unit="kayıt" tone="bg-[#0071e3]/5 border-[#0071e3]/15" />
+                    <StatTile icon={Wrench} label="Servis Geçmişi Olan" value={totals.active} unit="kayıt" tone="bg-[#008000]/6 border-[#008000]/18" />
+                </div>
+            </header>
+
+            {/* Araç çubuğu */}
+            <div className="flex flex-col xl:flex-row xl:items-center gap-3">
+                <div className="relative flex-1 max-w-md">
+                    <label htmlFor="cst-search" className="sr-only">Müşteri ara</label>
+                    <Search size={15} aria-hidden="true" className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                    <input
+                        id="cst-search"
+                        type="search"
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        placeholder="Ad, telefon, e-posta veya adres ara…"
+                        className="w-full h-11 pl-11 pr-4 bg-white border border-gray-200 rounded-xl text-[13px] font-medium outline-none focus:border-[#0071e3] focus-visible:ring-4 focus-visible:ring-[#0071e3]/25 transition-all"
+                    />
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3">
+                    <div role="group" aria-label="Müşteri tipine göre filtrele" className="flex bg-[#f5f5f7] p-1 rounded-xl border border-gray-200/60">
+                        {TYPE_FILTERS.map(filter => (
+                            <SegmentButton
+                                key={filter.id}
+                                active={typeFilter === filter.id}
+                                onClick={() => setTypeFilter(filter.id)}
+                                count={filter.id === 'all' ? totals.all : (filter.id === 'kurumsal' ? totals.corporate : totals.individual)}
+                            >
+                                {filter.label}
+                            </SegmentButton>
+                        ))}
+                    </div>
+
+                    <div role="group" aria-label="Gruplama biçimi" className="flex bg-[#f5f5f7] p-1 rounded-xl border border-gray-200/60">
+                        <SegmentButton active={groupBy === 'letter'} onClick={() => setGroupBy('letter')}>Harfe Göre</SegmentButton>
+                        <SegmentButton active={groupBy === 'type'} onClick={() => setGroupBy('type')}>Tipe Göre</SegmentButton>
+                    </div>
+
+                    {groups.length > 0 && (
+                        <button
+                            type="button"
+                            onClick={() => setCollapsedGroups(allCollapsed ? [] : groups.map(([key]) => key))}
+                            className="h-11 px-4 rounded-xl bg-white border border-gray-200 text-[12px] font-semibold text-gray-600 hover:text-[#1d1d1f] hover:bg-[#f5f5f7] transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
+                        >
+                            {allCollapsed ? 'Tümünü Aç' : 'Tümünü Kapat'}
                         </button>
                     )}
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                {/* Sol Liste (Gridified Collapsible List) */}
-                <div className={`${selectedCustomer ? 'hidden lg:block lg:col-span-4' : 'col-span-12'} space-y-6 h-screen overflow-y-auto pr-4 custom-scrollbar sticky top-28 pb-40 px-2`}>
-                    {sortedGroups.length === 0 ? (
-                        <div className="text-center py-12 bg-white rounded-lg border border-dashed border-gray-300">
-                            <User size={48} className="mx-auto text-gray-300 mb-4" />
-                            <p className="text-gray-500 font-medium">Kayıtlı müşteri bulunamadı.</p>
-                        </div>
+            {/* Liste + künye */}
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+                <section
+                    aria-label="Müşteri listesi"
+                    className={selectedCustomer ? 'xl:col-span-5' : 'xl:col-span-12'}
+                >
+                    {groups.length === 0 ? (
+                        <EmptyState
+                            icon={Users}
+                            title={list.length === 0 ? 'Rehber henüz boş' : 'Eşleşen müşteri yok'}
+                            description={list.length === 0
+                                ? 'İlk müşteri kaydını oluşturarak başlayın.'
+                                : 'Arama ya da filtreleri değiştirerek tekrar deneyin.'}
+                        />
                     ) : (
-                        sortedGroups.map(groupKey => {
-                            const isCollapsed = collapsedGroups.includes(groupKey);
-                            return (
-                                <div key={groupKey} className={`group/section rounded-lg border transition-all duration-300 ${isCollapsed ? 'bg-gray-50/50 border-gray-200 shadow-sm' : 'bg-transparent border-transparent'}`}>
-                                    <div 
-                                        onClick={() => toggleGroup(groupKey)}
-                                        className="flex justify-between items-center h-14 px-5 cursor-pointer hover:bg-gray-100/50 rounded-lg transition-colors"
-                                    >
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-md bg-gray-900 text-white flex items-center justify-center font-semibold text-[11px] shadow-sm group-hover/section:scale-110 transition-transform">
-                                                {groupKey}
-                                            </div>
-                                            <span className="text-[11px] font-semibold text-xs uppercase tracking-wide text-gray-400">{groupKey === 'letter' ? 'Harf Grubu' : groupBy === 'letter' ? 'Grup' : groupKey}</span>
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                            <span className="text-[9px] font-semibold text-gray-400 bg-white px-2 py-1 rounded-lg border border-gray-100 shadow-sm">
-                                                {groupedCustomers[groupKey].length} KİŞİ
-                                            </span>
-                                            <div className={`p-1.5 rounded-lg bg-white border border-gray-100 text-gray-400 transition-all duration-300 ${isCollapsed ? '' : 'rotate-180 bg-gray-900 text-white border-gray-900 shadow-md'}`}>
-                                                <ChevronRight size={12} className="rotate-90" />
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <Collapse open={!isCollapsed}>
-                                        {() => (
-                                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-2.5 p-2.5">
-                                            {groupedCustomers[groupKey].map(customer => (
-                                                <button
-                                                    key={customer.id}
-                                                    onClick={() => setSelectedCustomer(customer)}
-                                                    className={`aspect-square p-2 rounded-[22px] border-2 transition-all flex flex-col items-center justify-center text-center relative group/card ${selectedCustomer?.id === customer.id
-                                                        ? 'bg-gray-900 border-gray-900 text-white shadow-sm scale-[1.05] z-10'
-                                                        : 'bg-white border-white/60 hover:bg-white hover:border-gray-900 hover:shadow-sm'
-                                                        }`}
-                                                >
-                                                    <div className={`w-9 h-9 rounded-md flex items-center justify-center font-semibold text-sm mb-1 shadow-inner transition-transform group-hover/card:scale-110 ${selectedCustomer?.id === customer.id ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-900'
-                                                        }`}>
-                                                        {customer.name.substring(0, 1).toUpperCase()}
-                                                    </div>
-                                                    <p className={`text-[9px] font-semibold leading-[1.1] uppercase line-clamp-2 px-0.5 tracking-tight ${selectedCustomer?.id === customer.id ? 'text-white' : 'text-gray-900'}`}>
-                                                        {customer.name}
-                                                    </p>
-                                                    {customer.tags?.includes('VIP') && (
-                                                        <div className="absolute -top-0.5 -right-0.5 bg-yellow-400 p-1 rounded-lg shadow-md border-2 border-white">
-                                                            <Tag size={8} className="text-yellow-900 fill-current" />
-                                                        </div>
-                                                    )}
+                        <div className={`space-y-3 ${selectedCustomer ? 'xl:max-h-[calc(100vh-320px)] xl:overflow-y-auto xl:pr-2 custom-scrollbar' : ''}`}>
+                            {groups.map(([key, groupCustomers]) => {
+                                const collapsed = collapsedGroups.includes(key);
+                                const panelId = `customer-group-${normalize(key).replace(/[^a-z0-9]+/g, '-') || 'grup'}`;
 
-                                                    {/* Quick Delete for Superadmin */}
-                                                    {canDeleteCustomers && (
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                confirmAndDeleteCustomer(customer);
-                                                            }}
-                                                            className="absolute -top-2 -left-2 bg-red-500 text-white p-1.5 rounded-lg shadow-lg opacity-0 group-hover/card:opacity-100 transition-all hover:scale-110 active:scale-95 z-20"
-                                                            title="Müşteriyi Sil"
-                                                        >
-                                                            <Trash2 size={12} />
-                                                        </button>
-                                                    )}
-                                                </button>
+                                return (
+                                    <div key={key} className="rounded-[20px] border border-gray-200 bg-white overflow-hidden">
+                                        <h4 className="m-0">
+                                            <button
+                                                type="button"
+                                                onClick={() => toggleGroup(key)}
+                                                aria-expanded={!collapsed}
+                                                aria-controls={panelId}
+                                                className="w-full flex items-center justify-between gap-3 px-4 py-3 bg-[#f5f5f7]/70 hover:bg-[#f5f5f7] transition-colors outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
+                                            >
+                                                <span className="flex items-center gap-3 min-w-0">
+                                                    <span aria-hidden="true" className="w-8 h-8 rounded-lg bg-[#1d1d1f] text-white flex items-center justify-center text-[12px] font-semibold shrink-0">
+                                                        {key}
+                                                    </span>
+                                                    <span className="text-[12px] font-semibold text-[#1d1d1f] truncate">
+                                                        {groupBy === 'letter' ? `${key} ile başlayanlar` : `${key} müşteriler`}
+                                                    </span>
+                                                </span>
+                                                <span className="flex items-center gap-2.5 shrink-0">
+                                                    <span className="text-[10px] font-bold text-gray-600 bg-white border border-gray-200 rounded-full px-2.5 py-1">
+                                                        {groupCustomers.length} kişi
+                                                    </span>
+                                                    <ChevronDown
+                                                        size={15}
+                                                        aria-hidden="true"
+                                                        className={`text-gray-400 transition-transform ${collapsed ? '' : 'rotate-180'}`}
+                                                    />
+                                                </span>
+                                            </button>
+                                        </h4>
+
+                                        <Collapse open={!collapsed}>
+                                            {() => (
+                                                <ul id={panelId} className="list-none p-3 m-0 space-y-2">
+                                                    {groupCustomers.map(customer => (
+                                                        <CustomerRow
+                                                            key={customerKey(customer)}
+                                                            customer={customer}
+                                                            selected={String(customerKey(customer)) === String(selectedId)}
+                                                            canDelete={canDeleteCustomers}
+                                                            onSelect={(c) => setSelectedId(customerKey(c))}
+                                                            onDelete={handleDelete}
+                                                        />
+                                                    ))}
+                                                </ul>
+                                            )}
+                                        </Collapse>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </section>
+
+                {selectedCustomer && (
+                    <section aria-label="Müşteri künyesi" className="xl:col-span-7 space-y-5">
+                        {/* Künye başlığı */}
+                        <div className="rounded-[24px] border border-gray-200 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5 sm:p-6">
+                            <div className="flex items-start justify-between gap-4">
+                                <div className="flex items-start gap-4 min-w-0">
+                                    <span aria-hidden="true" className="w-14 h-14 rounded-2xl bg-[#1d1d1f] text-white flex items-center justify-center text-[17px] font-semibold shrink-0">
+                                        {initialsOf(selectedCustomer.name)}
+                                    </span>
+                                    <div className="min-w-0">
+                                        <h4 className="text-[18px] font-semibold text-[#1d1d1f] truncate">{selectedCustomer.name}</h4>
+                                        <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                                            <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 bg-[#f5f5f7] border border-gray-200 rounded-full px-2.5 py-1">
+                                                {isCorporate(selectedCustomer) ? 'Kurumsal' : 'Bireysel'}
+                                            </span>
+                                            {(selectedCustomer.tags || []).map(tag => (
+                                                <span key={tag} className="text-[10px] font-bold uppercase tracking-widest text-[#0071e3] bg-[#0071e3]/8 border border-[#0071e3]/20 rounded-full px-2.5 py-1">
+                                                    {tag}
+                                                </span>
                                             ))}
                                         </div>
-                                        )}
-                                    </Collapse>
-                                </div>
-                            );
-                        })
-                    )}
-                </div>
-
-                {/* Sağ Detay Paneli (Premium Redesign) */}
-                {selectedCustomer && (
-                    <div className="lg:col-span-8 animate-in slide-in-from-bottom-8 duration-700">
-                        <div className="bg-white/80 backdrop-blur-2xl rounded-lg shadow-sm border border-white overflow-hidden sticky top-28 h-fit max-h-[calc(100vh-140px)] flex flex-col">
-                            
-                            {/* Profile Header Block */}
-                            <div className="relative shrink-0 p-10 pb-6 bg-gradient-to-br from-gray-50 via-white to-gray-50 border-b border-gray-100">
-                                <div className="absolute top-0 right-0 p-12 opacity-[0.03] select-none pointer-events-none">
-                                    <User size={240} strokeWidth={1} />
+                                    </div>
                                 </div>
 
-                                {/* Top Actions */}
-                                <div className="flex justify-between items-start mb-8 relative z-10">
+                                <button
+                                    type="button"
+                                    onClick={() => setSelectedId(null)}
+                                    className="xl:hidden h-9 w-9 shrink-0 rounded-lg border border-gray-200 bg-white text-gray-400 hover:text-[#1d1d1f] flex items-center justify-center transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
+                                >
+                                    <X size={16} aria-hidden="true" />
+                                    <span className="sr-only">Künyeyi kapat</span>
+                                </button>
+                            </div>
+
+                            <div className="flex flex-wrap gap-2.5 mt-5 pt-5 border-t border-gray-100">
+                                <button
+                                    type="button"
+                                    onClick={handleNewRepair}
+                                    className="inline-flex items-center gap-2 h-10 px-4 rounded-xl bg-[#0071e3] text-white text-[12px] font-semibold hover:bg-[#0077ed] transition-all shadow-sm shadow-[#0071e3]/20 outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
+                                >
+                                    <Plus size={15} aria-hidden="true" /> Yeni Servis Kaydı
+                                </button>
+                                {canMessage && selectedCustomer.phone && (
                                     <button
-                                        onClick={() => setSelectedCustomer(null)}
-                                        className="lg:hidden text-gray-500 bg-white shadow-sm border border-gray-100 p-3 rounded-md hover:bg-gray-50 transition-all"
+                                        type="button"
+                                        onClick={() => sendWhatsApp(
+                                            selectedCustomer.phone,
+                                            `Merhaba ${selectedCustomer.name}, Troy Teknik Servis'ten yazıyoruz.`
+                                        )}
+                                        className="inline-flex items-center gap-2 h-10 px-4 rounded-xl bg-white border border-gray-200 text-[12px] font-semibold text-[#1d7a4c] hover:bg-[#008000]/5 hover:border-[#008000]/25 transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#008000]/25"
                                     >
-                                        <ChevronRight className="rotate-180" size={20} />
+                                        <MessageCircle size={15} aria-hidden="true" /> WhatsApp
                                     </button>
-                                    
-                                    <div className="flex gap-3 ml-auto">
-                                        {canDeleteCustomers && (
-                                            <button
-                                                onClick={() => confirmAndDeleteCustomer(selectedCustomer)}
-                                                className="border border-red-200 px-4 py-2 hover:bg-red-50 bg-white rounded-md text-sm font-semibold flex items-center gap-2 text-red-600 transition-colors"
-                                                title="Müşteriyi Sil"
-                                            >
-                                                <Trash2 size={16} /> Sil
-                                            </button>
-                                        )}
-                                        {canManageCustomers && (
-                                            <button
-                                                onClick={() => openEditModal(selectedCustomer)}
-                                                className="border border-[#d2d2d7] px-4 py-2 hover:bg-[#f5f5f7] bg-white rounded-md text-sm font-semibold flex items-center gap-2 text-gray-700"
-                                            >
-                                                <Edit size={16} /> Düzenle
-                                            </button>
-                                        )}
-                                        <button
-                                            onClick={handleNewRepair}
-                                            className="gsx-button-primary px-4 py-2 text-sm"
-                                        >
-                                            <Plus size={16} strokeWidth={3} /> Yeni Servis
-                                        </button>
-                                    </div>
-                                </div>
+                                )}
+                                {canManageCustomers && (
+                                    <button
+                                        type="button"
+                                        onClick={() => openEditor(selectedCustomer)}
+                                        className="inline-flex items-center gap-2 h-10 px-4 rounded-xl bg-white border border-gray-200 text-[12px] font-semibold text-[#1d1d1f] hover:bg-[#f5f5f7] transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
+                                    >
+                                        <Pencil size={15} aria-hidden="true" /> Düzenle
+                                    </button>
+                                )}
+                                {canDeleteCustomers && (
+                                    <button
+                                        type="button"
+                                        onClick={() => handleDelete(selectedCustomer)}
+                                        className="inline-flex items-center gap-2 h-10 px-4 rounded-xl bg-white border border-gray-200 text-[12px] font-semibold text-[#c30000] hover:bg-[#e30000]/5 hover:border-[#e30000]/25 transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#e30000]/25"
+                                    >
+                                        <Trash2 size={15} aria-hidden="true" /> Sil
+                                    </button>
+                                )}
+                            </div>
+                        </div>
 
-                                <div className="flex items-end gap-8 relative z-10">
-                                    <div className="relative group">
-                                        <div className="w-32 h-32 rounded-lg bg-white p-1 shadow-sm ring-4 ring-gray-50/50">
-                                            <div className="w-full h-full bg-gradient-to-br from-gray-900 to-black rounded-[36px] flex items-center justify-center text-4xl font-semibold text-white shadow-inner">
-                                                {selectedCustomer.name.substring(0, 1).toUpperCase()}
-                                            </div>
-                                        </div>
-                                        <div className="absolute -bottom-2 -right-2 w-10 h-10 bg-green-500 border-4 border-white rounded-md flex items-center justify-center shadow-sm">
-                                            <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                                        </div>
-                                    </div>
+                        {/* Servis özeti */}
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                            <StatTile icon={Clock} label="Toplam Servis" value={historyStats.total} unit="kayıt" />
+                            <StatTile icon={Wrench} label="Açık Kayıt" value={historyStats.open} unit="adet" tone={historyStats.open ? 'bg-[#ff9500]/8 border-[#ff9500]/20' : 'bg-white border-gray-200'} />
+                            <StatTile icon={CheckCircle} label="Kapanan" value={historyStats.closed} unit="adet" tone="bg-[#008000]/6 border-[#008000]/18" />
+                            <StatTile icon={Tag} label="Son Servis" value={historyStats.last ? formatDay(historyStats.last) : '—'} />
+                        </div>
 
-                                    <div className="flex-1 mb-2">
-                                        <div className="flex items-center gap-3 mb-2">
-                                            <h1 className="text-4xl font-semibold text-gray-900 tracking-tight uppercase">{selectedCustomer.name}</h1>
-                                            <span className="bg-blue-50 text-blue-600 text-[10px] font-semibold px-3 py-1 rounded-full border border-blue-100 text-xs uppercase tracking-wide">{selectedCustomer.type}</span>
-                                        </div>
-                                        <div className="flex flex-wrap items-center gap-4 text-gray-400 text-sm font-bold">
-                                            <div className="flex items-center gap-2">
-                                                <span className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-md border border-gray-100 shadow-sm text-gray-600">
-                                                    <MyPhoneIcon size={14} className="text-blue-500" /> {selectedCustomer.phone}
-                                                </span>
-                                                <button 
-                                                    onClick={() => sendWhatsApp(selectedCustomer.phone, `Merhaba %s, Troy Teknik Servis'ten Arıyoruz...`)}
-                                                    className="p-1.5 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-all shadow-sm shadow-emerald-100 active:scale-90"
-                                                    title="WhatsApp'tan Yaz"
-                                                >
-                                                    <MessageCircle size={16} fill="currentColor" />
-                                                </button>
-                                            </div>
-                                            {selectedCustomer.email && (
-                                                <span className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-md border border-gray-100 shadow-sm text-gray-600"><Mail size={14} className="text-purple-500" /> {selectedCustomer.email}</span>
-                                            )}
-                                            <span className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-md border border-gray-100 shadow-sm text-gray-600"><Tag size={14} className="text-orange-500" /> {selectedCustomer.id}</span>
-                                        </div>
-                                    </div>
+                        {/* İletişim + adres */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div className="rounded-[24px] border border-gray-200 bg-white p-5 sm:p-6">
+                                <h5 className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-2">İletişim</h5>
+                                <div className="divide-y divide-gray-100">
+                                    <ContactLine
+                                        icon={MyPhoneIcon} label="Telefon" value={selectedCustomer.phone} mono
+                                        onCopy={() => copy(selectedCustomer.phone, 'Telefon')}
+                                    />
+                                    <ContactLine
+                                        icon={Mail} label="E-Posta" value={selectedCustomer.email}
+                                        onCopy={() => copy(selectedCustomer.email, 'E-posta')}
+                                    />
+                                    <ContactLine
+                                        icon={Tag} label="Müşteri No" value={selectedCustomer.id} mono
+                                        onCopy={() => copy(selectedCustomer.id, 'Müşteri no')}
+                                    />
                                 </div>
                             </div>
 
-                            {/* Scrollable Content */}
-                            <div className="flex-1 overflow-y-auto custom-scrollbar p-10 pt-8 space-y-10">
-                                
-                                {/* Quick Stats Section */}
-                                <div className="grid grid-cols-3 gap-6">
-                                    <div className="bg-white p-6 rounded-lg border border-gray-100 shadow-sm hover:shadow-md transition-shadow group">
-                                        <div className="w-10 h-10 rounded-md bg-blue-50 flex items-center justify-center text-blue-600 mb-4 group-hover:scale-110 transition-transform">
-                                            <Clock size={20} />
-                                        </div>
-                                        <p className="text-gray-400 text-[10px] font-semibold uppercase tracking-wider mb-1">Toplam Geçmiş</p>
-                                        <p className="text-3xl font-semibold text-gray-900 leading-none">{customerHistory.length} <span className="text-xs text-gray-300 font-bold">Adet</span></p>
-                                    </div>
-                                    <div className="bg-white p-6 rounded-lg border border-gray-100 shadow-sm hover:shadow-md transition-shadow group">
-                                        <div className="w-10 h-10 rounded-md bg-green-50 flex items-center justify-center text-green-600 mb-4 group-hover:scale-110 transition-transform">
-                                            <DollarSign size={20} />
-                                        </div>
-                                        <p className="text-gray-400 text-[10px] font-semibold uppercase tracking-wider mb-1">Hesap Hareketleri</p>
-                                        <p className="text-3xl font-semibold text-gray-900 leading-none">₺{customerHistory.length * 1250} <span className="text-xs text-gray-300 font-bold">NET</span></p>
-                                    </div>
-                                    <div className="bg-white p-6 rounded-lg border border-gray-100 shadow-sm hover:shadow-md transition-shadow group text-right">
-                                        <div className="w-10 h-10 rounded-md bg-purple-50 flex items-center justify-center text-purple-600 mb-4 ml-auto group-hover:scale-110 transition-transform">
-                                            <Calendar size={20} />
-                                        </div>
-                                        <p className="text-gray-400 text-[10px] font-semibold uppercase tracking-wider mb-1">Son Etkileşim</p>
-                                        <p className="text-xl font-semibold text-gray-900 leading-none truncate">{customerHistory.length > 0 ? customerHistory[0].date : 'YOK'}</p>
-                                    </div>
+                            <div className="rounded-[24px] border border-gray-200 bg-white p-5 sm:p-6 space-y-5">
+                                <div>
+                                    <h5 className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-2">
+                                        <MapPin size={12} aria-hidden="true" /> Adres
+                                    </h5>
+                                    <p className="text-[13px] font-medium text-gray-600 leading-relaxed">
+                                        {selectedCustomer.address || <span className="text-gray-400">Adres girilmemiş.</span>}
+                                    </p>
                                 </div>
-
-                                {/* Information & Notes */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                    {/* Address & Identity */}
-                                    <div className="space-y-6">
-                                        <div className="bg-gray-50/50 p-8 rounded-lg border border-gray-100 relative overflow-hidden group">
-                                            <div className="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
-                                            <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
-                                                <MapPin size={14} className="text-blue-500" /> Adres ve Lokasyon
-                                            </h4>
-                                            <p className="text-gray-700 font-bold leading-relaxed">
-                                                {selectedCustomer.address || 'Henüz bir adres bilgisi tanımlanmamış. Düzenle butonu ile adres ekleyebilirsiniz.'}
-                                            </p>
-                                        </div>
-
-                                        <div className="bg-gray-50/50 p-8 rounded-lg border border-gray-100 relative overflow-hidden">
-                                            <div className="absolute top-0 left-0 w-1 h-full bg-orange-500"></div>
-                                            <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
-                                                <Edit size={14} className="text-orange-500" /> Müşteri Özel Notları
-                                            </h4>
-                                            <p className="text-gray-600 font-medium italic text-sm leading-relaxed">
-                                                {selectedCustomer.notes || 'Herhangi bir özel not bulunmuyor.'}
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    {/* Tags & Categories */}
-                                    <div className="bg-gray-50 p-8 rounded-lg border border-gray-100 flex flex-col">
-                                        <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
-                                            <Tag size={16} /> Aktif Segmentasyon
-                                        </h4>
-                                        <div className="flex flex-wrap gap-2 mb-auto">
-                                            {['VIP', 'Sorunlu', 'Kurumsal', 'Sadık Müşteri'].map(tag => (
-                                                <button
-                                                    key={tag}
-                                                    onClick={() => toggleTag(tag)}
-                                                    className={`px-4 py-2 rounded-md text-[10px] font-semibold border transition-all ${selectedCustomer.tags?.includes(tag)
-                                                        ? 'bg-gray-900 text-white border-gray-900 shadow-sm shadow-gray-300'
-                                                        : 'bg-white text-gray-400 border-gray-200 hover:border-gray-400 hover:text-gray-600'
-                                                        }`}
-                                                >
-                                                    {tag}
-                                                </button>
-                                            ))}
-                                        </div>
-                                        
-                                        <div className="mt-8 p-5 bg-white rounded-lg border border-gray-200/60 shadow-inner">
-                                            <p className="text-[10px] font-semibold text-gray-300 uppercase mb-3">Sistem Kimliği</p>
-                                            <code className="text-[11px] font-mono text-blue-600 break-all bg-blue-50 px-2 py-1 rounded-lg">#CUST-{selectedCustomer.id}</code>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Service Timeline Section */}
-                                <div className="pt-2">
-                                    <h4 className="text-xl font-semibold text-gray-900 mb-8 flex items-center gap-4">
-                                        <div className="w-12 h-12 rounded-md bg-gray-900 text-white flex items-center justify-center shadow-sm">
-                                            <Clock size={20} />
-                                        </div>
-                                        Cihaz ve Servis Zaman Çizelgesi
-                                    </h4>
-                                    
-                                    <div className="relative pl-8 space-y-6 before:absolute before:left-[23px] before:top-4 before:bottom-4 before:w-[2px] before:bg-gray-100">
-                                        // eslint-disable-next-line no-unused-vars
-                                        {customerHistory.map((history, /* idx */) => (
-                                            <div key={history.id} className="relative group/item flex items-center gap-6 p-4 bg-white rounded-[28px] border border-gray-100 hover:border-blue-200 hover:translate-x-2 transition-all">
-                                                <div className="absolute -left-[14px] top-1/2 -translate-y-1/2 w-4 h-4 rounded-full border-4 border-gray-50 bg-white group-hover/item:bg-blue-500 transition-colors"></div>
-                                                
-                                                <div className="w-16 h-16 rounded-md bg-gray-50 flex flex-col items-center justify-center text-center p-2 group-hover/item:bg-blue-50 transition-colors">
-                                                    <span className="text-[10px] font-semibold text-gray-400 leading-none mb-1">MODEL</span>
-                                                    <span className="text-[11px] font-semibold text-gray-900 leading-tight truncate w-full">{history.device.split(' ')[0]}</span>
-                                                </div>
-                                                
-                                                <div className="flex-1">
-                                                    <div className="flex justify-between items-center mb-1">
-                                                        <h5 className="font-semibold text-gray-900 text-lg">{history.device}</h5>
-                                                        <span className="text-[10px] font-mono font-bold text-gray-300">#{history.id}</span>
-                                                    </div>
-                                                    <div className="flex items-center gap-4">
-                                                        <span className={`text-[9px] font-semibold px-3 py-1 rounded-full text-xs uppercase tracking-wide ${
-                                                            history.status === 'Tamamlandı' ? 'bg-green-50 text-green-600 border border-green-100' : 'bg-blue-50 text-blue-600 border border-blue-100'
-                                                        }`}>
-                                                            {history.status}
-                                                        </span>
-                                                        <span className="text-xs font-bold text-gray-400 flex items-center gap-1.5"><Calendar size={12} /> {history.date}</span>
-                                                    </div>
-                                                </div>
-                                                
-                                                <button className="w-10 h-10 rounded-md bg-gray-50 text-gray-400 flex items-center justify-center hover:bg-gray-900 hover:text-white transition-all mr-2">
-                                                    <ChevronRight size={18} />
-                                                </button>
-                                            </div>
-                                        ))}
-                                        
-                                        {customerHistory.length === 0 && (
-                                            <div className="py-20 text-center bg-gray-50/50 rounded-lg border-2 border-dashed border-gray-100">
-                                                <div className="w-20 h-20 bg-white rounded-lg mx-auto flex items-center justify-center text-gray-200 mb-6 shadow-sm">
-                                                    <Clock size={40} strokeWidth={1} />
-                                                </div>
-                                                <p className="text-gray-400 font-bold text-xs uppercase tracking-wide text-xs">Bu müşteri için henüz <br/> bir servis kaydı oluşturulmamış.</p>
-                                            </div>
-                                        )}
-                                    </div>
+                                <div className="pt-4 border-t border-gray-100">
+                                    <h5 className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-2">
+                                        <FileText size={12} aria-hidden="true" /> Özel Not
+                                    </h5>
+                                    <p className="text-[13px] font-medium text-gray-600 leading-relaxed">
+                                        {selectedCustomer.notes || <span className="text-gray-400">Not eklenmemiş.</span>}
+                                    </p>
                                 </div>
                             </div>
                         </div>
-                    </div>
+
+                        {/* Segmentasyon */}
+                        <div className="rounded-[24px] border border-gray-200 bg-white p-5 sm:p-6">
+                            <h5 className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-3">Segmentasyon</h5>
+                            <div role="group" aria-label="Müşteri etiketleri" className="flex flex-wrap gap-2">
+                                {CUSTOMER_TAGS.map(tag => {
+                                    const active = (selectedCustomer.tags || []).includes(tag);
+                                    return (
+                                        <button
+                                            key={tag}
+                                            type="button"
+                                            onClick={() => toggleTag(tag)}
+                                            disabled={!canManageCustomers}
+                                            aria-pressed={active}
+                                            className={`h-9 px-4 rounded-full border text-[12px] font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25 ${active
+                                                ? 'bg-[#0071e3] text-white border-[#0071e3]'
+                                                : 'bg-white text-gray-600 border-gray-200 hover:border-[#0071e3]/30'}`}
+                                        >
+                                            {tag}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            {!canManageCustomers && (
+                                <p className="text-[11px] font-medium text-gray-500 mt-3">
+                                    Etiket değiştirmek için müşteri yönetimi yetkisi gerekir.
+                                </p>
+                            )}
+                        </div>
+
+                        {/* Servis geçmişi */}
+                        <div className="rounded-[24px] border border-gray-200 bg-white overflow-hidden">
+                            <header className="flex items-center justify-between gap-3 px-5 sm:px-6 py-4 border-b border-gray-100">
+                                <h5 className="flex items-center gap-2 text-[13px] font-semibold text-[#1d1d1f]">
+                                    <Clock size={14} aria-hidden="true" className="text-gray-500" /> Servis Geçmişi
+                                </h5>
+                                <span className="text-[10px] font-bold text-gray-600 bg-[#f5f5f7] border border-gray-200 rounded-full px-2.5 py-1">
+                                    {history.length} kayıt
+                                </span>
+                            </header>
+
+                            {history.length === 0 ? (
+                                <p className="px-6 py-12 text-center text-[13px] font-medium text-gray-400">
+                                    Bu müşteri için henüz servis kaydı oluşturulmamış.
+                                </p>
+                            ) : (
+                                <ul className="list-none p-0 m-0 divide-y divide-gray-100 max-h-96 overflow-y-auto custom-scrollbar">
+                                    {history.map(repair => (
+                                        <li key={repair.id} className="flex items-center gap-4 px-5 sm:px-6 py-3.5">
+                                            <div className="min-w-0 flex-1">
+                                                <p className="text-[13px] font-semibold text-[#1d1d1f] truncate">
+                                                    {repair.device || 'Cihaz belirtilmemiş'}
+                                                </p>
+                                                <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-medium text-gray-500 mt-0.5">
+                                                    <span className="font-mono">#{repair.id}</span>
+                                                    <span>{formatDay(repair.date)}</span>
+                                                </p>
+                                            </div>
+                                            <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full border shrink-0 ${isClosed(repair)
+                                                ? 'text-[#1d7a4c] bg-[#008000]/8 border-[#008000]/20'
+                                                : 'text-[#0071e3] bg-[#0071e3]/8 border-[#0071e3]/20'}`}
+                                            >
+                                                {repair.status || 'Durum yok'}
+                                            </span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </div>
+                    </section>
                 )}
             </div>
 
-            {/* Modal */}
-            {showModal && (
-                <div className="modal-overlay">
-                    <div className="modal-content w-full max-w-lg p-6">
-                        <h3 className="text-2xl font-semibold text-gray-900 mb-6">{isEditing ? 'Müşteri Düzenle' : 'Yeni Müşteri Ekle'}</h3>
-                        <form onSubmit={handleSaveCustomer} className="space-y-4">
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Ad Soyad</label>
-                                <input required type="text" className="w-full p-3 bg-gray-50 rounded-md border border-gray-200 outline-none focus:border-blue-500 font-bold" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Telefon</label>
-                                    <input required type="tel" className="w-full p-3 bg-gray-50 rounded-md border border-gray-200 outline-none focus:border-blue-500 font-medium font-mono" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">E-Posta</label>
-                                    <input type="email" className="w-full p-3 bg-gray-50 rounded-md border border-gray-200 outline-none focus:border-blue-500 font-medium" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
-                                </div>
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Müşteri Tipi</label>
-                                <select className="w-full p-3 bg-gray-50 rounded-md border border-gray-200 outline-none focus:border-blue-500 font-medium transition-all" value={formData.type} onChange={e => setFormData({ ...formData, type: e.target.value })}>
-                                    <option value="Bireysel">Bireysel Müşteri</option>
-                                    <option value="Kurumsal">Kurumsal Müşteri</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Adres Bilgisi</label>
-                                <textarea rows="2" className="w-full p-3 bg-gray-50 rounded-md border border-gray-200 outline-none focus:border-blue-500 font-medium" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} placeholder="Açık adres giriniz..."/>
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Özel Notlar</label>
-                                <textarea rows="2" className="w-full p-3 bg-gray-50 rounded-md border border-gray-200 outline-none focus:border-blue-500 font-medium italic" value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })} placeholder="Müşteri hakkında özel notlar..."/>
-                            </div>
-                            <div className="flex gap-3 pt-4">
-                                <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-2 text-gray-500 font-semibold hover:bg-gray-50 border border-[#d2d2d7] rounded-md transition-all">İptal</button>
-                                <button type="submit" className="gsx-button-primary flex-1 py-2 font-semibold text-sm">{isEditing ? 'Bilgileri Güncelle' : 'Müşteriyi Kaydet'}</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
+            {editorOpen && (
+                <CustomerEditor
+                    customer={editing}
+                    existingCustomers={list}
+                    onClose={closeEditor}
+                    onSubmit={handleSubmit}
+                />
             )}
         </div>
     );
