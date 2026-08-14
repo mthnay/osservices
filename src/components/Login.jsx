@@ -10,7 +10,17 @@ const Login = ({ onTrackingClick }) => {
     const [email, setEmail] = useState('');
     const [userName, setUserName] = useState('');
     const [password, setPassword] = useState('');
-    const [error, setError] = useState('');
+    // Oturumu sonlandıran sebep (ör. sistem erişimi kapatılmış hesap) varsa göster
+    const [error, setError] = useState(() => {
+        try {
+            const reason = sessionStorage.getItem('logoutReason');
+            if (reason) {
+                sessionStorage.removeItem('logoutReason');
+                return reason;
+            }
+        } catch { /* yoksay */ }
+        return '';
+    });
     const [isLoading, setIsLoading] = useState(false);
 
     const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -50,9 +60,10 @@ const Login = ({ onTrackingClick }) => {
         setError('');
 
         try {
-            const success = await login(email, password);
-            if (!success) {
-                setError('Hatalı şifre.');
+            const result = await login(email, password);
+            if (!result?.ok) {
+                // Erişimi kapatılmış hesapta gerekçe sunucudan gelir
+                setError(result?.message || 'Hatalı şifre.');
                 setPassword('');
             }
         // eslint-disable-next-line no-unused-vars

@@ -530,7 +530,26 @@ router.post('/login', async (req, res) => {
             return res.status(401).json({ message: 'E-posta veya şifre hatalı.' });
         }
 
+        // Sistem erişimi kapatılmış hesaplar giriş yapamaz
+        if (user.isActive === false) {
+            console.warn(`[LOGIN] BLOCKED: Disabled account: ${email}`);
+            return res.status(403).json({
+                code: 'ACCOUNT_DISABLED',
+                message: user.disabledReason
+                    ? `Sistem erişiminiz kapatılmış: ${user.disabledReason}`
+                    : 'Sistem erişiminiz kapatılmıştır. Lütfen yöneticinizle görüşün.'
+            });
+        }
+
         console.log(`[LOGIN] SUCCESS: User ${user.name} logged in.`);
+
+        // Son giriş zamanını kaydet (Sistem Güvenliği ekranında gösterilir)
+        try {
+            await User.updateOne({ _id: user._id }, { $set: { lastLogin: new Date() } });
+            user.lastLogin = new Date();
+        } catch (e) {
+            console.warn('[LOGIN] lastLogin güncellenemedi:', e.message);
+        }
         
         // --- Audit Log ---
         req.user = user; // Manual set for login route
@@ -632,8 +651,28 @@ router.put('/users/:id', requireRole(['superadmin', 'yonetici']), async (req, re
             }
         }
 
+        // Kullanıcı kendi erişimini kapatamaz (kendini sistem dışında bırakma koruması)
+        if (req.body.isActive === false) {
+            const requestorId = String(req.user?.id || '');
+            if (requestorId && (requestorId === String(id))) {
+                return res.status(400).json({ message: 'Kendi sistem erişiminizi kapatamazsınız.' });
+            }
+        }
+
         console.log(`[UserUpdate] Request for ID: ${id}`);
         const updateData = { ...req.body };
+
+        // Erişim kapatma/açma bilgilerini damgala
+        if (Object.prototype.hasOwnProperty.call(updateData, 'isActive')) {
+            if (updateData.isActive === false) {
+                updateData.disabledAt = new Date();
+                updateData.disabledBy = req.user?.name || req.user?.email || 'Sistem';
+            } else {
+                updateData.disabledAt = null;
+                updateData.disabledReason = '';
+                updateData.disabledBy = '';
+            }
+        }
         if (updateData.password && updateData.password.trim() !== "") {
             updateData.password = bcrypt.hashSync(updateData.password, 10);
         } else {

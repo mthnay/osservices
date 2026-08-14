@@ -10,6 +10,7 @@ import { isSuperAdmin, isYonetici, ROLE_DISPLAY_NAMES } from '../utils/permissio
 import WarehouseManagement from './WarehouseManagement';
 import KbbArchive from './KbbArchive';
 import DeviceModels from './DeviceModels';
+import SecurityCenter from './SecurityCenter';
 
 const Settings = () => {
     const {
@@ -392,8 +393,11 @@ const Settings = () => {
             console.log("Güncellenecek Kullanıcı ID:", editingUserId);
             console.log("Gönderilecek Veri:", editUserData);
 
-            // ID alanlarını ayır ve temizle
-            const { _id, id, ...cleanProfile } = editUserData;
+            // ID alanlarını ayır ve temizle.
+            // Şifre ve sistem erişimi bu ekrandan yönetilmez; yalnızca
+            // Ayarlar > Sistem Güvenliği ekranından değiştirilebilir.
+            // eslint-disable-next-line no-unused-vars
+            const { _id, id, password, isActive, disabledAt, disabledReason, disabledBy, ...cleanProfile } = editUserData;
             const targetId = _id || id;
             
             const stores = (editUserData.storeIds && editUserData.storeIds.length > 0)
@@ -1166,10 +1170,13 @@ const Settings = () => {
                                                     <input className="w-full px-4 py-2 bg-white rounded-md border border-gray-200 focus:border-indigo-500 outline-none transition-all font-bold text-sm" value={editUserData.name} onChange={e => setEditUserData({ ...editUserData, name: e.target.value })} />
                                                 </div>
                                                 <div className="space-y-1">
-                                                    <label className="text-[10px] font-semibold text-gray-400 text-xs uppercase tracking-wide pl-1">E-Posta & Şifre</label>
+                                                    <label className="text-[10px] font-semibold text-gray-400 text-xs uppercase tracking-wide pl-1">E-Posta</label>
                                                     <div className="flex flex-col gap-1">
                                                         <input className="w-full px-4 py-2 bg-white rounded-md border border-gray-200 focus:border-indigo-500 outline-none transition-all font-bold text-xs" value={editUserData.email} onChange={e => setEditUserData({ ...editUserData, email: e.target.value })} />
-                                                        <input className="w-full px-4 py-2 bg-white rounded-md border border-gray-200 focus:border-indigo-500 outline-none transition-all font-bold text-xs" value={editUserData.password} onChange={e => setEditUserData({ ...editUserData, password: e.target.value })} placeholder="Yeni şifre..." />
+                                                        {/* Şifre değiştirme yalnızca Ayarlar > Sistem Güvenliği ekranından yapılır */}
+                                                        <p className="text-[9px] font-semibold text-gray-400 leading-tight px-1 pt-1">
+                                                            Şifre işlemleri Sistem Güvenliği ekranından yapılır.
+                                                        </p>
                                                     </div>
                                                 </div>
                                                 <div className="space-y-1">
@@ -1311,84 +1318,7 @@ const Settings = () => {
                     </div>
                 );
             case 'security':
-                return (
-                    <div className="space-y-8 animate-fade-in max-w-4xl">
-                        <div className="bg-gradient-to-br from-indigo-900 to-gray-900 p-10 rounded-lg text-white shadow-2xl relative overflow-hidden">
-                            <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl text-white"></div>
-                            <div className="relative z-10">
-                                <h4 className="text-2xl font-semibold mb-2 flex items-center gap-3">
-                                    <Lock size={28} className="text-indigo-400" />
-                                    Güvenlik ve Erişim Kontrolü
-                                </h4>
-                                <p className="text-indigo-200/70 font-medium">Hesap güvenliğinizi ve sistem yetki seviyelerini buradan yönetin.</p>
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <div className="bg-white rounded-lg border border-gray-100 p-8 shadow-sm">
-                                <h5 className="font-semibold text-gray-900 mb-6 flex items-center gap-2">
-                                    <Key size={20} className="text-orange-500" /> Şifre Değiştir
-                                </h5>
-                                <div className="space-y-4">
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-semibold text-gray-400 text-xs uppercase tracking-wide pl-1">Mevcut Şifre</label>
-                                        <input type="password" placeholder="••••••••" className="w-full px-4 py-3 bg-gray-50 rounded-md border border-transparent focus:bg-white focus:border-orange-500 outline-none transition-all font-mono" />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-semibold text-gray-400 text-xs uppercase tracking-wide pl-1">Yeni Şifre</label>
-                                        <input type="password" placeholder="••••••••" className="w-full px-4 py-3 bg-gray-50 rounded-md border border-transparent focus:bg-white focus:border-orange-500 outline-none transition-all font-mono" />
-                                    </div>
-                                    <button className="w-full bg-orange-500 hover:bg-orange-600 text-white py-3 rounded-md font-semibold text-xs shadow-lg shadow-orange-100 transition-all active:scale-95 mt-2">
-                                        ŞİFREYİ GÜNCELLE
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div className="bg-gray-50/50 rounded-lg border border-gray-100 p-8">
-                                <h5 className="font-semibold text-gray-900 mb-6 flex items-center gap-2">
-                                    <Bell size={20} className="text-indigo-500" /> Oturum Bilgileri
-                                </h5>
-                                <div className="space-y-5">
-                                    {[
-                                        { label: 'Son Giriş', value: 'Bugün, 14:23', icon: Clock },
-                                        { label: 'IP Adresi', value: '176.234.XX.XX', icon: Globe },
-                                        { label: 'Cihaz', value: 'macOS - Chrome', icon: Phone }
-                                    ].map((stat, idx) => (
-                                        <div key={idx} className="flex justify-between items-center py-3 border-b border-gray-200/50 last:border-0">
-                                            <div className="flex items-center gap-3">
-                                                <div className="p-2 bg-white rounded-md shadow-sm">
-                                                    <stat.icon size={16} className="text-gray-400" />
-                                                </div>
-                                                <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">{stat.label}</span>
-                                            </div>
-                                            <span className="text-sm font-semibold text-gray-700">{stat.value}</span>
-                                        </div>
-                                    ))}
-                                    <button className="w-full bg-white hover:bg-red-50 text-red-500 py-3 rounded-md font-semibold text-xs border border-red-100 transition-all active:scale-95 mt-4">
-                                        TÜM OTURUMLARI KAPAT
-                                    </button>
-                                </div>
-                            </div>
-                            
-                            <div className="bg-red-50/30 rounded-lg border border-red-100 p-8 flex flex-col justify-between">
-                                <div>
-                                    <h5 className="font-semibold text-red-900 mb-2 flex items-center gap-2">
-                                        <RefreshCw size={20} className="text-red-600" /> Sunucu Yönetimi
-                                    </h5>
-                                    <p className="text-xs text-red-700/60 font-medium leading-relaxed mb-6">
-                                        Sistem hatası veya performans düşüklüğü durumunda ana sunucu işlemini buradan yeniden başlatabilirsiniz.
-                                    </p>
-                                </div>
-                                <button 
-                                    onClick={handleReboot}
-                                    className="w-full bg-red-600 hover:bg-red-700 text-white py-4 rounded-md font-semibold text-[10px] uppercase tracking-[0.2em] shadow-xl shadow-red-200 transition-all active:scale-95 flex items-center justify-center gap-3"
-                                >
-                                    <RefreshCw size={16} /> SUNUCUYU YENİDEN BAŞLAT
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                );
+                return <SecurityCenter onReboot={handleReboot} />;
             case 'updates':
                 const checkUpdate = async () => {
                     setIsChecking(true);

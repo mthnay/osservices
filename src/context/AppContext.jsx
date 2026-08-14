@@ -57,6 +57,29 @@ export const AppProvider = ({ children }) => {
                     return new Response(JSON.stringify({ success: false, message: 'Unauthorized' }), { status: 401 });
                 }
             }
+
+            // Sistem erişimi kapatılan hesabın açık oturumunu anında sonlandır.
+            // Sıradan yetki hataları (403) etkilenmesin diye yalnızca
+            // ACCOUNT_DISABLED koduna bakılır; gövde clone üzerinden okunur.
+            if (res.status === 403 && !url.includes('/login')) {
+                let disabled = false;
+                try {
+                    const body = await res.clone().json();
+                    disabled = body?.code === 'ACCOUNT_DISABLED';
+                    if (disabled) window.accountDisabledMessage = body?.message || '';
+                } catch { /* JSON değilse yoksay */ }
+
+                if (disabled && !window.isLoggingOut) {
+                    const message = window.accountDisabledMessage
+                        || 'Hesabınızın sistem erişimi kapatılmıştır.';
+                    sessionStorage.clear();
+                    setCurrentUser(null);
+                    try { sessionStorage.setItem('logoutReason', message); } catch { /* yoksay */ }
+                    window.location.href = '/';
+                    return new Response(JSON.stringify({ success: false, message }), { status: 403 });
+                }
+            }
+
             return res;
         } catch (error) {
             clearTimeout(id);
@@ -601,12 +624,19 @@ export const AppProvider = ({ children }) => {
                     setSelectedStoreId(allowedStores.length > 1 ? 0 : (allowedStores[0] ?? (data.user.storeId != null ? Number(data.user.storeId) : 0)));
                 }
                 sessionStorage.setItem('token', data.token);
-                return true;
+                return { ok: true };
             }
-            return false;
+
+            // Sunucunun gerekçesini yüzeye çıkar (ör. erişimi kapatılmış hesap)
+            const errorData = await res.json().catch(() => ({}));
+            return {
+                ok: false,
+                code: errorData.code,
+                message: errorData.message || 'E-posta veya şifre hatalı.'
+            };
         } catch (error) {
             console.error("Login Error:", error);
-            return false;
+            return { ok: false, message: 'Bağlantı hatası. Lütfen tekrar deneyin.' };
         }
     };
 
