@@ -1,4 +1,4 @@
-/* eslint-disable no-case-declarations, react-hooks/rules-of-hooks, no-undef */
+/* eslint-disable no-case-declarations, no-undef */
 import React, { useState } from 'react';
 import { Save, Bell, Shield, Store, Globe, CreditCard, MapPin, Plus, Trash2, Building, Users, UserPlus, Mail, Lock, Paperclip, Check, Upload, X, ChevronRight, Package, AlertTriangle, Key, Clock, RefreshCw, MessageSquare, Smartphone, Edit, Settings2 } from 'lucide-react';
 import { appConfirm } from '../utils/alert';
@@ -8,6 +8,7 @@ import ConfirmationModal from './ConfirmationModal';
 import MyPhoneIcon from './LocalIcons';
 import { isSuperAdmin, isYonetici, ROLE_DISPLAY_NAMES } from '../utils/permissions';
 import WarehouseManagement from './WarehouseManagement';
+import KbbArchive from './KbbArchive';
 
 const Settings = () => {
     const {
@@ -602,117 +603,7 @@ const Settings = () => {
                 );
 
             case 'kbb_history':
-                // Helper for Ship-To
-                const getShipTo = (storeId) => {
-                    const point = allServicePoints.find(p => String(p.id) === String(storeId));
-                    return point ? point.shipTo : 'Servis Merkezi';
-                };
-
-                // Helper for Month Format
-                const getMonthYear = (dateStr) => {
-                    if (!dateStr || dateStr === '-') return 'Tarihsiz';
-                    const parts = dateStr.slice(0, 10).split('.');
-                    if (parts.length === 3) {
-                        const date = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
-                        return date.toLocaleString('tr-TR', { month: 'long', year: 'numeric' });
-                    }
-                    return 'Bilinmeyen Tarih';
-                };
-
-                const { repairs } = useAppContext();
-                const kbbHistory = repairs.flatMap(repair =>
-                    (repair.parts || []).map((part, index) => ({
-                        ...part,
-                        uniqueId: `${repair.id}-${index}`,
-                        repairId: repair.id,
-                        storeId: repair.storeId,
-                        customer: repair.customer,
-                        returnTarih: part.returnDate || '-',
-                        returnCode: part.returnCode || '-',
-                        status: part.kbbStatus
-                    }))
-                ).filter(item => item.status === 'Returned');
-
-                // Grouping Logic
-                const groupedHistory = kbbHistory.reduce((acc, item) => {
-                    const shipTo = getShipTo(item.storeId);
-                    const monthYear = getMonthYear(item.returnDate);
-
-                    if (!acc[shipTo]) acc[shipTo] = {};
-                    if (!acc[shipTo][monthYear]) acc[shipTo][monthYear] = [];
-
-                    acc[shipTo][monthYear].push(item);
-                    return acc;
-                }, {});
-
-                return (
-                    <div className="space-y-8 animate-fade-in">
-                        {Object.keys(groupedHistory).length > 0 ? (
-                            Object.entries(groupedHistory).map(([shipTo, months]) => (
-                                <div key={shipTo} className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-                                    <div className="bg-gray-900 px-8 py-5 flex items-center justify-between">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 bg-white/10 rounded-md flex items-center justify-center text-white">
-                                                <Store size={20} />
-                                            </div>
-                                            <div>
-                                                <h3 className="text-lg font-semibold text-white">{shipTo}</h3>
-                                                <p className="text-white/60 text-xs font-bold uppercase tracking-wider">Lokasyon Bazlı İadeler</p>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="p-6 space-y-6">
-                                        {Object.entries(months).map(([month, items]) => (
-                                            <div key={month} className="border border-gray-100 rounded-md overflow-hidden bg-gray-50/30">
-                                                <div className="px-6 py-3 bg-gray-100/80 border-b border-gray-100 flex items-center gap-2">
-                                                    <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                                                    <span className="font-semibold text-gray-700 text-sm uppercase tracking-wide">{month}</span>
-                                                    <span className="ml-auto bg-white px-2 py-0.5 rounded-lg text-[10px] font-bold text-gray-400 border border-gray-200">{items.length} Parça</span>
-                                                </div>
-                                                <div className="overflow-x-auto">
-                                                    <table className="w-full text-left">
-                                                        <thead className="bg-white text-[10px] font-semibold text-xs uppercase tracking-wide text-gray-400 border-b border-gray-100">
-                                                            <tr>
-                                                                <th className="px-6 py-3">Onarım No</th>
-                                                                <th className="px-6 py-3">Parça Adı</th>
-                                                                <th className="px-6 py-3">KBB Seri No</th>
-                                                                <th className="px-6 py-3">İade Kodu</th>
-                                                                <th className="px-6 py-3">İade Tarihi</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody className="divide-y divide-gray-100 bg-white">
-                                                            {items.map(item => (
-                                                                <tr key={item.uniqueId} className="hover:bg-gray-50 transition-colors">
-                                                                    <td className="px-6 py-3 font-mono text-xs font-bold text-blue-600">{item.repairId}</td>
-                                                                    <td className="px-6 py-3">
-                                                                        <div className="font-bold text-gray-900 text-xs">{item.description || item.name}</div>
-                                                                        <div className="text-[10px] text-gray-400 font-mono">{item.partNumber}</div>
-                                                                    </td>
-                                                                    <td className="px-6 py-3 font-mono text-[10px] text-gray-500">{item.kbbSerial || '-'}</td>
-                                                                    <td className="px-6 py-3"><span className="font-mono text-[10px] font-bold text-gray-700 bg-gray-100 px-1.5 py-0.5 rounded">{item.returnCode}</span></td>
-                                                                    <td className="px-6 py-3 text-gray-500 text-[10px] font-medium">{item.returnDate}</td>
-                                                                </tr>
-                                                            ))}
-                                                        </tbody>
-                                                    </table>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            ))
-                        ) : (
-                            <div className="bg-white rounded-lg p-12 text-center text-gray-400">
-                                <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                                    <Package size={32} className="opacity-50" />
-                                </div>
-                                <h3 className="text-lg font-bold text-gray-900">Kayıt Bulunamadı</h3>
-                                <p className="text-sm">Henüz iade edilmiş bir KBB parçası bulunmuyor.</p>
-                            </div>
-                        )}
-                    </div>
-                );
+                return <KbbArchive />;
             case 'earnings':
                 const groupedEarnings = (earnings || []).reduce((acc, earn) => {
                     const monthKey = earn.month; // YYYY-MM
