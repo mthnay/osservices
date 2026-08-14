@@ -1,7 +1,39 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Award, Clock, CheckCircle, TrendingUp, Activity, CalendarRange, ChevronRight, Users } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import TechnicianMetricsPanel from './TechnicianMetricsPanel';
+import Collapse from './ui/Collapse';
+
+/**
+ * Tablo satırı olduğu için <div> ile sarılamaz; kapanış animasyonu bitene
+ * kadar satırı DOM'da tutup içeriği Collapse ile açıp kapatıyoruz.
+ */
+const TechnicianMetricsRow = ({ open, id, colSpan, stats }) => {
+    const [mounted, setMounted] = useState(open);
+
+    useEffect(() => {
+        if (open) {
+            setMounted(true);
+            return undefined;
+        }
+        const timer = setTimeout(() => setMounted(false), 340);
+        return () => clearTimeout(timer);
+    }, [open]);
+
+    if (!mounted) return null;
+
+    return (
+        <tr id={id} className="bg-[#f5f5f7]/60">
+            <td colSpan={colSpan} className="p-0">
+                <Collapse open={open}>
+                    <div className="px-8 py-5">
+                        <TechnicianMetricsPanel stats={stats} />
+                    </div>
+                </Collapse>
+            </td>
+        </tr>
+    );
+};
 import {
     getTechnicianStats, getTeamAverageDuration, formatDuration, isCompletedRepair
 } from '../utils/technicianStats';
@@ -182,13 +214,12 @@ const TechnicianPerformance = () => {
                                                 </td>
                                             </tr>
 
-                                            {isOpen && (
-                                                <tr id={`tech-row-metrics-${techKey}`} className="bg-[#f5f5f7]/60">
-                                                    <td colSpan={columnCount} className="px-8 py-5">
-                                                        <TechnicianMetricsPanel stats={stats} />
-                                                    </td>
-                                                </tr>
-                                            )}
+                                            <TechnicianMetricsRow
+                                                open={isOpen}
+                                                id={`tech-row-metrics-${techKey}`}
+                                                colSpan={columnCount}
+                                                stats={stats}
+                                            />
                                         </React.Fragment>
                                     );
                                 })}

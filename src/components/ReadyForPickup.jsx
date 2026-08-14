@@ -217,7 +217,7 @@ const ReadyForPickup = () => {
             
             {showDeliveryModal && (
                 <div className="fixed inset-0 z-[110] bg-[#1d1d1f]/60 backdrop-blur-md flex items-center justify-center p-6 animate-fade-in">
-                    <div className="bg-white w-full max-w-xl rounded-[32px] overflow-hidden shadow-2xl flex flex-col animate-scale-in">
+                    <div className="bg-white w-full max-w-xl rounded-[32px] overflow-hidden shadow-2xl flex flex-col animate-scale-up">
                         <div className="p-8 border-b border-gray-100 flex items-center justify-between">
                             <div className="flex items-center gap-4">
                                 <div className="p-3 bg-green-50 text-green-600 rounded-2xl">

@@ -5,6 +5,7 @@ import MyPhoneIcon from './LocalIcons';
 import RepairHistoryModal from './RepairHistoryModal';
 import TechnicianPerformance from './TechnicianPerformance';
 import TechnicianMetricsPanel from './TechnicianMetricsPanel';
+import Collapse from './ui/Collapse';
 import { getTechnicianStats, formatDuration } from '../utils/technicianStats';
 import { useAppContext } from '../context/AppContext';
 // eslint-disable-next-line no-unused-vars
@@ -220,28 +221,32 @@ const Technicians = () => {
                                     </div>
 
                                     {/* Teknisyenin kendi performans alanı */}
-                                    {metricsOpen && stats && (
-                                        <div id={`tech-metrics-${techKey}`} className="mb-6 animate-section-in">
-                                            <TechnicianMetricsPanel stats={stats} compact />
-                                        </div>
+                                    {stats && (
+                                        <Collapse open={metricsOpen}>
+                                            <div id={`tech-metrics-${techKey}`} className="mb-6">
+                                                <TechnicianMetricsPanel stats={stats} compact />
+                                            </div>
+                                        </Collapse>
                                     )}
 
                                     {/* Kapalıyken de iki temel metrik özet olarak görünür */}
-                                    {!metricsOpen && stats && (
-                                        <div className="grid grid-cols-2 gap-2 mb-6">
-                                            <div className="rounded-xl bg-gray-50 border border-gray-100 px-3 py-2">
-                                                <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Ort. Süre</p>
-                                                <p className="text-sm font-bold text-[#1d1d1f] mt-0.5">
-                                                    {formatDuration(stats.avgDurationMinutes)}
-                                                </p>
+                                    {stats && (
+                                        <Collapse open={!metricsOpen}>
+                                            <div className="grid grid-cols-2 gap-2 mb-6">
+                                                <div className="rounded-xl bg-gray-50 border border-gray-100 px-3 py-2">
+                                                    <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Ort. Süre</p>
+                                                    <p className="text-sm font-bold text-[#1d1d1f] mt-0.5">
+                                                        {formatDuration(stats.avgDurationMinutes)}
+                                                    </p>
+                                                </div>
+                                                <div className="rounded-xl bg-gray-50 border border-gray-100 px-3 py-2">
+                                                    <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Günlük Cihaz</p>
+                                                    <p className="text-sm font-bold text-[#1d1d1f] mt-0.5">
+                                                        {stats.perActiveDay != null ? stats.perActiveDay.toFixed(1) : '—'}
+                                                    </p>
+                                                </div>
                                             </div>
-                                            <div className="rounded-xl bg-gray-50 border border-gray-100 px-3 py-2">
-                                                <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Günlük Cihaz</p>
-                                                <p className="text-sm font-bold text-[#1d1d1f] mt-0.5">
-                                                    {stats.perActiveDay != null ? stats.perActiveDay.toFixed(1) : '—'}
-                                                </p>
-                                            </div>
-                                        </div>
+                                        </Collapse>
                                     )}
 
                                     {tech.currentJob ? (

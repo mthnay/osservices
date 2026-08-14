@@ -78,20 +78,131 @@ body {
   }
 }
 
+/* ============================================================
+   AÇILIŞ / KAPANIŞ ANİMASYON MOTORU
+   ------------------------------------------------------------
+   Projede `animate-in fade-in slide-in-from-bottom-4` gibi
+   sınıflar zaten kullanılıyordu ama hiçbiri tanımlı değildi,
+   bu yüzden her şey "tak" diye açılıyordu. Aşağıdaki motor bu
+   sınıfların tamamını gerçek animasyonlara bağlar.
+
+   Kullanım:
+     Açılış: className="animate-in fade-in slide-in-from-bottom-4"
+     Kapanış: className="animate-out fade-out zoom-out-95"
+     Süre:   duration-300  (Tailwind'in --tw-duration değişkeni)
+   ============================================================ */
+
+/* Bu değişkenler kalıtılmamalı; aksi halde iç içe animasyonlu öğeler
+   üst öğenin kayma/opaklık değerlerini devralır. */
+@property --tw-enter-opacity { syntax: "<number>"; inherits: false; initial-value: 1; }
+@property --tw-enter-scale { syntax: "<number>"; inherits: false; initial-value: 1; }
+@property --tw-enter-translate-x { syntax: "<length-percentage>"; inherits: false; initial-value: 0px; }
+@property --tw-enter-translate-y { syntax: "<length-percentage>"; inherits: false; initial-value: 0px; }
+@property --tw-exit-opacity { syntax: "<number>"; inherits: false; initial-value: 1; }
+@property --tw-exit-scale { syntax: "<number>"; inherits: false; initial-value: 1; }
+@property --tw-exit-translate-x { syntax: "<length-percentage>"; inherits: false; initial-value: 0px; }
+@property --tw-exit-translate-y { syntax: "<length-percentage>"; inherits: false; initial-value: 0px; }
+
+@keyframes enter {
+  from {
+    opacity: var(--tw-enter-opacity, 1);
+    transform: translate3d(var(--tw-enter-translate-x, 0), var(--tw-enter-translate-y, 0), 0)
+      scale3d(var(--tw-enter-scale, 1), var(--tw-enter-scale, 1), 1);
+  }
+}
+
+@keyframes exit {
+  to {
+    opacity: var(--tw-exit-opacity, 1);
+    transform: translate3d(var(--tw-exit-translate-x, 0), var(--tw-exit-translate-y, 0), 0)
+      scale3d(var(--tw-exit-scale, 1), var(--tw-exit-scale, 1), 1);
+  }
+}
+
+@utility animate-in {
+  animation-name: enter;
+  animation-duration: var(--tw-duration, 280ms);
+  animation-timing-function: var(--tw-ease, cubic-bezier(0.16, 1, 0.3, 1));
+  /* 'backwards': animasyon bitince öğe kendi stiline döner. 'forwards' olsaydı
+     transform matrisi kalıcı olur ve içindeki position:fixed öğeler bozulurdu. */
+  animation-fill-mode: backwards;
+}
+
+@utility animate-out {
+  animation-name: exit;
+  animation-duration: var(--tw-duration, 180ms);
+  animation-timing-function: var(--tw-ease, cubic-bezier(0.4, 0, 1, 1));
+  animation-fill-mode: both;
+}
+
+/* --- opaklık --- */
 @utility fade-in {
-  animation: fadeIn 0.2s ease-out forwards;
+  --tw-enter-opacity: 0;
+}
+@utility fade-out {
+  --tw-exit-opacity: 0;
+}
+
+/* --- ölçek --- */
+@utility zoom-in-* {
+  --tw-enter-scale: calc(--value(integer) / 100);
+}
+@utility zoom-out-* {
+  --tw-exit-scale: calc(--value(integer) / 100);
+}
+
+/* --- kayma (giriş) --- */
+@utility slide-in-from-top-* {
+  --tw-enter-translate-y: calc(--value(integer) * var(--spacing) * -1);
+}
+@utility slide-in-from-bottom-* {
+  --tw-enter-translate-y: calc(--value(integer) * var(--spacing));
+}
+@utility slide-in-from-left-* {
+  --tw-enter-translate-x: calc(--value(integer) * var(--spacing) * -1);
+}
+@utility slide-in-from-right-* {
+  --tw-enter-translate-x: calc(--value(integer) * var(--spacing));
+}
+
+/* --- kayma (çıkış) --- */
+@utility slide-out-to-top-* {
+  --tw-exit-translate-y: calc(--value(integer) * var(--spacing) * -1);
+}
+@utility slide-out-to-bottom-* {
+  --tw-exit-translate-y: calc(--value(integer) * var(--spacing));
+}
+@utility slide-out-to-left-* {
+  --tw-exit-translate-x: calc(--value(integer) * var(--spacing) * -1);
+}
+@utility slide-out-to-right-* {
+  --tw-exit-translate-x: calc(--value(integer) * var(--spacing));
+}
+
+/* Sayfa/sekme içeriklerinin yumuşak girişi (kod tabanında yaygın kullanılıyor) */
+@utility animate-fade-in {
+  animation: fadeInSoft 0.35s cubic-bezier(0.16, 1, 0.3, 1) backwards;
 }
 
 @utility animate-scale-up {
-  animation: scaleUp 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: scaleUp 0.28s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+/* Yavaş dönen ikonlar (ör. "işlemde" rozeti) */
+@utility animate-spin-slow {
+  animation: spin 3s linear infinite;
+}
+
+@utility animate-scale-down {
+  animation: scaleDown 0.18s cubic-bezier(0.4, 0, 1, 1) both;
 }
 
 @layer components {
   /* Global Modal Utilities */
   .modal-overlay {
-    @apply fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 fade-in;
+    @apply fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 animate-in fade-in;
   }
-  
+
   .modal-content {
     @apply bg-white rounded-lg shadow-xl animate-scale-up overflow-hidden border border-gray-200 relative;
   }
@@ -135,9 +246,23 @@ input:focus, select:focus, textarea:focus {
   to { opacity: 1; }
 }
 
+@keyframes fadeInSoft {
+  from { opacity: 0; transform: translate3d(0, 8px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
 @keyframes scaleUp {
   from { opacity: 0; transform: scale(0.95); }
   to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes scaleDown {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(0.96); }
 }
 
 /* Sayfa içinde açılan bölümler (örn. inceleme ekranındaki teşhis) yukarıdan kayarak gelir */
@@ -147,12 +272,61 @@ input:focus, select:focus, textarea:focus {
 }
 
 .animate-section-in {
-  animation: sectionSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: sectionSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) backwards;
 }
 
+/* Açılır/kapanır alanların yükseklik geçişi (bkz. components/ui/Collapse.jsx) */
+.collapse-region {
+  overflow: hidden;
+  transition: height 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 0.24s ease,
+              transform 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: height;
+}
+
+.collapse-region[data-state='closed'] {
+  opacity: 0;
+  transform: translate3d(0, -6px, 0);
+}
+
+/* Açıkken transform 'none' olmalı: aksi halde bu öğe içindeki
+   position:fixed modaller viewport yerine bu kutuya göre konumlanır. */
+.collapse-region[data-state='open'] {
+  opacity: 1;
+  transform: none;
+}
+
+/* <details> ile açılan gruplar (Arşiv vb.) */
+details > summary {
+  transition: background-color 0.2s ease;
+}
+
+details[open] > *:not(summary) {
+  animation: detailsOpen 0.3s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+@keyframes detailsOpen {
+  from { opacity: 0; transform: translate3d(0, -8px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+/* Hareket azaltma tercihine saygı: animasyonlar sadeleşir, işlev bozulmaz */
 @media (prefers-reduced-motion: reduce) {
-  .animate-section-in {
-    animation: fadeIn 0.15s ease-out both;
+  .animate-section-in,
+  details[open] > *:not(summary) {
+    animation: fadeIn 0.15s ease-out backwards;
+  }
+
+  .animate-in,
+  .animate-out,
+  .animate-fade-in,
+  .animate-scale-up,
+  .animate-scale-down {
+    animation-duration: 0.01ms !important;
+  }
+
+  .collapse-region {
+    transition-duration: 0.01ms !important;
   }
 }
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { User, Plus, Search, Filter, Mail, MapPin, MoreHorizontal, Edit, Calendar, DollarSign, Tag, Clock, ChevronRight, MessageCircle, Trash2 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import MyPhoneIcon from './LocalIcons';
+import Collapse from './ui/Collapse';
 // eslint-disable-next-line no-unused-vars
 import { appConfirm, appAlert } from '../utils/alert';
 
@@ -194,8 +195,9 @@ const Customers = ({ setActiveTab, setServiceInitialData }) => {
                                         </div>
                                     </div>
                                     
-                                    {!isCollapsed && (
-                                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-2.5 p-2.5 animate-in fade-in zoom-in-95 duration-300">
+                                    <Collapse open={!isCollapsed}>
+                                        {() => (
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-2.5 p-2.5">
                                             {groupedCustomers[groupKey].map(customer => (
                                                 <button
                                                     key={customer.id}
@@ -234,7 +236,8 @@ const Customers = ({ setActiveTab, setServiceInitialData }) => {
                                                 </button>
                                             ))}
                                         </div>
-                                    )}
+                                        )}
+                                    </Collapse>
                                 </div>
                             );
                         })

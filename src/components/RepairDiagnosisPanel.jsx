@@ -956,7 +956,7 @@ const RepairDiagnosisPanel = ({ repair, onSave, onCancel, embedded = false }) =>
 
             {/* İade sebebi */}
             {showReturnModal && (
-                <div className="fixed inset-0 z-[130] bg-black/40 flex items-center justify-center p-4 fade-in" role="presentation">
+                <div className="fixed inset-0 z-[130] bg-black/40 flex items-center justify-center p-4 animate-in fade-in" role="presentation">
                     <div
                         role="dialog"
                         aria-modal="true"

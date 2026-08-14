@@ -421,7 +421,7 @@ const StoreOperations = () => {
 
             {/* Lokasyon detayı */}
             {activeStore && (
-                <div className="fixed inset-0 z-[110] bg-[#1d1d1f]/50 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 fade-in" onClick={closeStore}>
+                <div className="fixed inset-0 z-[110] bg-[#1d1d1f]/50 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 animate-in fade-in" onClick={closeStore}>
                     <div
                         ref={dialogRef}
                         tabIndex={-1}

@@ -245,7 +245,7 @@ const TopNav = ({ activeTab, setActiveTab }) => {
 
                         {/* Dropdown results panel */}
                         {searchOpen && searchResults.length > 0 && (
-                            <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-gray-100 rounded-xl shadow-2xl shadow-black/10 z-[200] overflow-hidden">
+                            <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-gray-100 rounded-xl shadow-2xl shadow-black/10 z-[200] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 origin-top">
                                 {/* Scrollable list — max 3 items tall */}
                                 <div
                                     className="overflow-y-auto"
@@ -287,7 +287,7 @@ const TopNav = ({ activeTab, setActiveTab }) => {
 
                         {/* No results message */}
                         {searchOpen && searchQuery.trim().length >= 1 && searchResults.length === 0 && (
-                            <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-gray-100 rounded-xl shadow-2xl shadow-black/10 z-[200] px-4 py-5 text-center">
+                            <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-gray-100 rounded-xl shadow-2xl shadow-black/10 z-[200] px-4 py-5 text-center animate-in fade-in slide-in-from-top-2 duration-200 origin-top">
                                 <p className="text-xs font-semibold text-gray-400">Eşleşen kayıt bulunamadı</p>
                                 <p className="text-[10px] text-gray-300 mt-0.5">&ldquo;{searchQuery}&rdquo; için sonuç yok</p>
                             </div>

@@ -925,7 +925,7 @@ const StoreManagement = () => {
                             </button>
 
                             {storeDropdownOpen && (
-                                <div className="absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-2xl shadow-xl z-50 overflow-hidden min-w-[200px] py-1">
+                                <div className="absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-2xl shadow-xl z-50 overflow-hidden min-w-[200px] py-1 animate-in fade-in slide-in-from-top-2 duration-200 origin-top">
                                     <button
                                         onClick={() => { setSelectedStore(0); setStoreDropdownOpen(false); }}
                                         className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold transition-all text-left hover:bg-[#f5f5f7] ${
@@ -1233,7 +1233,7 @@ const StoreManagement = () => {
                                                     </button>
 
                                                     {assigneeDropdownOpen && (
-                                                        <div className="absolute left-0 top-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl z-50 overflow-hidden w-full py-1">
+                                                        <div className="absolute left-0 top-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl z-50 overflow-hidden w-full py-1 animate-in fade-in slide-in-from-top-2 duration-200 origin-top">
                                                             <button
                                                                 type="button"
                                                                 onClick={() => { setTaskForm(prev => ({ ...prev, assignedTo: '' })); setAssigneeDropdownOpen(false); }}

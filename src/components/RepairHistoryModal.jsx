@@ -15,6 +15,8 @@ import RepairDiagnosisPanel from './RepairDiagnosisPanel';
 import { hasPermission } from '../utils/permissions';
 import DeviceImage from './DeviceImage';
 import { getSafeRepairImageUrl } from '../utils/productImages';
+import Collapse from './ui/Collapse';
+import useAnimatedClose from './ui/useAnimatedClose';
 
 const STATUS_STEPS = [
     { id: 'entry', label: 'Servis Kabul', keys: ['Kayıt Oluşturuldu', 'Beklemede'] },
@@ -37,6 +39,9 @@ const REPAIR_TYPE_LABELS = {
 const RepairHistoryModal = ({ repair: initialRepair, onClose, onSaveDiagnosis }) => {
     const { updateRepair, updateRepairStatus, removeRepair, repairs, servicePoints, currentUser, showToast, API_URL } = useAppContext();
     const repair = repairs.find(r => r.id === initialRepair.id) || initialRepair;
+
+    // Kayıt kapanırken de animasyon oynasın diye kapanış geciktirilir.
+    const { closing, requestClose } = useAnimatedClose(onClose, 200);
     
     // UI States
     // eslint-disable-next-line no-unused-vars
@@ -60,11 +65,11 @@ const RepairHistoryModal = ({ repair: initialRepair, onClose, onSaveDiagnosis })
 
     const openDiagnosis = () => {
         setShowDiagnosis(true);
-        // Bölüm DOM'a girdikten sonra üzerine kayarak gel ve odağı taşı
-        requestAnimationFrame(() => {
+        // Bölüm açılma animasyonuyla DOM'a girdikten sonra üzerine kayarak gel ve odağı taşı
+        setTimeout(() => {
             diagnosisRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
             diagnosisRef.current?.focus({ preventScroll: true });
-        });
+        }, 80);
     };
 
     const closeDiagnosis = () => {
@@ -195,7 +200,7 @@ const RepairHistoryModal = ({ repair: initialRepair, onClose, onSaveDiagnosis })
         });
         appAlert(`Cihaz başarıyla ${storeName} şubesine transfer edildi. Ancak karşı şubenin ekranına düşmesi için kargoyu/transferi teslim alması gerekir.`, "success");
         setShowTransferModal(false);
-        onClose();
+        requestClose();
     };
 
     // eslint-disable-next-line no-unused-vars
@@ -242,7 +247,7 @@ const RepairHistoryModal = ({ repair: initialRepair, onClose, onSaveDiagnosis })
             const success = await removeRepair(repair._id || repair.id);
             if (success) {
                 showToast('Kayıt başarıyla silindi.', 'success');
-                onClose();
+                requestClose();
             } else {
                 showToast('Silme işlemi başarısız oldu.', 'error');
             }
@@ -388,7 +393,11 @@ const RepairHistoryModal = ({ repair: initialRepair, onClose, onSaveDiagnosis })
     };
 
     return (
-        <div className="fixed inset-0 z-[100] bg-[#f5f5f7] flex flex-col animate-fade-in">
+        <div
+            className={`fixed inset-0 z-[100] bg-[#f5f5f7] flex flex-col ${closing
+                ? 'animate-out fade-out zoom-out-98 slide-out-to-bottom-2 duration-200 pointer-events-none'
+                : 'animate-in fade-in zoom-in-98 slide-in-from-bottom-3 duration-300'}`}
+        >
             <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
                 {/* Header & Progress Bar */}
                 <div className="bg-white/95 backdrop-blur-md border-b border-gray-100 shrink-0 z-30">
@@ -436,7 +445,7 @@ const RepairHistoryModal = ({ repair: initialRepair, onClose, onSaveDiagnosis })
                             ) : (
                                 <button onClick={() => setIsEditing(true)} className="h-10 w-10 bg-white hover:bg-gray-50 text-gray-400 hover:text-blue-600 rounded-md flex items-center justify-center border border-gray-200 shadow-sm transition-all"><Pencil size={18} /></button>
                             )}
-                            <button onClick={onClose} className="h-10 w-10 bg-white hover:bg-gray-50 text-gray-400 hover:text-red-500 rounded-md flex items-center justify-center border border-gray-200 shadow-sm transition-all"><X size={20} /></button>
+                            <button onClick={requestClose} className="h-10 w-10 bg-white hover:bg-gray-50 text-gray-400 hover:text-red-500 rounded-md flex items-center justify-center border border-gray-200 shadow-sm transition-all"><X size={20} /></button>
                         </div>
                     </div>
 
@@ -468,13 +477,13 @@ const RepairHistoryModal = ({ repair: initialRepair, onClose, onSaveDiagnosis })
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 w-full max-w-[1600px] mx-auto pt-4">
 
                         {/* ---------------- TEŞHİS BÖLÜMÜ (İnceleme ekranının içinde açılır) ---------------- */}
-                        {showDiagnosis && (
+                        <Collapse open={showDiagnosis} className="lg:col-span-12">
                             <section
                                 id="diagnosis-section"
                                 ref={diagnosisRef}
                                 tabIndex={-1}
                                 aria-labelledby="diagnosis-section-title"
-                                className="lg:col-span-12 scroll-mt-6 rounded-[24px] border border-[#0071e3]/20 bg-white/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)] outline-none animate-section-in"
+                                className="scroll-mt-6 rounded-[24px] border border-[#0071e3]/20 bg-white/70 shadow-[0_1px_3px_rgba(0,0,0,0.04)] outline-none"
                             >
                                 <header className="flex flex-wrap items-center justify-between gap-4 px-6 py-5 border-b border-gray-100">
                                     <div className="flex items-center gap-4 min-w-0">
@@ -505,7 +514,7 @@ const RepairHistoryModal = ({ repair: initialRepair, onClose, onSaveDiagnosis })
                                     />
                                 </div>
                             </section>
-                        )}
+                        </Collapse>
 
                         {/* ---------------- SOL / ANA İÇERİK (8 KOLON) ---------------- */}
                         <div className="lg:col-span-8 flex flex-col gap-8">
@@ -1001,7 +1010,7 @@ const RepairHistoryModal = ({ repair: initialRepair, onClose, onSaveDiagnosis })
                         <button onClick={handleWhatsApp} className="px-4 py-2 bg-[#25D366] text-white text-xs font-bold rounded-md hover:bg-[#128C7E] flex items-center gap-2 shadow-sm shadow-[#25D366]/20 transition-all">
                             <MessageCircle size={14} /> Müşteriye Yaz
                         </button>
-                        <button onClick={onClose} className="px-6 py-2 bg-gray-900 text-white text-xs font-bold rounded-md hover:bg-black flex items-center gap-2 shadow-sm transition-all ml-2">
+                        <button onClick={requestClose} className="px-6 py-2 bg-gray-900 text-white text-xs font-bold rounded-md hover:bg-black flex items-center gap-2 shadow-sm transition-all ml-2">
                             Kapat <ArrowRight size={14} />
                         </button>
                     </div>
@@ -1300,7 +1309,7 @@ const RepairHistoryModal = ({ repair: initialRepair, onClose, onSaveDiagnosis })
                     onClose={() => setShowNotificationModal(false)}
                     onActionComplete={() => {
                         setShowNotificationModal(false);
-                        onClose();
+                        requestClose();
                     }}
                 />
             )}

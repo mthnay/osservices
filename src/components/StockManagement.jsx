@@ -366,7 +366,7 @@ const StockManagement = () => {
                             {showStoreDropdown && (
                                 <>
                                     <div className="fixed inset-0 z-40" onClick={() => setShowStoreDropdown(false)}></div>
-                                    <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-xl shadow-xl z-50 py-2">
+                                    <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-xl shadow-xl z-50 py-2 animate-in fade-in slide-in-from-top-2 duration-200 origin-top">
                                         {hasPermission(currentUser, 'view_all_stores') && !['technician', 'reception', 'teknisyen', 'storemanager', 'servis_sorumlusu', 'servissorumlusu'].includes(currentUser?.role?.toLowerCase()) && (
                                             <>
                                                 <button 
@@ -618,7 +618,7 @@ const StockManagement = () => {
                             {activeKbbTab === 'returns' && selectedItems.length > 0 && (
                                 <button
                                     onClick={() => setShowReturnModal(true)}
-                                    className="bg-indigo-600 text-white h-10 px-6 rounded-xl text-[13px] font-bold shadow-lg shadow-indigo-100 animate-in zoom-in"
+                                    className="bg-indigo-600 text-white h-10 px-6 rounded-xl text-[13px] font-bold shadow-lg shadow-indigo-100 animate-in zoom-in-95"
                                 >
                                     Toplu İade ({selectedItems.length})
                                 </button>
