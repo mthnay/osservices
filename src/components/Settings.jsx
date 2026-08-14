@@ -7,6 +7,7 @@ import Swal from 'sweetalert2';
 import ConfirmationModal from './ConfirmationModal';
 import MyPhoneIcon from './LocalIcons';
 import { isSuperAdmin, isYonetici, ROLE_DISPLAY_NAMES } from '../utils/permissions';
+import WarehouseManagement from './WarehouseManagement';
 
 const Settings = () => {
     const {
@@ -21,8 +22,6 @@ const Settings = () => {
         earnings, addEarning,
         roles, addRole, updateRole, deleteRole,
         serviceTerms, setServiceTerms,
-        // eslint-disable-next-line no-unused-vars
-        inventory, updateInventoryItem,
         deviceModels, addDeviceModel, updateDeviceModel, removeDeviceModel
     } = useAppContext();
 
@@ -42,16 +41,6 @@ const Settings = () => {
     // Earnings Form State
     const [showEarningsModal, setShowEarningsModal] = useState(false);
     const [newEarning, setNewEarning] = useState({ storeId: '', month: '', amount: '' });
-
-    // --- Stock Transfer States ---
-    const [showTransferModal, setShowTransferModal] = useState(false);
-    const [transferForm, setTransferForm] = useState({
-        sourceStoreId: '',
-        targetStoreId: '',
-        itemId: '',
-        serialNumbers: [],
-        serialType: 'kgb'
-    });
 
     // --- Company Profile Form ---
     const [tempCompanyProfile, setTempCompanyProfile] = useState(companyProfile || {
@@ -237,54 +226,6 @@ const Settings = () => {
             setTempServiceTerms(serviceTerms);
         }
     }, [serviceTerms]);
-
-    const handleExecuteTransfer = async () => {
-        const { sourceStoreId, targetStoreId, itemId, serialNumbers, serialType } = transferForm;
-        
-        if (!sourceStoreId || !targetStoreId || !itemId || serialNumbers.length === 0) {
-            Swal.fire('Hata', 'Lütfen tüm alanları doldurun ve en az bir seri numarası seçin.', 'error');
-            return;
-        }
-
-        if (sourceStoreId === targetStoreId) {
-            Swal.fire('Hata', 'Kaynak ve hedef mağaza aynı olamaz.', 'error');
-            return;
-        }
-
-        try {
-            const response = await fetch('/api/inventory/transfer-serial', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${sessionStorage.getItem('token')}`
-                },
-                body: JSON.stringify({
-                    sourceItemId: itemId,
-                    targetStoreId: parseInt(targetStoreId),
-                    serialNumbers,
-                    serialType
-                })
-            });
-
-            const data = await response.json();
-            if (data.success) {
-                Swal.fire({
-                    title: 'Başarılı!',
-                    text: 'Stok transferi başarıyla tamamlandı.',
-                    icon: 'success',
-                    timer: 2000
-                }).then(() => {
-                    setShowTransferModal(false);
-                    // Refresh data
-                    window.location.reload();
-                });
-            } else {
-                throw new Error(data.message);
-            }
-        } catch (error) {
-            Swal.fire('Hata', 'Transfer işlemi başarısız: ' + error.message, 'error');
-        }
-    };
 
     const handleSaveServiceTerms = () => {
         setServiceTerms(tempServiceTerms);
@@ -2025,92 +1966,7 @@ const Settings = () => {
                     </div>
                 );
             case 'warehouse_management':
-                return (
-                    <div className="space-y-8 animate-fade-in">
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {servicePoints.map(point => {
-                                const storeStock = inventory.filter(i => String(i.storeId) === String(point.id));
-                                const kgbCount = storeStock.filter(i => i.category !== 'loaner').reduce((sum, i) => sum + (i.quantity || 0), 0);
-                                const loanerCount = storeStock.filter(i => i.category === 'loaner').length;
-                                
-                                return (
-                                    <div key={point.id} className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm hover:shadow-xl transition-all group overflow-hidden relative">
-                                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                                            <Package size={80} />
-                                        </div>
-                                        
-                                        <div className="flex items-center gap-4 mb-6">
-                                            <div className="w-12 h-12 bg-gray-900 text-white rounded-xl flex items-center justify-center font-bold text-xl shadow-lg">
-                                                {point.name[0]}
-                                            </div>
-                                            <div>
-                                                <h4 className="font-bold text-gray-900">{point.name}</h4>
-                                                <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">Ambar Kodu: {point.shipTo}</p>
-                                            </div>
-                                        </div>
-
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
-                                                <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">STOK (KGB)</p>
-                                                <p className="text-xl font-bold text-gray-900">{kgbCount} Adet</p>
-                                            </div>
-                                            <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100">
-                                                <p className="text-[9px] font-bold text-blue-400 uppercase tracking-widest mb-1">EMANET</p>
-                                                <p className="text-xl font-bold text-blue-600">{loanerCount} Cihaz</p>
-                                            </div>
-                                        </div>
-
-                                        <div className="mt-6 pt-6 border-t border-gray-50 flex items-center justify-between">
-                                            <div className="flex -space-x-2">
-                                                {[1,2,3].map(i => (
-                                                    <div key={i} className={`w-6 h-6 rounded-full border-2 border-white bg-gray-${100 * i}`}></div>
-                                                ))}
-                                            </div>
-                                            <button 
-                                                onClick={() => {
-                                                    Swal.fire({
-                                                        title: `${point.name} Ambar Detayı`,
-                                                        html: `<div class="text-left text-sm">Bu ambar şu an aktif ve ${kgbCount} parça barındırıyor. Stok transfer modülü yakında eklenecektir.</div>`,
-                                                        icon: 'info',
-                                                        confirmButtonColor: '#111827'
-                                                    });
-                                                }}
-                                                className="text-xs font-bold text-gray-400 hover:text-gray-900 flex items-center gap-1 transition-colors"
-                                            >
-                                                Ambarı Yönet <ChevronRight size={14} />
-                                            </button>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-
-                        <div className="bg-gray-900 rounded-[32px] p-10 text-white shadow-2xl relative overflow-hidden">
-                            <div className="absolute bottom-0 right-0 w-96 h-96 bg-blue-500/10 rounded-full translate-y-1/2 translate-x-1/2 blur-3xl"></div>
-                            <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
-                                <div>
-                                    <h4 className="text-2xl font-bold mb-2">Ambarlar Arası Stok Transferi</h4>
-                                    <p className="text-gray-400 max-w-md text-sm leading-relaxed">Şubeler arası parça transferlerini buradan yönetebilir, ambarlar arası dengelemeyi sağlayabilirsiniz. (Sadece Admin yetkisi ile)</p>
-                                </div>
-                                <button 
-                                    onClick={() => {
-                                        setTransferForm({
-                                            sourceStoreId: '',
-                                            targetStoreId: '',
-                                            itemId: '',
-                                            serialNumbers: [],
-                                            serialType: 'kgb'
-                                        });
-                                        setShowTransferModal(true);
-                                    }}
-                                    className="px-8 py-4 bg-white text-gray-900 font-bold rounded-xl hover:bg-gray-100 transition-all flex items-center gap-2 shadow-xl"
-                                >
-                                    <RefreshCw size={20} /> Transfer Başlat
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                );
+                return <WarehouseManagement />;
             case 'audit_logs':
                 return (
                     <div className="space-y-8 animate-fade-in">
@@ -2490,120 +2346,6 @@ const Settings = () => {
                     </div>
                 </main>
             </div>
-            {showTransferModal && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-xl z-[100] flex items-center justify-center p-4 overflow-hidden">
-                    <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl animate-scale-up border border-white/20 overflow-hidden flex flex-col max-h-[90vh]">
-                        <div className="px-8 py-6 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-blue-600 text-white rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
-                                    <RefreshCw size={20} />
-                                </div>
-                                <div>
-                                    <h3 className="text-xl font-bold text-gray-900">Stok Transferi Başlat</h3>
-                                    <p className="text-xs text-gray-400 font-medium">Ambarlar arası güvenli parça transferi</p>
-                                </div>
-                            </div>
-                            <button onClick={() => setShowTransferModal(false)} className="w-10 h-10 flex items-center justify-center hover:bg-gray-200 rounded-full transition-all">
-                                <X size={20} className="text-gray-400" />
-                            </button>
-                        </div>
-
-                        <div className="p-8 space-y-6 overflow-y-auto">
-                            {/* Step 1: Stores */}
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Kaynak Ambar</label>
-                                    <select 
-                                        className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl text-sm font-semibold focus:ring-4 focus:ring-blue-100 transition-all outline-none"
-                                        value={transferForm.sourceStoreId}
-                                        onChange={(e) => setTransferForm({...transferForm, sourceStoreId: e.target.value, itemId: '', serialNumbers: []})}
-                                    >
-                                        <option value="">Seçiniz...</option>
-                                        {servicePoints.map(p => (
-                                            <option key={p.id} value={p.id}>{p.name}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Hedef Ambar</label>
-                                    <select 
-                                        className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl text-sm font-semibold focus:ring-4 focus:ring-blue-100 transition-all outline-none"
-                                        value={transferForm.targetStoreId}
-                                        onChange={(e) => setTransferForm({...transferForm, targetStoreId: e.target.value})}
-                                    >
-                                        <option value="">Seçiniz...</option>
-                                        {servicePoints.filter(p => String(p.id) !== String(transferForm.sourceStoreId)).map(p => (
-                                            <option key={p.id} value={p.id}>{p.name}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
-
-                            {/* Step 2: Item Selection */}
-                            {transferForm.sourceStoreId && (
-                                <div className="space-y-2 animate-fade-in">
-                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Transfer Edilecek Parça</label>
-                                    <select 
-                                        className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl text-sm font-semibold focus:ring-4 focus:ring-blue-100 transition-all outline-none"
-                                        value={transferForm.itemId}
-                                        onChange={(e) => setTransferForm({...transferForm, itemId: e.target.value, serialNumbers: []})}
-                                    >
-                                        <option value="">Parça Seçiniz...</option>
-                                        {inventory.filter(i => String(i.storeId) === String(transferForm.sourceStoreId) && i.quantity > 0).map(i => (
-                                            <option key={i._id || i.id} value={i._id || i.id}>{i.name} ({i.partNumber}) - Mevcut: {i.quantity}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            )}
-
-                            {/* Step 3: Serial Selection */}
-                            {transferForm.itemId && (
-                                <div className="space-y-4 animate-fade-in">
-                                    <div className="flex items-center justify-between">
-                                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Seri Numaraları Seçimi</label>
-                                        <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded">Seçilen: {transferForm.serialNumbers.length}</span>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-4 bg-gray-50 rounded-2xl border border-gray-100">
-                                        {(inventory.find(i => (i._id || i.id) === transferForm.itemId)?.kgbSerials || []).map(sn => (
-                                            <label key={sn} className="flex items-center gap-3 p-3 bg-white rounded-xl border border-gray-100 cursor-pointer hover:border-blue-300 transition-all group">
-                                                <input 
-                                                    type="checkbox" 
-                                                    className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500"
-                                                    checked={transferForm.serialNumbers.includes(sn)}
-                                                    onChange={(e) => {
-                                                        const sns = e.target.checked 
-                                                            ? [...transferForm.serialNumbers, sn]
-                                                            : transferForm.serialNumbers.filter(s => s !== sn);
-                                                        setTransferForm({...transferForm, serialNumbers: sns});
-                                                    }}
-                                                />
-                                                <span className="text-xs font-mono font-bold text-gray-700 group-hover:text-blue-600">{sn}</span>
-                                            </label>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="p-8 bg-gray-50 border-t border-gray-100 flex gap-4">
-                            <button
-                                onClick={() => setShowTransferModal(false)}
-                                className="flex-1 py-4 rounded-xl font-bold text-xs uppercase tracking-widest text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-all"
-                            >
-                                Vazgeç
-                            </button>
-                            <button
-                                onClick={handleExecuteTransfer}
-                                disabled={!transferForm.targetStoreId || !transferForm.itemId || transferForm.serialNumbers.length === 0}
-                                className="flex-[2] py-4 bg-blue-600 text-white rounded-xl font-bold text-xs uppercase tracking-widest shadow-xl shadow-blue-500/20 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
-                            >
-                                <RefreshCw size={18} />
-                                Transferi Gerçekleştir
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             <ConfirmationModal
                 isOpen={confirmModal.isOpen}
