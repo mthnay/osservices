@@ -1314,6 +1314,61 @@ export const AppProvider = ({ children }) => {
         }
     };
 
+    /**
+     * Yerleşik kataloğu veritabanına toplu aktarır.
+     * addDeviceModel her kayıt için ayrı bildirim gösterdiğinden burada
+     * doğrudan API'ye gidilir ve sonunda tek özet bildirim verilir.
+     * Mevcut kayıtlar silinmez; aynı isimli modeller atlanır.
+     */
+    const importDeviceModels = async (models) => {
+        const existing = new Set(deviceModels.map(m => String(m.name || '').trim().toLocaleLowerCase('tr')));
+        const pending = (models || []).filter(m => {
+            const key = String(m?.name || '').trim().toLocaleLowerCase('tr');
+            return key && !existing.has(key);
+        });
+
+        if (pending.length === 0) {
+            showToast('Aktarılacak yeni model yok; katalog zaten güncel.', 'info');
+            return { added: 0, failed: 0, skipped: (models || []).length };
+        }
+
+        const saved = [];
+        let failed = 0;
+
+        for (const model of pending) {
+            try {
+                const res = await apiFetch(`${API_URL}/device-models`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: model.name,
+                        type: model.type,
+                        configurations: model.configurations || [],
+                        colors: model.colors || []
+                    })
+                });
+                if (res.ok) saved.push(await res.json());
+                else failed += 1;
+            } catch (error) {
+                console.error('Error importing device model:', model?.name, error);
+                failed += 1;
+            }
+        }
+
+        if (saved.length > 0) setDeviceModels(prev => [...prev, ...saved]);
+
+        const skipped = (models || []).length - pending.length;
+        if (failed === 0) {
+            showToast(`${saved.length} cihaz modeli veritabanına aktarıldı.`, 'success');
+        } else if (saved.length > 0) {
+            showToast(`${saved.length} model aktarıldı, ${failed} tanesi başarısız oldu.`, 'warning');
+        } else {
+            showToast('Katalog aktarılamadı. Yetkinizi kontrol edin.', 'error');
+        }
+
+        return { added: saved.length, failed, skipped };
+    };
+
     const getStoreRepairs = () => {
         if (!currentUser) return [];
         if (hasPermission(currentUser, 'view_all_stores')) {
@@ -1448,7 +1503,7 @@ export const AppProvider = ({ children }) => {
             notificationTemplates, setNotificationTemplates: (s) => { setNotificationTemplates(s); saveSettings('notificationTemplates', s); },
             serviceTerms, setServiceTerms: (s) => { setServiceTerms(s); saveSettings('serviceTerms', s); },
             roles, addRole, updateRole, deleteRole,
-            deviceModels, addDeviceModel, updateDeviceModel, removeDeviceModel,
+            deviceModels, addDeviceModel, updateDeviceModel, removeDeviceModel, importDeviceModels,
             selectedStoreId, setSelectedStoreId, showToast, alerts: alerts.filter(a => !clearedAlertIds.includes(a.id)), checkSLA, sendWhatsApp, uploadMedia, clearAllAlerts,
             recentActivity, satisfactionEntries, addSatisfactionEntry
         }}>

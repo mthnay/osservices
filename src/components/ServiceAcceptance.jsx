@@ -35,6 +35,7 @@ import {
 import ServiceFormPrint from './ServiceFormPrint';
 import Toast from './Toast'; // Import Toast
 import { useAppContext } from '../context/AppContext';
+import { resolveDeviceCatalog, buildDeviceCombinations } from '../utils/deviceCatalog';
 import { appConfirm } from '../utils/alert';
 import { hasPermission, ROLES, getAccessibleStoreIds } from '../utils/permissions';
 import MyPhoneIcon from './LocalIcons';
@@ -59,60 +60,6 @@ const PRODUCT_IMAGES = {
     other: getProductImage('other')
 };
 
-const DEVICE_DATABASE = [
-    // iPhones
-    { name: 'iPhone 15 Pro Max', capacities: ['256 GB', '512 GB', '1 TB'], colors: ['Natural Titanium', 'Blue Titanium', 'White Titanium', 'Black Titanium'] },
-    { name: 'iPhone 15 Pro', capacities: ['128 GB', '256 GB', '512 GB', '1 TB'], colors: ['Natural Titanium', 'Blue Titanium', 'White Titanium', 'Black Titanium'] },
-    { name: 'iPhone 15 Plus', capacities: ['128 GB', '256 GB', '512 GB'], colors: ['Pink', 'Yellow', 'Green', 'Blue', 'Black'] },
-    { name: 'iPhone 15', capacities: ['128 GB', '256 GB', '512 GB'], colors: ['Pink', 'Yellow', 'Green', 'Blue', 'Black'] },
-    { name: 'iPhone 14 Pro Max', capacities: ['128 GB', '256 GB', '512 GB', '1 TB'], colors: ['Deep Purple', 'Gold', 'Silver', 'Space Black'] },
-    { name: 'iPhone 14 Pro', capacities: ['128 GB', '256 GB', '512 GB', '1 TB'], colors: ['Deep Purple', 'Gold', 'Silver', 'Space Black'] },
-    { name: 'iPhone 14 Plus', capacities: ['128 GB', '256 GB', '512 GB'], colors: ['Blue', 'Purple', 'Midnight', 'Starlight', '(PRODUCT)RED', 'Yellow'] },
-    { name: 'iPhone 14', capacities: ['128 GB', '256 GB', '512 GB'], colors: ['Blue', 'Purple', 'Midnight', 'Starlight', '(PRODUCT)RED', 'Yellow'] },
-    { name: 'iPhone 13 Pro Max', capacities: ['128 GB', '256 GB', '512 GB', '1 TB'], colors: ['Sierra Blue', 'Graphite', 'Gold', 'Silver', 'Alpine Green'] },
-    { name: 'iPhone 13 Pro', capacities: ['128 GB', '256 GB', '512 GB', '1 TB'], colors: ['Sierra Blue', 'Graphite', 'Gold', 'Silver', 'Alpine Green'] },
-    { name: 'iPhone 13', capacities: ['128 GB', '256 GB', '512 GB'], colors: ['Pink', 'Blue', 'Midnight', 'Starlight', '(PRODUCT)RED', 'Green'] },
-    { name: 'iPhone 13 mini', capacities: ['128 GB', '256 GB', '512 GB'], colors: ['Pink', 'Blue', 'Midnight', 'Starlight', '(PRODUCT)RED', 'Green'] },
-    { name: 'iPhone 12 Pro Max', capacities: ['128 GB', '256 GB', '512 GB'], colors: ['Pacific Blue', 'Gold', 'Graphite', 'Silver'] },
-    { name: 'iPhone 12 Pro', capacities: ['128 GB', '256 GB', '512 GB'], colors: ['Pacific Blue', 'Gold', 'Graphite', 'Silver'] },
-    { name: 'iPhone 12 mini', capacities: ['64 GB', '128 GB', '256 GB'], colors: ['Black', 'White', '(PRODUCT)RED', 'Green', 'Blue', 'Purple'] },
-    { name: 'iPhone 12', capacities: ['64 GB', '128 GB', '256 GB'], colors: ['Black', 'White', '(PRODUCT)RED', 'Green', 'Blue', 'Purple'] },
-    { name: 'iPhone 11 Pro Max', capacities: ['64 GB', '256 GB', '512 GB'], colors: ['Midnight Green', 'Space Gray', 'Silver', 'Gold'] },
-    { name: 'iPhone 11 Pro', capacities: ['64 GB', '256 GB', '512 GB'], colors: ['Midnight Green', 'Space Gray', 'Silver', 'Gold'] },
-    { name: 'iPhone 11', capacities: ['64 GB', '128 GB', '256 GB'], colors: ['Black', 'Green', 'Yellow', 'Purple', '(PRODUCT)RED', 'White'] },
-    { name: 'iPhone SE (3rd Gen)', capacities: ['64 GB', '128 GB', '256 GB'], colors: ['Midnight', 'Starlight', '(PRODUCT)RED'] },
-    { name: 'iPhone SE (2nd Gen)', capacities: ['64 GB', '128 GB', '256 GB'], colors: ['Black', 'White', '(PRODUCT)RED'] },
-    
-    // iPads
-    { name: 'iPad Pro 12.9"', generations: ['6th Gen (M2)', '5th Gen (M1)', '4th Gen'], capacities: ['128 GB', '256 GB', '512 GB', '1 TB', '2 TB'] },
-    { name: 'iPad Pro 11"', generations: ['4th Gen (M2)', '3rd Gen (M1)', '2nd Gen'], capacities: ['128 GB', '256 GB', '512 GB', '1 TB', '2 TB'] },
-    { name: 'iPad Air (5th Gen)', capacities: ['64 GB', '256 GB'], colors: ['Space Gray', 'Starlight', 'Pink', 'Purple', 'Blue'] },
-    { name: 'iPad Air (4th Gen)', capacities: ['64 GB', '256 GB'], colors: ['Space Gray', 'Silver', 'Rose Gold', 'Green', 'Sky Blue'] },
-    { name: 'iPad (10th Gen)', capacities: ['64 GB', '256 GB'], colors: ['Silver', 'Blue', 'Pink', 'Yellow'] },
-    { name: 'iPad mini (6th Gen)', capacities: ['64 GB', '256 GB'], colors: ['Space Gray', 'Pink', 'Purple', 'Starlight'] },
-
-    // MacBooks
-    { name: 'MacBook Air 13" (M3)', chips: ['M3'], configurations: ['8 GB RAM', '16 GB RAM', '24 GB RAM'] },
-    { name: 'MacBook Air 13" (M2)', chips: ['M2'], configurations: ['8 GB RAM', '16 GB RAM', '24 GB RAM'] },
-    { name: 'MacBook Air 13" (M1)', chips: ['M1'], configurations: ['8 GB RAM', '16 GB RAM'] },
-    { name: 'MacBook Air 15" (M3)', chips: ['M3'], configurations: ['8 GB RAM', '16 GB RAM', '24 GB RAM'] },
-    { name: 'MacBook Air 15" (M2)', chips: ['M2'], configurations: ['8 GB RAM', '16 GB RAM', '24 GB RAM'] },
-    { name: 'MacBook Pro 14"', chips: ['M1 Pro', 'M1 Max', 'M2 Pro', 'M2 Max', 'M3', 'M3 Pro', 'M3 Max'], configurations: ['16 GB RAM', '32 GB RAM', '64 GB RAM', '96 GB RAM', '128 GB RAM'] },
-    { name: 'MacBook Pro 16"', chips: ['M1 Pro', 'M1 Max', 'M2 Pro', 'M2 Max', 'M3 Pro', 'M3 Max'], configurations: ['16 GB RAM', '32 GB RAM', '64 GB RAM', '96 GB RAM', '128 GB RAM'] },
-    { name: 'MacBook Pro 13"', chips: ['M2', 'M1', 'Intel Core i5'], configurations: ['8 GB RAM', '16 GB RAM', '32 GB RAM'] },
-
-    // Apple Watch
-    { name: 'Apple Watch Ultra 2', sizes: ['49mm'], materials: ['Titanium'] },
-    { name: 'Apple Watch Ultra', sizes: ['49mm'], materials: ['Titanium'] },
-    { name: 'Apple Watch Series 9', sizes: ['41mm', '45mm'], materials: ['Aluminum', 'Stainless Steel'] },
-    { name: 'Apple Watch Series 8', sizes: ['41mm', '45mm'], materials: ['Aluminum', 'Stainless Steel'] },
-    { name: 'Apple Watch SE (2nd Gen)', sizes: ['40mm', '44mm'], materials: ['Aluminum'] },
-
-    // AirPods
-    { name: 'AirPods Pro (2nd Gen)', configurations: ['USB-C Case', 'Lightning Case'] },
-    { name: 'AirPods (3rd Gen)', configurations: ['MagSafe Case', 'Lightning Case'] },
-    { name: 'AirPods Max', colors: ['Space Gray', 'Silver', 'Pink', 'Green', 'Sky Blue'] }
-];
 
 
 const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
@@ -286,26 +233,12 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
         if (val.length > 1) {
             const searchTerms = val.toLowerCase().split(' ').filter(t => t.length > 0);
             const results = [];
-            const sourceDatabase = deviceModels && deviceModels.length > 0 ? deviceModels : DEVICE_DATABASE;
+            // Ayarlar > Cihaz Modelleri ekranıyla aynı kaynak (bkz. utils/deviceCatalog)
+            const { models: sourceDatabase } = resolveDeviceCatalog(deviceModels);
             sourceDatabase.forEach(dev => {
                 const nameLower = dev.name.toLowerCase();
                 if (searchTerms.some(term => nameLower.includes(term))) {
-                    let combinations = [];
-                    // Adapt to both DB format and static DEVICE_DATABASE format
-                    const configs = dev.configurations || dev.capacities || dev.chips || dev.generations || dev.sizes || [];
-                    const colors = dev.colors || [];
-
-                    if (configs.length > 0 && colors.length > 0) {
-                        colors.forEach(color => configs.forEach(config => combinations.push(`${dev.name}, ${config}, ${color}`)));
-                    } else if (configs.length > 0) {
-                        configs.forEach(config => combinations.push(`${dev.name}, ${config}`));
-                    } else if (colors.length > 0) {
-                        colors.forEach(color => combinations.push(`${dev.name}, ${color}`));
-                    } else {
-                        combinations.push(dev.name);
-                    }
-
-                    combinations.forEach(combo => {
+                    buildDeviceCombinations(dev).forEach(combo => {
                         const comboLower = combo.toLowerCase();
                         if (searchTerms.every(term => comboLower.includes(term))) results.push(combo);
                     });
