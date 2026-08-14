@@ -25,7 +25,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import jwt from 'jsonwebtoken';
-import { verifyToken, requireRole } from './middleware/auth.js';
+import { verifyToken, requireRole, requirePermission } from './middleware/auth.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'troy-fallback-secret-key-2026';
@@ -761,7 +761,7 @@ router.get('/inventory', async (req, res) => {
     }
 });
 
-router.post('/inventory', requireRole(['superadmin', 'storemanager']), async (req, res) => {
+router.post('/inventory', requirePermission('manage_stock', ['storemanager', 'accountant']), async (req, res) => {
     // Yetki: yetkisiz kullanıcı yalnızca erişimli mağazasına parça ekleyebilir
     if (!canViewAllStores(req.user) && !canAccessStore(req.user, req.body.storeId)) {
         return res.status(403).json({ message: 'Bu mağazaya parça ekleme yetkiniz yok.' });
@@ -773,17 +773,35 @@ router.post('/inventory', requireRole(['superadmin', 'storemanager']), async (re
     if (data.kbbSerial && (!data.kbbSerials || data.kbbSerials.length === 0)) {
         data.kbbSerials = [data.kbbSerial];
     }
+
+    // Mağaza ambarı zorunlu: storeId olmadan kayıt hiçbir ambarda görünmez
+    const storeId = Number(data.storeId);
+    if (!storeId || Number.isNaN(storeId)) {
+        return res.status(400).json({ message: 'Parça eklemek için geçerli bir mağaza ambarı seçilmelidir.' });
+    }
+    data.storeId = storeId;
+
+    // Eski kurulumlarda "inventories" koleksiyonunda id üzerinde benzersiz indeks
+    // kalabiliyor; id boş bırakılırsa ikinci kayıt "dup key: { id: null }" ile
+    // reddediliyordu. Her kayda benzersiz bir parça id'si veriyoruz.
+    if (!data.id) {
+        data.id = `${data.partNumber || data.serialNumber || 'PART'}-${Date.now()}`;
+    }
+
     const item = new Inventory(data);
     try {
         const newItem = await item.save();
         await createLog(req, 'CREATE_STOCK', 'INVENTORY', `Yeni parça eklendi: ${newItem.name || ''} (${newItem.partNumber || newItem.id || ''}) - Adet: ${newItem.quantity ?? ''}`, newItem.storeId);
         res.status(201).json(newItem);
     } catch (err) {
+        if (err.code === 11000) {
+            return res.status(409).json({ message: 'Bu parça kaydı zaten mevcut (benzersiz alan çakışması).' });
+        }
         res.status(400).json({ message: err.message });
     }
 });
 
-router.put('/inventory/:id', requireRole(['superadmin', 'storemanager']), async (req, res) => {
+router.put('/inventory/:id', requirePermission('manage_stock', ['storemanager', 'accountant']), async (req, res) => {
     try {
         const id = req.params.id;
         const filter = { $or: [{ id: id }] };
@@ -813,7 +831,7 @@ router.put('/inventory/:id', requireRole(['superadmin', 'storemanager']), async 
     }
 });
 
-router.delete('/inventory/:id', requireRole(['superadmin', 'storemanager']), async (req, res) => {
+router.delete('/inventory/:id', requirePermission('manage_stock', ['storemanager', 'accountant']), async (req, res) => {
     try {
         const id = req.params.id;
         console.log(`[Inventory] DELETE request for id/_id: ${id}`);
@@ -1089,34 +1107,88 @@ router.get('/service-points', async (req, res) => {
     }
 });
 
+// ServicePoint.id sayısal olduğu için ham string ile sorgulamak Cast hatası
+// üretir; hem sayısal id hem de ObjectId ile eşleşen güvenli filtre.
+const servicePointFilter = (id) => {
+    const or = [];
+    const numericId = Number(id);
+    if (id !== '' && id !== null && id !== undefined && !Number.isNaN(numericId)) or.push({ id: numericId });
+    if (mongoose.Types.ObjectId.isValid(id)) or.push({ _id: id });
+    return or.length ? { $or: or } : null;
+};
+
 router.post('/service-points', requireRole(['superadmin', 'yonetici']), async (req, res) => {
-    const point = new ServicePoint(req.body);
     try {
-        const newPoint = await point.save();
+        const data = { ...req.body };
+
+        // Mağaza id'si sayısal olmak zorunda: stok, servis ve kullanıcı kayıtları
+        // mağazayı bu sayı üzerinden bağlar. Geçersizse sıradaki id atanır.
+        const requestedId = Number(data.id);
+        if (!requestedId || Number.isNaN(requestedId)) {
+            const last = await ServicePoint.findOne({ id: { $ne: null } }).sort({ id: -1 }).lean();
+            data.id = (Number(last?.id) || 0) + 1;
+        } else {
+            data.id = requestedId;
+        }
+
+        const shipTo = String(data.shipTo || '').trim();
+        if (!shipTo) {
+            return res.status(400).json({ message: 'Ship-To kodu zorunludur.' });
+        }
+        data.shipTo = shipTo;
+
+        const duplicate = await ServicePoint.findOne({ shipTo }).lean();
+        if (duplicate) {
+            return res.status(409).json({ message: `"${shipTo}" Ship-To kodu "${duplicate.name}" mağazasında kullanılıyor.` });
+        }
+
+        const newPoint = await new ServicePoint(data).save();
         res.status(201).json(newPoint);
     } catch (err) {
+        if (err.code === 11000) {
+            return res.status(409).json({ message: 'Bu mağaza zaten kayıtlı (Ship-To kodu veya mağaza id\'si benzersiz olmalı).' });
+        }
         res.status(400).json({ message: err.message });
     }
 });
 
 router.put('/service-points/:id', requireRole(['superadmin', 'yonetici']), async (req, res) => {
     try {
-        const id = req.params.id;
-        const filter = { $or: [{ id: id }] };
-        if (mongoose.Types.ObjectId.isValid(id)) filter.$or.push({ _id: id });
+        const filter = servicePointFilter(req.params.id);
+        if (!filter) return res.status(400).json({ message: 'Geçersiz mağaza kimliği.' });
 
-        const updatedPoint = await ServicePoint.findOneAndUpdate(filter, req.body, { new: true });
+        const target = await ServicePoint.findOne(filter).lean();
+        if (!target) return res.status(404).json({ message: 'Mağaza bulunamadı.' });
+
+        // Kimlik ve zaman damgası alanları gövdeden gelse bile değiştirilmez
+        const updates = { ...req.body };
+        ['_id', 'id', 'createdAt', 'updatedAt', '__v'].forEach(key => delete updates[key]);
+
+        if (updates.shipTo !== undefined) {
+            const shipTo = String(updates.shipTo).trim();
+            if (!shipTo) return res.status(400).json({ message: 'Ship-To kodu zorunludur.' });
+            const clash = await ServicePoint.findOne({ shipTo, _id: { $ne: target._id } }).lean();
+            if (clash) {
+                return res.status(409).json({ message: `"${shipTo}" Ship-To kodu "${clash.name}" mağazasında kullanılıyor.` });
+            }
+            updates.shipTo = shipTo;
+        }
+
+        const updatedPoint = await ServicePoint.findOneAndUpdate({ _id: target._id }, updates, { new: true });
+        if (!updatedPoint) return res.status(404).json({ message: 'Mağaza bulunamadı.' });
         res.json(updatedPoint);
     } catch (err) {
+        if (err.code === 11000) {
+            return res.status(409).json({ message: 'Bu Ship-To kodu başka bir mağazada kullanılıyor.' });
+        }
         res.status(400).json({ message: err.message });
     }
 });
 
 router.delete('/service-points/:id', requireRole(['superadmin', 'yonetici']), async (req, res) => {
     try {
-        const id = req.params.id;
-        const filter = { $or: [{ id: id }] };
-        if (mongoose.Types.ObjectId.isValid(id)) filter.$or.push({ _id: id });
+        const filter = servicePointFilter(req.params.id);
+        if (!filter) return res.status(400).json({ message: 'Geçersiz mağaza kimliği.' });
 
         const deleted = await ServicePoint.findOneAndDelete(filter);
         res.json({ message: 'Service Point deleted', success: !!deleted });

@@ -7,6 +7,15 @@ const AppContext = createContext();
 
 export const useAppContext = () => useContext(AppContext);
 
+/** Başarısız yanıtın gerekçesini okur; gövde okunamazsa varsayılana düşer. */
+const readErrorMessage = async (res, fallback) => {
+    try {
+        const body = await res.json();
+        if (body?.message) return body.message;
+    } catch { /* JSON değilse varsayılan mesaj */ }
+    return fallback;
+};
+
 export const AppProvider = ({ children }) => {
 
     const API_URL = import.meta.env.VITE_API_URL ||
@@ -892,7 +901,13 @@ export const AppProvider = ({ children }) => {
                 setServicePoints(prev => prev.map(p => (p._id === updated._id || p.id === id) ? updated : p));
                 return true;
             }
-        } catch (error) { console.error("Error updating service point:", error); return false; }
+            showToast(await readErrorMessage(res, 'Mağaza bilgileri güncellenemedi.'), 'error');
+            return false;
+        } catch (error) {
+            console.error("Error updating service point:", error);
+            showToast(error.message || 'Mağaza bilgileri güncellenemedi.', 'error');
+            return false;
+        }
     };
 
     const removeServicePoint = async (id) => {
@@ -902,15 +917,23 @@ export const AppProvider = ({ children }) => {
                 setServicePoints(prev => prev.filter(p => p.id !== id && p._id !== id));
                 return true;
             }
-        } catch (error) { console.error("Error removing service point:", error); return false; }
+            showToast(await readErrorMessage(res, 'Mağaza kaldırılamadı.'), 'error');
+            return false;
+        } catch (error) {
+            console.error("Error removing service point:", error);
+            showToast(error.message || 'Mağaza kaldırılamadı.', 'error');
+            return false;
+        }
     };
 
     const addServicePoint = async (point) => {
         try {
+            // Mağaza id'sini sunucu atar (sıradaki numara); istemci saat damgası
+            // üretirse kullanıcıların storeId değerleriyle eşleşmeyen id'ler oluşuyor.
             const res = await apiFetch(`${API_URL}/service-points`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ...point, id: point.id || Date.now() })
+                body: JSON.stringify(point)
             });
             if (res.ok) {
                 const saved = await res.json();
@@ -988,10 +1011,23 @@ export const AppProvider = ({ children }) => {
             });
             if (res.ok) {
                 const saved = await res.json();
+                // Oturum düşmüşse apiFetch boş gövdeli bir yanıt döndürebilir;
+                // kaydedilmemiş parçayı listeye eklemeyelim.
+                if (!saved || Array.isArray(saved) || !(saved._id || saved.id)) {
+                    showToast('Parça kaydedilemedi. Oturumunuz sona ermiş olabilir, tekrar giriş yapın.', 'error');
+                    return false;
+                }
                 setInventory(prev => [...prev, saved]);
                 return true;
             }
-        } catch (error) { console.error("Error adding item:", error); return false; }
+            // Sunucunun gerekçesini gizlemeyelim: kullanıcı neden eklenemediğini görmeli
+            showToast(await readErrorMessage(res, 'Parça eklenemedi.'), 'error');
+            return false;
+        } catch (error) {
+            console.error("Error adding item:", error);
+            showToast(error.message || 'Parça eklenemedi. Sunucuya ulaşılamıyor.', 'error');
+            return false;
+        }
     };
 
     const updateInventoryItem = async (id, updates) => {
@@ -1010,10 +1046,18 @@ export const AppProvider = ({ children }) => {
             });
             if (res.ok) {
                 const updated = await res.json();
+                // PUT, kayıt bulunamadığında da 200 + null dönebiliyor
+                if (!updated || !(updated._id || updated.id)) return false;
                 setInventory(prev => prev.map(i => (i._id === updated._id || i.id === id) ? updated : i));
                 return true;
             }
-        } catch (error) { console.error("Error updating item:", error); return false; }
+            // Çağıranlar kendi mesajlarını gösterdiği için burada toast yok
+            console.warn('[inventory] Güncelleme reddedildi:', await readErrorMessage(res, res.status));
+            return false;
+        } catch (error) {
+            console.error("Error updating item:", error);
+            return false;
+        }
     };
 
     const removeInventoryItem = async (id) => {
@@ -1451,21 +1495,23 @@ export const AppProvider = ({ children }) => {
     }, [currentUser]);
 
     // Filtered service points based on user permissions
+    // Not: kapsam kuralı sunucudaki canViewAllStores ile birebir aynı olmalı.
+    // Aksi halde sunucu tüm mağazalara izin verirken arayüz mağaza listesini
+    // boş bırakıyor ve kullanıcı stok girişinde mağaza seçemiyordu.
     const visibleServicePoints = React.useMemo(() => {
         if (!currentUser) return [];
-        const hasViewAllPerm = hasPermission(currentUser, 'view_all_stores');
-        if ((isAdmin || hasViewAllPerm) && !isStaff) {
+        if (isAdmin || hasPermission(currentUser, 'view_all_stores')) {
             return servicePoints;
         }
         // Erişim yetkisi olan mağazalar (çoklu destekli)
         const allowed = getAccessibleStoreIds(currentUser).map(String);
         return servicePoints.filter(sp => allowed.includes(String(sp.id)));
-    }, [servicePoints, currentUser, isAdmin, isStaff]);
+    }, [servicePoints, currentUser, isAdmin]);
 
     const filterByStore = React.useCallback((list, storeIdKey = 'storeId') => {
         if (!currentUser || !Array.isArray(list)) return [];
-        const hasViewAllPerm = hasPermission(currentUser, 'view_all_stores');
-        if ((isAdmin || hasViewAllPerm) && !isStaff) {
+        // Kapsam kuralı visibleServicePoints ve getStoreRepairs ile aynı olmalı
+        if (isAdmin || hasPermission(currentUser, 'view_all_stores')) {
             return selectedStoreId === 0 ? list : list.filter(item => String(item[storeIdKey]) === String(selectedStoreId));
         }
         // Erişim yetkisi olan mağazalar (tek veya çoklu)
@@ -1474,7 +1520,7 @@ export const AppProvider = ({ children }) => {
             return list.filter(item => String(item[storeIdKey]) === String(selectedStoreId));
         }
         return list.filter(item => allowed.includes(String(item[storeIdKey])));
-    }, [currentUser, isAdmin, isStaff, selectedStoreId]);
+    }, [currentUser, isAdmin, selectedStoreId]);
 
     return (
         <AppContext.Provider value={{

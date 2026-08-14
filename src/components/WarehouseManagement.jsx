@@ -273,9 +273,8 @@ const WarehouseManagement = () => {
             if (ok) {
                 if (String(expandedId) === String(point.id)) setExpandedId(null);
                 showToast(`"${point.name}" ambarı kaldırıldı.`, 'success');
-            } else {
-                showToast('Ambar kaldırılamadı. Yetkinizi kontrol edin.', 'error');
             }
+            // Hata durumunda gerekçeyi removeServicePoint bildirir
         } finally {
             setRemovingId(null);
         }

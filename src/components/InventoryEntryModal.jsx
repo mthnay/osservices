@@ -72,7 +72,27 @@ const InventoryEntryModal = ({ mode = 'KGB', stores = [], defaultStoreId = '', o
 
     const serials = useMemo(() => parseSerials(form.serials), [form.serials]);
     const effectiveQty = mode === 'loaner' ? 1 : (serials.length || 1);
-    const storeName = stores.find(s => String(s.id) === String(form.storeId))?.name;
+
+    // Kayıt yalnızca sayısal mağaza id'sine bağlanabilir; id'si olmayan mağaza
+    // seçilirse parça hiçbir ambarda görünmez, bu yüzden listelenmez.
+    const selectableStores = useMemo(
+        () => stores.filter(s => Number(s?.id) > 0),
+        [stores]
+    );
+    const noStoreAvailable = selectableStores.length === 0;
+    const storeName = selectableStores.find(s => String(s.id) === String(form.storeId))?.name;
+
+    // Varsayılan mağaza artık mevcut değilse (silinmiş/erişim kalkmış) seçim
+    // boşta kalıyor ve kayıt tanımsız bir ambara gidiyordu. Tek mağaza varsa
+    // doğrudan seçilir, geçersiz varsayılan temizlenir.
+    useEffect(() => {
+        setForm(prev => {
+            const exists = selectableStores.some(s => String(s.id) === String(prev.storeId));
+            if (exists) return prev;
+            const only = selectableStores.length === 1 ? String(selectableStores[0].id) : '';
+            return prev.storeId === only ? prev : { ...prev, storeId: only };
+        });
+    }, [selectableStores]);
 
     useEffect(() => {
         dialogRef.current?.focus();
@@ -93,7 +113,11 @@ const InventoryEntryModal = ({ mode = 'KGB', stores = [], defaultStoreId = '', o
         }
         if (mode !== 'loaner' && !form.partNumber.trim()) next.partNumber = 'Parça kodu (P/N) zorunludur.';
         if (mode === 'loaner' && !form.serialNumber.trim()) next.serialNumber = 'Cihaz seri numarası zorunludur.';
-        if (!form.storeId) next.storeId = 'Mağaza ambarı seçilmelidir.';
+        if (noStoreAvailable) {
+            next.storeId = 'Hesabınıza tanımlı bir mağaza ambarı yok. Ayarlar › Mağazalar bölümünden mağaza tanımlayın veya yöneticinizden mağaza yetkisi isteyin.';
+        } else if (!form.storeId || !(Number(form.storeId) > 0)) {
+            next.storeId = 'Mağaza ambarı seçilmelidir.';
+        }
 
         const duplicate = serials.find((s, i) => serials.indexOf(s) !== i);
         if (duplicate) next.serials = `Aynı seri numarası iki kez girilmiş: ${duplicate}`;
@@ -311,12 +335,20 @@ const InventoryEntryModal = ({ mode = 'KGB', stores = [], defaultStoreId = '', o
                                     className={`${inputCls} ${errors.storeId ? 'ring-4 ring-[#c30000]/20 border-[#c30000]' : ''}`}
                                     value={form.storeId}
                                     onChange={(e) => setField('storeId', e.target.value)}
+                                    disabled={noStoreAvailable}
                                     aria-required="true"
                                     aria-invalid={errors.storeId ? 'true' : undefined}
+                                    aria-describedby={noStoreAvailable ? fieldId('store-hint') : undefined}
                                 >
-                                    <option value="">Mağaza seçiniz…</option>
-                                    {stores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                    <option value="">{noStoreAvailable ? 'Seçilebilir mağaza yok' : 'Mağaza seçiniz…'}</option>
+                                    {selectableStores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                                 </select>
+                                {noStoreAvailable && (
+                                    <p id={fieldId('store-hint')} className="text-[11px] font-medium text-[#c30000] mt-1.5 ml-1 leading-snug">
+                                        Hesabınıza tanımlı mağaza ambarı bulunmuyor. Ayarlar › Mağazalar bölümünden mağaza ekleyin
+                                        ya da yöneticinizden hesabınıza mağaza tanımlamasını isteyin.
+                                    </p>
+                                )}
                             </div>
 
                             {mode !== 'loaner' && (
@@ -393,7 +425,7 @@ const InventoryEntryModal = ({ mode = 'KGB', stores = [], defaultStoreId = '', o
                         </button>
                         <button
                             type="submit"
-                            disabled={saving}
+                            disabled={saving || noStoreAvailable}
                             className="px-8 py-3 bg-[#0071e3] hover:bg-[#0077ed] disabled:opacity-60 text-white font-bold text-sm rounded-xl transition-all active:scale-95 flex items-center gap-2 outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
                         >
                             {saving ? <Plus size={18} className="animate-spin" aria-hidden="true" /> : <CheckCircle size={18} aria-hidden="true" />}

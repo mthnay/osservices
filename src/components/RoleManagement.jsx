@@ -20,6 +20,23 @@ import useAnimatedClose from './ui/useAnimatedClose';
 
 const normalize = (value) => String(value ?? '').toLocaleLowerCase('tr');
 
+/**
+ * Sistem adını (ID) güvenli biçime çevirir: küçük harf, rakam ve alt çizgi.
+ * Türkçe karakterler ASCII karşılığına indirgenir; boşluk ve tire alt çizgi olur.
+ * Not: 'İ'.toLowerCase() birleşik nokta ürettiği için katlama küçültmeden önce yapılır.
+ */
+const toSystemName = (value) => String(value ?? '')
+    .trim()
+    .replace(/[ıI]/g, 'i').replace(/[İ]/g, 'i')
+    .replace(/[ğĞ]/g, 'g')
+    .replace(/[üÜ]/g, 'u')
+    .replace(/[şŞ]/g, 's')
+    .replace(/[öÖ]/g, 'o')
+    .replace(/[çÇ]/g, 'c')
+    .toLowerCase()
+    .replace(/[\s.-]+/g, '_')
+    .replace(/[^a-z0-9_]/g, '');
+
 const RISK_STYLES = {
     normal: 'text-gray-600 bg-[#f5f5f7] border-gray-200',
     high: 'text-[#bf5b04] bg-[#ff9500]/8 border-[#ff9500]/25',
@@ -366,16 +383,21 @@ const RoleEditor = ({ role, existingRoles, onClose, addRole, updateRole, showToa
         e.preventDefault();
         if (busy) return;
 
-        const cleanName = name.trim();
+        // Düzenlemede sistem adı değiştirilemez (alan da kilitli) ve sunucu bu alanı
+        // yok sayar. Mevcut roller "SuperAdmin", "Technician" gibi büyük harfli
+        // adlarla tohumlandığı için biçim kuralını burada uygulamak, rolün hiç
+        // kaydedilememesine yol açıyordu; kural yalnızca yeni role uygulanır.
+        const cleanName = isEdit ? String(role?.name || '').trim() : toSystemName(name);
         const cleanDisplay = displayName.trim();
 
-        if (!cleanName) return setError('Sistem adı (ID) zorunludur.');
-        if (!/^[a-z0-9_]+$/.test(cleanName)) return setError('Sistem adı yalnızca küçük harf, rakam ve alt çizgi içerebilir.');
-        if (!cleanDisplay) return setError('Görünen ad zorunludur.');
-
-        if (!isEdit && existingRoles.some(r => normalize(r.name) === normalize(cleanName))) {
-            return setError('Bu sistem adı zaten kullanılıyor.');
+        if (!isEdit) {
+            if (!name.trim()) return setError('Sistem adı (ID) zorunludur.');
+            if (!cleanName) return setError('Sistem adı en az bir küçük harf ya da rakam içermelidir.');
+            if (existingRoles.some(r => normalize(r.name) === normalize(cleanName))) {
+                return setError('Bu sistem adı zaten kullanılıyor.');
+            }
         }
+        if (!cleanDisplay) return setError('Görünen ad zorunludur.');
         if (selected.size === 0) return setError('En az bir yetki seçmelisiniz.');
 
         // Kritik yetkiler için ek onay
@@ -468,7 +490,11 @@ const RoleEditor = ({ role, existingRoles, onClose, addRole, updateRole, showToa
                                 className={`${fieldClass} font-mono disabled:opacity-50 disabled:cursor-not-allowed`}
                             />
                             <p id="role-name-hint" className="text-[11px] font-medium text-gray-500">
-                                {isEdit ? 'Sistem adı sonradan değiştirilemez.' : 'Küçük harf, rakam ve alt çizgi.'}
+                                {isEdit
+                                    ? 'Sistem adı sonradan değiştirilemez.'
+                                    : (toSystemName(name) && toSystemName(name) !== name.trim()
+                                        ? <>Şu şekilde kaydedilecek: <span className="font-mono font-semibold text-[#1d1d1f]">{toSystemName(name)}</span></>
+                                        : 'Küçük harf, rakam ve alt çizgi.')}
                             </p>
                         </div>
 
