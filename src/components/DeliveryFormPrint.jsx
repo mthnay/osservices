@@ -2,9 +2,13 @@ import React, { useRef } from 'react';
 import { useReactToPrint } from 'react-to-print';
 import { Printer, CheckCircle } from 'lucide-react';
 import MyPhoneIcon from './LocalIcons';
+import { useAppContext } from '../context/AppContext';
 
 const DeliveryFormPrint = ({ repair, signature, onClose }) => {
     const componentRef = useRef();
+    // Hizmet sözleşmesi ve kurumsal kimlik, servis kabul formuyla aynı
+    // kaynaktan (Ayarlar) okunur; iki belge asla farklı metin göstermez.
+    const { serviceTerms, companyProfile } = useAppContext();
 
     const handlePrint = useReactToPrint({
         contentRef: componentRef,
@@ -38,14 +42,16 @@ const DeliveryFormPrint = ({ repair, signature, onClose }) => {
                         {/* Header */}
                         <div className="flex justify-between items-start border-b-[0.5px] border-gray-300 pb-2 mb-2">
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-black text-white flex items-center justify-center rounded font-semibold text-xl">T</div>
+                                <div className="w-10 h-10 bg-black text-white flex items-center justify-center rounded font-semibold text-xl">
+                                    {companyProfile?.name?.[0] || 'T'}
+                                </div>
                                 <div>
-                                    <h1 className="text-base font-bold tracking-tight text-black leading-none">TROY SERVİS</h1>
+                                    <h1 className="text-base font-bold tracking-tight text-black leading-none">{companyProfile?.name || 'TROY'}</h1>
                                     <p className="text-[7px] font-bold uppercase tracking-wider text-gray-400 mt-0.5">
                                         {isReturned ? 'Cihaz İade ve Teslimat Formu' : 'Onarım Tamamlama ve Teslimat Formu'}
                                     </p>
                                     <p className="text-[7.5px] text-gray-500 max-w-[350px] leading-none mt-0.5">
-                                        ARTIBİLGİ TEKNOLOJİ BİLİŞİM VE DIŞ TİC. A.Ş. | Bağdat Caddesi No:123, 34728 Kadıköy / İstanbul
+                                        {companyProfile?.title || 'ARTIBİLGİ TEKNOLOJİ BİLİŞİM VE DIŞ TİC. A.Ş.'} | {companyProfile?.address || 'Bağdat Caddesi No:123, 34728 Kadıköy / İstanbul'}
                                     </p>
                                 </div>
                             </div>
@@ -256,17 +262,34 @@ const DeliveryFormPrint = ({ repair, signature, onClose }) => {
                             </div>
                         </div>
 
+                        {/* Hizmet Sözleşmesi (Ayarlar > Servis Metinleri) — kabul formuyla aynı metin */}
+                        <div className="border-[0.5px] border-gray-300 rounded overflow-hidden mb-2">
+                            <div className="bg-[#f5f5f7] border-b-[0.5px] border-gray-300 px-2 py-0.5 text-[8px] font-bold uppercase tracking-wider text-gray-700">
+                                {serviceTerms?.termsTitle || 'GENEL HİZMET SÖZLEŞMESİ'}
+                            </div>
+                            <div className="p-2">
+                                <div className="columns-3 gap-3 text-[5.8px] text-gray-500 text-justify leading-tight font-medium whitespace-pre-line">
+                                    {serviceTerms?.termsContent || 'Hizmet sözleşmesi metni Ayarlar > Servis Metinleri ekranından tanımlanmamıştır.'}
+                                </div>
+                            </div>
+                        </div>
+
                         {/* Memnuniyet / Google Review & Teslim Onayı */}
                         <div className="bg-[#f5f5f7] p-1.5 border-[0.5px] border-gray-300 rounded mb-2 text-[7.5px] text-gray-800 leading-tight">
                             <div className="flex justify-between items-center">
                                 <p className="font-bold flex items-center gap-1">
                                     <CheckCircle size={8} className="text-green-600 flex-shrink-0" />
-                                    Cihazımı çalışır ve hasarsız vaziyette, yapılan onarımı ve garanti şartlarını kabul ederek teslim aldım.
+                                    Cihazımı çalışır ve hasarsız vaziyette, yapılan onarımı, garanti şartlarını ve yukarıdaki hizmet sözleşmesini kabul ederek teslim aldım.
                                 </p>
                                 <p className="text-[7px] text-gray-400 font-semibold italic ml-2">
                                     Bizi Google'da değerlendirmek için: <span className="text-blue-600 font-mono not-italic">google.com/maps/troy-servis</span> (★★★★★)
                                 </p>
                             </div>
+                            {serviceTerms?.kvkkText && (
+                                <p className="text-gray-400 mt-0.5 text-[6.5px] leading-tight font-medium">
+                                    {serviceTerms.kvkkText}
+                                </p>
+                            )}
                         </div>
 
                         {/* İmza Alanı */}
@@ -365,10 +388,13 @@ const DeliveryFormPrint = ({ repair, signature, onClose }) => {
                     }
                     .print-page {
                         width: 210mm !important;
-                        height: 296mm !important;
+                        /* Sabit yükseklik, sözleşme metni uzadığında içeriği kırpıyordu.
+                           min-height ile tek sayfa görünümü korunur, taşarsa ikinci
+                           sayfaya akar. */
+                        min-height: 296mm !important;
                         padding: 10mm 12mm !important;
                         page-break-after: avoid !important;
-                        page-break-inside: avoid !important;
+                        page-break-inside: auto !important;
                         margin: 0 !important;
                         border: none !important;
                         box-shadow: none !important;
