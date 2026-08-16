@@ -6,6 +6,8 @@ const customerSchema = new mongoose.Schema({
     phone: { type: String },
     email: { type: String },
     address: { type: String },
+    city: { type: String },
+    district: { type: String },
     tc: { type: String },
     type: { type: String, default: 'bireysel' },
     notes: { type: String },

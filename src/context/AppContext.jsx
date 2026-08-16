@@ -958,6 +958,12 @@ export const AppProvider = ({ children }) => {
         }
     };
 
+    /**
+     * Yeni cari açar. Sunucu mükerrer kaydı 409 ile reddedebilir; bu durumda
+     * eşleşen kayıtlar geri döner ve çağıran ekran "mevcut cariyi kullan /
+     * düzenle" akışını gösterir.
+     * @returns {{success: boolean, customer?, duplicate?: boolean, level?: string, forceable?: boolean, matches?: Array, message?: string}}
+     */
     const addCustomer = async (customer) => {
         try {
             const res = await apiFetch(`${API_URL}/customers`, {
@@ -968,14 +974,26 @@ export const AppProvider = ({ children }) => {
             if (res.ok) {
                 const saved = await res.json();
                 setCustomers(prev => [...prev, saved]);
-                return saved;
+                return { success: true, customer: saved };
             }
-            showToast(await readErrorMessage(res, 'Müşteri kaydedilemedi.'), 'error');
-            return null;
+            if (res.status === 409) {
+                const conflict = await res.json().catch(() => ({}));
+                return {
+                    success: false,
+                    duplicate: true,
+                    level: conflict.level || 'confirm',
+                    forceable: Boolean(conflict.forceable),
+                    matches: conflict.matches || [],
+                    message: conflict.message || 'Bu bilgilerle kayıtlı bir cari zaten var.',
+                };
+            }
+            const message = await readErrorMessage(res, 'Müşteri kaydedilemedi.');
+            showToast(message, 'error');
+            return { success: false, message };
         } catch (error) {
             console.error("Error adding customer:", error);
             showToast(error.message || 'Müşteri kaydedilemedi.', 'error');
-            return null;
+            return { success: false, message: error.message };
         }
     };
 
@@ -990,6 +1008,11 @@ export const AppProvider = ({ children }) => {
                 const updated = await res.json();
                 setCustomers(prev => prev.map(c => (c._id === updated._id || c.id === id) ? updated : c));
                 return true;
+            }
+            if (res.status === 409) {
+                const conflict = await res.json().catch(() => ({}));
+                showToast(conflict.message || 'Bu bilgiler başka bir cariye ait.', 'error');
+                return false;
             }
             showToast(await readErrorMessage(res, 'Müşteri güncellenemedi.'), 'error');
             return false;

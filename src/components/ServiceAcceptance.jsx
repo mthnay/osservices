@@ -42,6 +42,9 @@ import MyPhoneIcon from './LocalIcons';
 import { getProductImage } from '../utils/productImages';
 import PickerModal from './ui/PickerModal';
 import { PROVINCES, districtsOf } from '../utils/turkeyRegions';
+import {
+    findCustomerMatches, describeMatch, blocksCreate, isForceable, isValidTc, customerKeyOf,
+} from '../utils/customerMatch';
 
 const STEPS = [
     { id: 1, label: 'MÜŞTERİ' },
@@ -72,7 +75,7 @@ const PRODUCT_IMAGES = {
 
 const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
     // eslint-disable-next-line no-unused-vars
-    const { addRepair, customers, addCustomer, companyProfile, uploadMedia, showToast, serviceTerms, currentUser, servicePoints, visibleServicePoints, deviceModels } = useAppContext();
+    const { addRepair, customers, addCustomer, updateCustomer, companyProfile, uploadMedia, showToast, serviceTerms, currentUser, servicePoints, visibleServicePoints, deviceModels } = useAppContext();
     const hasAllStores = currentUser?.role === 'admin' || currentUser?.role === ROLES?.SUPER_ADMIN || hasPermission(currentUser, 'view_all_stores');
     // Çok mağazalı kullanıcı da kaydın açılacağı mağazayı seçebilmeli
     const hasMultiStore = getAccessibleStoreIds(currentUser).length > 1;
@@ -152,6 +155,17 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
             // 1. Zorunlu Alan Kontrolü
             if (!formData.customerName) { setStep(1); showToast('Lütfen Müşteri Adı giriniz.', 'error'); return; }
             if (!formData.customerPhone) { setStep(1); showToast('Lütfen Cep Numarası giriniz.', 'error'); return; }
+            // Mükerrer cari engeli: eşleşen kayıt varsa ya seçilmeli ya da "farklı kişi" onaylanmalı
+            if (needsCustomerDecision) {
+                setStep(1);
+                showToast(
+                    customerMatch.level === 'exact'
+                        ? 'Bu TC ile kayıtlı bir cari var. Lütfen mevcut cariyi seçin.'
+                        : 'Eşleşen bir cari bulundu. Mevcut cariyi seçin ya da farklı kişi olduğunu onaylayın.',
+                    'error'
+                );
+                return;
+            }
             if (!formData.productGroup) { setStep(2); showToast('Lütfen Ürün Grubu seçiniz.', 'error'); return; }
             if (!formData.serialNumber) { setStep(2); showToast('Lütfen Seri Numarası giriniz.', 'error'); return; }
             if (!formData.deviceModel) { setStep(2); showToast('Lütfen Cihaz Modeli seçiniz.', 'error'); return; }
@@ -209,30 +223,8 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
             const repairId = newRepair?.id || newRepair?._id;
 
             if (repairId) {
-                // --- Otomatik Müşteri Kaydı ---
-                const existingCustomer = customers.find(c =>
-                    (formData.customerPhone && c.phone === formData.customerPhone) ||
-                    (formData.customerEmail && c.email === formData.customerEmail)
-                );
-
-                if (!existingCustomer) {
-                    try {
-                        const newCustomerData = {
-                            name: formData.customerName,
-                            phone: formData.customerPhone,
-                            email: formData.customerEmail,
-                            address: [formData.customerAddress, formData.customerDistrict, formData.customerCity].filter(Boolean).join(', '),
-                            city: formData.customerCity || '',
-                            district: formData.customerDistrict || '',
-                            tc: formData.customerTC || '',
-                            type: formData.customerType || 'bireysel',
-                            notes: 'Servis kaydı sırasında otomatik oluşturuldu.'
-                        };
-                        addCustomer(newCustomerData);
-                    } catch (custErr) {
-                        console.error("Otomatik müşteri ekleme hatası:", custErr);
-                    }
-                }
+                // --- Cari kaydı: mevcut varsa güncellenir, yoksa yeni açılır ---
+                await syncCustomerRecord();
 
                 showToast(`Servis kaydı başarıyla oluşturuldu! Kayıt No: #${repairId}`, 'success');
                 setLastRepairId(repairId);
@@ -306,9 +298,12 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
     // Handle Initial Data (from Customer Detail)
     React.useEffect(() => {
         if (initialData) {
+            // Müşteri rehberinden gelindiyse o cariye bağlan; yeni cari açılmasın
+            const { customerId, ...prefill } = initialData;
+            if (customerId) setLinkedCustomerKey(customerId);
             setFormData(prev => ({
                 ...prev,
-                ...initialData,
+                ...prefill,
                 customerTC: initialData.tcNo || initialData.customerTC || '',
                 customerAddress: initialData.customerAddress || initialData.address || '',
                 serialNumber: initialData.serial || initialData.serialNumber || '',
@@ -331,11 +326,41 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentUser?.storeId]);
 
-    // Customer Matching
-    const matchingCustomer = React.useMemo(() => {
-        if (!formData?.customerTC || formData.customerTC.length < 3) return null;
-        return customers.find(c => c.tc === formData.customerTC);
-    }, [formData?.customerTC, customers]);
+    // --- Cari eşleştirme ---
+    // Ad soyad, TC, telefon ve e-posta üzerinden kayıtlı cari aranır. Eşleşme
+    // varsa yeni cari açılmaz; kullanıcı mevcut kaydı seçmeli ya da farklı kişi
+    // olduğunu açıkça onaylamalıdır.
+    const customerMatch = React.useMemo(() => findCustomerMatches(customers, {
+        name: formData.customerName,
+        tc: formData.customerTC,
+        phone: formData.customerPhone,
+        email: formData.customerEmail,
+    }), [customers, formData.customerName, formData.customerTC, formData.customerPhone, formData.customerEmail]);
+
+    const topMatch = customerMatch.matches[0] || null;
+    const matchingCustomer = topMatch?.customer || null;
+
+    // Kullanıcının onayladığı mevcut cari
+    const [linkedCustomerKey, setLinkedCustomerKey] = useState(null);
+    // "Farklı kişi" onayı (yalnızca telefon / ad soyad eşleşmesinde geçerli)
+    const [differentPerson, setDifferentPerson] = useState(false);
+
+    const linkedCustomer = React.useMemo(
+        () => (linkedCustomerKey ? customers.find(c => String(customerKeyOf(c)) === String(linkedCustomerKey)) || null : null),
+        [customers, linkedCustomerKey]
+    );
+
+    // Eşleşme listesi değişince önceki onaylar geçersiz olur
+    React.useEffect(() => {
+        setDifferentPerson(false);
+        setLinkedCustomerKey(prev => (
+            prev && customerMatch.matches.some(m => String(customerKeyOf(m.customer)) === String(prev)) ? prev : null
+        ));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [customerMatch.matches.map(m => customerKeyOf(m.customer)).join('|')]);
+
+    /** Eşleşme çözülmeden servis kaydı tamamlanamaz */
+    const needsCustomerDecision = blocksCreate(customerMatch.level) && !linkedCustomer && !differentPerson;
 
     const handleSelectCustomer = (customer) => {
         setFormData(prev => ({
@@ -343,12 +368,64 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
             customerName: customer.name || prev.customerName,
             customerPhone: customer.phone || prev.customerPhone,
             customerEmail: customer.email || prev.customerEmail,
+            customerTC: customer.tc || prev.customerTC,
             customerAddress: customer.address || prev.customerAddress,
             customerCity: customer.city || prev.customerCity,
             customerDistrict: customer.district || prev.customerDistrict,
             customerType: customer.type === 'kurumsal' ? 'kurumsal' : 'bireysel'
         }));
-        showToast('Müşteri bilgileri aktarıldı.', 'success');
+        setLinkedCustomerKey(customerKeyOf(customer));
+        setDifferentPerson(false);
+        showToast(`${customer.name} kaydı bu servise bağlandı. Yeni cari açılmayacak.`, 'success');
+    };
+
+    /**
+     * Servis kaydı tamamlanınca cari tarafını günceller.
+     * - Mevcut bir cari bağlıysa (ya da kesin eşleşme varsa) yalnızca eksik
+     *   alanları tamamlar; ikinci bir cari açılmaz.
+     * - Eşleşme yoksa veya kullanıcı "farklı kişi" onayı verdiyse yeni cari açar.
+     * - Sunucu yine de mükerrer bulursa eşleşen kaydı günceller.
+     */
+    const syncCustomerRecord = async () => {
+        const payload = {
+            name: formData.customerName,
+            phone: formData.customerPhone,
+            email: formData.customerEmail,
+            address: [formData.customerAddress, formData.customerDistrict, formData.customerCity].filter(Boolean).join(', '),
+            city: formData.customerCity || '',
+            district: formData.customerDistrict || '',
+            tc: formData.customerTC || '',
+            type: formData.customerType || 'bireysel',
+        };
+
+        // Mevcut kayıtta yalnızca boş alanlar doldurulur, dolu bilgi ezilmez
+        const fillGaps = async (existing) => {
+            const updates = {};
+            Object.entries(payload).forEach(([key, value]) => {
+                if (value && !String(existing[key] || '').trim()) updates[key] = value;
+            });
+            if (Object.keys(updates).length) await updateCustomer(customerKeyOf(existing), updates);
+        };
+
+        try {
+            const existing = linkedCustomer
+                || (blocksCreate(customerMatch.level) && !differentPerson ? matchingCustomer : null);
+            if (existing) {
+                await fillGaps(existing);
+                return;
+            }
+
+            const result = await addCustomer({
+                ...payload,
+                notes: 'Servis kaydı sırasında otomatik oluşturuldu.',
+                force: differentPerson,
+            });
+            if (result?.duplicate && result.matches?.length) {
+                await fillGaps(result.matches[0]);
+            }
+        } catch (custErr) {
+            console.error('Cari kaydı senkronize edilemedi:', custErr);
+        }
     };
 
     const toggleCondition = (condition) => {
@@ -419,22 +496,7 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
         });
     };
 
-    const validateTC = (value) => {
-        value = String(value);
-        if (!value || value.length !== 11) return null;
-        if (value[0] === '0') return false;
-        let odd = 0, even = 0, sum = 0;
-        for (let i = 0; i < 9; i++) {
-            const digit = parseInt(value[i]);
-            if (i % 2 === 0) odd += digit; else even += digit;
-            sum += digit;
-        }
-        const tenth = ((odd * 7) - even) % 10;
-        const eleventh = (sum + tenth) % 10;
-        return tenth === parseInt(value[9]) && eleventh === parseInt(value[10]);
-    };
-
-    const isTCValid = validateTC(formData.customerTC);
+    const isTCValid = isValidTc(formData.customerTC);
 
     const selectedProductGroup = PRODUCT_GROUPS.find(g => g.id === formData.productGroup) || null;
 
@@ -689,26 +751,85 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                                     </div>
                                 </div>
 
-                                {/* Kayıtlı müşteri eşleşmesi */}
-                                {matchingCustomer && (
-                                    <button
-                                        type="button"
-                                        onClick={() => handleSelectCustomer(matchingCustomer)}
-                                        className="mt-6 w-full p-4 bg-white border border-blue-100 rounded-xl shadow-lg text-left hover:bg-blue-50 transition-all relative overflow-hidden outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
-                                    >
-                                        <span className="absolute top-0 left-0 w-1 h-full bg-blue-500" aria-hidden="true"></span>
-                                        <span className="flex items-center gap-4">
-                                            <span className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-lg shrink-0">{matchingCustomer.name?.[0] || 'M'}</span>
-                                            <span className="flex-1 min-w-0">
-                                                <span className="flex items-center gap-2">
-                                                    <span className="font-bold text-gray-900 text-sm truncate">{matchingCustomer.name}</span>
-                                                    <span className="text-[9px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full font-bold uppercase shrink-0">Kayıtlı</span>
-                                                </span>
-                                                <span className="block text-[11px] text-gray-500 font-medium">{matchingCustomer.phone} — bilgileri aktarmak için tıklayın</span>
-                                            </span>
-                                            <ChevronRight size={20} className="text-blue-500 shrink-0" aria-hidden="true" />
+                                {/* Kayıtlı cari eşleşmesi — çözülmeden kayıt tamamlanamaz */}
+                                {linkedCustomer ? (
+                                    <div className="mt-6 p-4 bg-white border border-green-200 rounded-xl flex items-center gap-4">
+                                        <span aria-hidden="true" className="w-12 h-12 bg-[#008000] rounded-full flex items-center justify-center text-white shrink-0">
+                                            <CheckCircle size={22} strokeWidth={2.5} />
                                         </span>
-                                    </button>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="font-bold text-gray-900 text-sm truncate">{linkedCustomer.name}</p>
+                                            <p className="text-[11px] text-gray-500 font-medium">
+                                                Mevcut cari kullanılıyor <span className="font-mono">{linkedCustomer.id}</span> — yeni cari açılmayacak.
+                                            </p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setLinkedCustomerKey(null)}
+                                            className="text-[11px] font-bold text-gray-500 hover:text-[#e30000] px-3 py-2 rounded-lg transition-colors outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
+                                        >
+                                            Bağlantıyı kaldır
+                                        </button>
+                                    </div>
+                                ) : customerMatch.matches.length > 0 && (
+                                    <div
+                                        role={blocksCreate(customerMatch.level) ? 'alert' : undefined}
+                                        className={`mt-6 p-4 rounded-xl border space-y-3 ${customerMatch.level === 'exact'
+                                            ? 'border-[#e30000]/30 bg-[#e30000]/5'
+                                            : customerMatch.level === 'confirm'
+                                                ? 'border-[#ff9500]/35 bg-[#ff9500]/5'
+                                                : 'border-blue-100 bg-white'}`}
+                                    >
+                                        {blocksCreate(customerMatch.level) && (
+                                            <div className="flex items-start gap-3">
+                                                <span aria-hidden="true" className={customerMatch.level === 'exact' ? 'text-[#e30000] mt-0.5' : 'text-[#bf5b04] mt-0.5'}>
+                                                    <AlertTriangle size={16} />
+                                                </span>
+                                                <p className="text-[12px] font-semibold text-gray-800 leading-snug">
+                                                    {customerMatch.level === 'exact'
+                                                        ? 'Bu TC kimlik numarasıyla kayıtlı bir cari var. Yeni cari açılamaz; aşağıdaki kaydı seçin.'
+                                                        : 'Bu bilgilerle eşleşen bir cari var. Mevcut cariyi seçin ya da farklı kişi olduğunu onaylayın.'}
+                                                </p>
+                                            </div>
+                                        )}
+
+                                        {customerMatch.matches.slice(0, 3).map((match) => (
+                                            <button
+                                                key={customerKeyOf(match.customer)}
+                                                type="button"
+                                                onClick={() => handleSelectCustomer(match.customer)}
+                                                className="w-full p-3 bg-white border border-gray-200 rounded-xl text-left hover:border-[#0071e3]/40 hover:bg-[#0071e3]/5 transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
+                                            >
+                                                <span className="flex items-center gap-4">
+                                                    <span aria-hidden="true" className="w-11 h-11 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-lg shrink-0">
+                                                        {match.customer.name?.[0] || 'M'}
+                                                    </span>
+                                                    <span className="flex-1 min-w-0">
+                                                        <span className="flex items-center gap-2">
+                                                            <span className="font-bold text-gray-900 text-sm truncate">{match.customer.name}</span>
+                                                            <span className="text-[9px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full font-bold uppercase shrink-0">Kayıtlı</span>
+                                                        </span>
+                                                        <span className="block text-[11px] text-gray-500 font-medium truncate">
+                                                            {describeMatch(match.reasons)} — bu cariyi kullanmak için tıklayın
+                                                        </span>
+                                                    </span>
+                                                    <ChevronRight size={20} className="text-blue-500 shrink-0" aria-hidden="true" />
+                                                </span>
+                                            </button>
+                                        ))}
+
+                                        {isForceable(customerMatch.level) && (
+                                            <label className="flex items-start gap-2.5 text-[12px] font-medium text-gray-700 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={differentPerson}
+                                                    onChange={(e) => setDifferentPerson(e.target.checked)}
+                                                    className="mt-0.5 h-4 w-4 rounded border-gray-300 accent-[#0071e3]"
+                                                />
+                                                <span>Bu farklı bir kişi, yeni cari açılsın.</span>
+                                            </label>
+                                        )}
+                                    </div>
                                 )}
                             </div>
 

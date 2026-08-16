@@ -26,6 +26,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import jwt from 'jsonwebtoken';
 import { verifyToken, requireRole, requirePermission } from './middleware/auth.js';
+import { findCustomerMatches, describeMatch, isForceable } from './customerMatch.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'troy-fallback-secret-key-2026';
@@ -1279,12 +1280,50 @@ router.get('/customers', async (req, res) => {
     }
 });
 
+/**
+ * Aynı carinin ikinci kez açılmasını engeller.
+ * Kullanıcının erişebildiği mağazalardaki kayıtlar taranır; TC eşleşmesi
+ * kesin çakışmadır, telefon/ad-soyad eşleşmesi ise ancak istemci
+ * `force: true` göndererek (kullanıcı "farklı kişi" onayı verdiğinde) geçilebilir.
+ * @returns {Object|null} çakışma varsa 409 gövdesi, yoksa null
+ */
+const findCustomerConflict = async (req, candidate, { excludeKey = null } = {}) => {
+    const filter = {};
+    if (!canViewAllStores(req.user)) filter.storeId = { $in: accessibleStoreIds(req.user) };
+
+    const existing = await Customer.find(filter)
+        .select('id name phone email tc type storeId')
+        .lean();
+
+    const { level, matches } = findCustomerMatches(existing, candidate, { excludeKey });
+    if (level !== 'exact' && level !== 'confirm') return null;
+    if (level === 'confirm' && req.body.force === true) return null;
+
+    const top = matches[0];
+    return {
+        duplicate: true,
+        level,
+        forceable: isForceable(level),
+        message: level === 'exact'
+            ? `Bu TC kimlik numarası ${top.customer.name || 'kayıtlı bir cari'} adına zaten kayıtlı. Yeni cari açılamaz; mevcut kaydı kullanın veya düzenleyin.`
+            : `${top.customer.name || 'Kayıtlı bir cari'} ile eşleşiyor (${describeMatch(top.reasons)}). Mevcut kaydı kullanın ya da farklı kişi olduğunu onaylayın.`,
+        matches: matches.slice(0, 5).map(({ customer, reasons, level: matchLevel }) => ({
+            ...customer, matchReasons: reasons, matchLevel,
+        })),
+    };
+};
+
 router.post('/customers', async (req, res) => {
     try {
         // Yetki: yetkisiz kullanıcı yalnızca erişimli mağazasına müşteri ekleyebilir (aksi halde birincile zorla)
         if (!canViewAllStores(req.user) && !canAccessStore(req.user, req.body.storeId)) {
             req.body.storeId = Number(req.user?.storeId) || accessibleStoreIds(req.user)[0];
         }
+
+        // Mükerrer cari kontrolü — aynı kişi ikinci kez açılamaz
+        const conflict = await findCustomerConflict(req, req.body);
+        if (conflict) return res.status(409).json(conflict);
+
         const lastCustomer = await Customer.findOne({ id: /^C-\d+$/ }).sort({ id: -1 });
         let nextId = 1000 + (await Customer.countDocuments()) + 1;
         if (lastCustomer && lastCustomer.id) {
@@ -1293,8 +1332,9 @@ router.post('/customers', async (req, res) => {
         }
         const customerId = `C-${nextId}`;
 
+        const { force, ...customerData } = req.body;
         const newCustomer = new Customer({
-            ...req.body,
+            ...customerData,
             id: customerId
         });
         const savedCustomer = await newCustomer.save();
@@ -1317,7 +1357,19 @@ router.put('/customers/:id', async (req, res) => {
             return res.status(403).json({ message: 'Bu müşteri üzerinde işlem yetkiniz yok (farklı mağaza).' });
         }
 
-        const updatedCustomer = await Customer.findOneAndUpdate(filter, req.body, { new: true });
+        // Kimlik alanları değişiyorsa başka bir cariyle çakışmamalı (kendisi hariç).
+        // Etiket/not gibi güncellemeler kontrol edilmez; eski mükerrer kayıtlar
+        // aksi halde hiç düzenlenemez hale gelirdi.
+        const touchesIdentity = ['name', 'tc', 'phone', 'email']
+            .some(field => field in req.body && String(req.body[field] ?? '') !== String(currentCustomer?.[field] ?? ''));
+        if (currentCustomer && touchesIdentity) {
+            const merged = { ...currentCustomer.toObject(), ...req.body };
+            const conflict = await findCustomerConflict(req, merged, { excludeKey: String(currentCustomer._id) });
+            if (conflict) return res.status(409).json(conflict);
+        }
+
+        const { force, ...updates } = req.body;
+        const updatedCustomer = await Customer.findOneAndUpdate(filter, updates, { new: true });
         if (updatedCustomer) {
             await createLog(req, 'UPDATE_CUSTOMER', 'CUSTOMER', `Müşteri güncellendi: ${updatedCustomer.name || ''} ${updatedCustomer.phone ? '(' + updatedCustomer.phone + ')' : ''}`, updatedCustomer.storeId);
         }

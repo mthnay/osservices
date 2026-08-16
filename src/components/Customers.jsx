@@ -1,11 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
     User, Users, Plus, Search, Mail, MapPin, Trash2, Pencil, X, Check, Copy,
-    ChevronDown, MessageCircle, Tag, Clock, Building2, FileText,
-    Wrench, CheckCircle,
+    ChevronDown, ChevronRight, MessageCircle, Tag, Clock, Building2, FileText,
+    Wrench, CheckCircle, AlertTriangle,
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { hasPermission } from '../utils/permissions';
+import {
+    findCustomerMatches, describeMatch, blocksCreate, isForceable, isValidTc,
+} from '../utils/customerMatch';
 import { ARCHIVE_STATUSES, parseRepairDate } from '../utils/archiveFilters';
 import MyPhoneIcon from './LocalIcons';
 import Collapse from './ui/Collapse';
@@ -137,9 +140,86 @@ const ContactLine = ({ icon: Icon, label, value, mono, onCopy, action }) => (
     </div>
 );
 
+/* ---------------------------- mükerrer cari uyarısı ---------------------------- */
+
+/**
+ * Girilen bilgilerle eşleşen mevcut carileri gösterir. "exact" (TC) eşleşmesinde
+ * yeni kayıt hiç açılamaz; "confirm" (telefon / ad soyad) eşleşmesinde kullanıcı
+ * farklı kişi olduğunu onaylayabilir.
+ */
+const DuplicateNotice = ({ duplicate, canOverride, forceCreate, onToggleForce, onUseExisting, isEdit }) => {
+    const exact = duplicate.level === 'exact';
+
+    return (
+        <div
+            role="alert"
+            className={`rounded-[18px] border p-4 space-y-3 ${exact
+                ? 'border-[#e30000]/30 bg-[#e30000]/5'
+                : 'border-[#ff9500]/35 bg-[#ff9500]/5'}`}
+        >
+            <div className="flex items-start gap-3">
+                <span aria-hidden="true" className={exact ? 'text-[#e30000] mt-0.5' : 'text-[#bf5b04] mt-0.5'}>
+                    <AlertTriangle size={16} />
+                </span>
+                <div className="min-w-0">
+                    <p className="text-[13px] font-semibold text-[#1d1d1f]">
+                        {exact ? 'Bu kişi zaten kayıtlı' : 'Eşleşen cari bulundu'}
+                    </p>
+                    <p className="text-[11px] font-medium text-gray-600 leading-snug mt-0.5">
+                        {exact
+                            ? `Aynı TC kimlik numarasıyla bir cari mevcut. ${isEdit ? 'Bu bilgiler başka bir cariye ait.' : 'Yeni cari açılamaz; mevcut kaydı kullanın veya düzenleyin.'}`
+                            : 'Aşağıdaki cari(ler) aynı kişi olabilir. Mevcut kaydı kullanın ya da farklı kişi olduğunu onaylayın.'}
+                    </p>
+                </div>
+            </div>
+
+            <ul className="space-y-2">
+                {duplicate.matches.slice(0, 3).map((match) => (
+                    <li key={customerKey(match.customer)}>
+                        <button
+                            type="button"
+                            onClick={() => onUseExisting(match.customer)}
+                            className="w-full flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-3.5 py-3 text-left hover:border-[#0071e3]/40 hover:bg-[#0071e3]/5 transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
+                        >
+                            <span aria-hidden="true" className="w-9 h-9 rounded-xl bg-[#f5f5f7] border border-gray-200 text-[#1d1d1f] flex items-center justify-center text-[11px] font-semibold shrink-0">
+                                {initialsOf(match.customer.name)}
+                            </span>
+                            <span className="min-w-0 flex-1">
+                                <span className="block text-[13px] font-semibold text-[#1d1d1f] truncate">
+                                    {match.customer.name} <span className="text-gray-400 font-mono text-[11px]">{match.customer.id}</span>
+                                </span>
+                                <span className="block text-[11px] font-medium text-gray-500 truncate">
+                                    {describeMatch(match.reasons)} — bu kaydı açıp düzenle
+                                </span>
+                            </span>
+                            <ChevronRight size={16} className="text-[#0071e3] shrink-0" aria-hidden="true" />
+                        </button>
+                    </li>
+                ))}
+            </ul>
+
+            {canOverride && (
+                <label className="flex items-start gap-2.5 text-[12px] font-medium text-gray-700 cursor-pointer">
+                    <input
+                        type="checkbox"
+                        checked={forceCreate}
+                        onChange={(e) => onToggleForce(e.target.checked)}
+                        className="mt-0.5 h-4 w-4 rounded border-gray-300 accent-[#0071e3]"
+                    />
+                    <span>
+                        {isEdit
+                            ? 'Bu farklı bir kişi, değişikliği yine de kaydet.'
+                            : 'Bu farklı bir kişi, yine de yeni cari aç.'}
+                    </span>
+                </label>
+            )}
+        </div>
+    );
+};
+
 /* -------------------------------- düzenleyici -------------------------------- */
 
-const CustomerEditor = ({ customer, existingCustomers, onClose, onSubmit }) => {
+const CustomerEditor = ({ customer, existingCustomers, onClose, onSubmit, onUseExisting }) => {
     const { closing, requestClose } = useAnimatedClose(onClose, 200);
     const dialogRef = useRef(null);
     const isEdit = Boolean(customer);
@@ -148,12 +228,26 @@ const CustomerEditor = ({ customer, existingCustomers, onClose, onSubmit }) => {
         name: customer?.name || '',
         phone: customer?.phone || '',
         email: customer?.email || '',
+        tc: customer?.tc || '',
         type: isCorporate(customer) ? 'Kurumsal' : 'Bireysel',
         address: customer?.address || '',
         notes: customer?.notes || '',
     }));
     const [errors, setErrors] = useState({});
     const [busy, setBusy] = useState(false);
+    // Kullanıcı "farklı kişi" onayı verdiğinde telefon/ad-soyad eşleşmesi aşılabilir
+    const [forceCreate, setForceCreate] = useState(false);
+
+    /** Girilen bilgilerle çakışan mevcut cariler (kendisi hariç) */
+    const duplicate = useMemo(
+        () => findCustomerMatches(existingCustomers, form, { excludeKey: customerKey(customer) }),
+        [existingCustomers, form, customer]
+    );
+    const blocking = blocksCreate(duplicate.level);
+    const canOverride = isForceable(duplicate.level);
+
+    // Bilgi değişince "farklı kişi" onayı sıfırlanır
+    useEffect(() => { setForceCreate(false); }, [duplicate.level, duplicate.matches.length]);
 
     useEffect(() => { dialogRef.current?.focus(); }, []);
 
@@ -167,7 +261,8 @@ const CustomerEditor = ({ customer, existingCustomers, onClose, onSubmit }) => {
 
     const setField = (key, value) => {
         setForm(prev => ({ ...prev, [key]: value }));
-        setErrors(prev => ({ ...prev, [key]: undefined }));
+        // Kimlik alanı değişince sunucudan gelen mükerrer uyarısı da geçersizleşir
+        setErrors(prev => ({ ...prev, [key]: undefined, duplicate: undefined }));
     };
 
     const validate = () => {
@@ -179,15 +274,21 @@ const CustomerEditor = ({ customer, existingCustomers, onClose, onSubmit }) => {
             next.phone = 'Telefon zorunludur.';
         } else if (digits.length < 10) {
             next.phone = 'Telefon en az 10 hane olmalıdır.';
-        } else if (existingCustomers.some(c =>
-            customerKey(c) !== customerKey(customer) &&
-            String(c.phone || '').replace(/\D/g, '') === digits
-        )) {
-            next.phone = 'Bu telefon numarası başka bir müşteride kayıtlı.';
         }
 
         if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
             next.email = 'Geçerli bir e-posta adresi girin.';
+        }
+
+        if (form.tc.trim() && isValidTc(form.tc) !== true) {
+            next.tc = 'T.C. kimlik numarası 11 haneli ve geçerli olmalıdır.';
+        }
+
+        // Mükerrer cari engeli: kesin eşleşme hiç geçilemez, olası eşleşme onay ister
+        if (blocking && !(canOverride && forceCreate)) {
+            next.duplicate = duplicate.level === 'exact'
+                ? 'Bu TC kimlik numarası başka bir cariye ait. Mevcut kaydı kullanın veya düzenleyin.'
+                : 'Eşleşen bir cari var. Mevcut kaydı kullanın ya da farklı kişi olduğunu onaylayın.';
         }
 
         setErrors(next);
@@ -200,15 +301,22 @@ const CustomerEditor = ({ customer, existingCustomers, onClose, onSubmit }) => {
 
         setBusy(true);
         try {
-            const ok = await onSubmit({
+            const result = await onSubmit({
                 name: form.name.trim(),
                 phone: form.phone.trim(),
                 email: form.email.trim(),
+                tc: form.tc.replace(/\D/g, ''),
                 type: form.type,
                 address: form.address.trim(),
                 notes: form.notes.trim(),
+                force: forceCreate,
             });
-            if (ok) requestClose();
+            // Sunucu da mükerrer bulabilir (başka kullanıcı arada kayıt açmış olabilir)
+            if (result?.duplicate) {
+                setErrors({ duplicate: result.message || 'Bu bilgilerle kayıtlı bir cari zaten var.' });
+                return;
+            }
+            if (result) requestClose();
         } finally {
             setBusy(false);
         }
@@ -253,7 +361,23 @@ const CustomerEditor = ({ customer, existingCustomers, onClose, onSubmit }) => {
                     </button>
                 </header>
 
-                <div className="p-6 sm:p-7 overflow-y-auto custom-scrollbar">
+                <div className="p-6 sm:p-7 overflow-y-auto custom-scrollbar space-y-5">
+                    {blocking && (
+                        <DuplicateNotice
+                            duplicate={duplicate}
+                            canOverride={canOverride}
+                            forceCreate={forceCreate}
+                            onToggleForce={setForceCreate}
+                            onUseExisting={onUseExisting}
+                            isEdit={isEdit}
+                        />
+                    )}
+                    {errors.duplicate && (
+                        <p role="alert" className="flex items-center gap-1.5 text-[11px] font-semibold text-[#e30000]">
+                            <AlertTriangle size={12} aria-hidden="true" /> {errors.duplicate}
+                        </p>
+                    )}
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                         <div className="sm:col-span-2">
                             <Field
@@ -266,6 +390,12 @@ const CustomerEditor = ({ customer, existingCustomers, onClose, onSubmit }) => {
                             id="cst-phone" label="Telefon" type="tel" inputMode="tel" mono required error={errors.phone}
                             value={form.phone} onChange={(v) => setField('phone', v)}
                             placeholder="0532 000 00 00"
+                        />
+                        <Field
+                            id="cst-tc" label="TC Kimlik No" inputMode="numeric" mono error={errors.tc}
+                            value={form.tc} onChange={(v) => setField('tc', v.replace(/\D/g, '').slice(0, 11))}
+                            placeholder="11 haneli"
+                            hint="Mükerrer cari kontrolü öncelikle bu numaradan yapılır."
                         />
                         <Field
                             id="cst-email" label="E-Posta" type="email" error={errors.email}
@@ -310,7 +440,7 @@ const CustomerEditor = ({ customer, existingCustomers, onClose, onSubmit }) => {
                     </button>
                     <button
                         type="submit"
-                        disabled={busy}
+                        disabled={busy || (blocking && !(canOverride && forceCreate))}
                         className="inline-flex items-center gap-2 h-11 px-6 rounded-xl bg-[#0071e3] text-white text-[13px] font-semibold hover:bg-[#0077ed] disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm shadow-[#0071e3]/20 outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
                     >
                         <Check size={16} aria-hidden="true" />
@@ -438,13 +568,22 @@ const Customers = ({ setActiveTab, setServiceInitialData }) => {
             if (ok) showToast('Müşteri bilgileri güncellendi.', 'success');
             return ok;
         }
-        const saved = await addCustomer(data);
-        if (saved) {
+        const result = await addCustomer(data);
+        if (result?.success) {
             showToast(`${data.name} rehbere eklendi.`, 'success');
-            setSelectedId(customerKey(saved));
+            setSelectedId(customerKey(result.customer));
             return true;
         }
+        // Mükerrer kaydı düzenleyici gösterir; burada kapatılmaz
+        if (result?.duplicate) return result;
         return false;
+    };
+
+    /** Mükerrer uyarısındaki kayda geçiş: yeni cari yerine mevcut olan düzenlenir */
+    const handleUseExisting = (existing) => {
+        setSelectedId(customerKey(existing));
+        setEditing(existing);
+        showToast(`${existing.name} kaydı açıldı. Bilgileri buradan güncelleyebilirsiniz.`, 'info');
     };
 
     const handleDelete = async (customer) => {
@@ -473,6 +612,8 @@ const Customers = ({ setActiveTab, setServiceInitialData }) => {
     const handleNewRepair = () => {
         if (!selectedCustomer) return;
         setServiceInitialData({
+            // Servis ekranı bu cariye bağlanır; oradan ikinci bir cari açılmaz
+            customerId: customerKey(selectedCustomer),
             customerName: selectedCustomer.name,
             customerPhone: selectedCustomer.phone,
             customerEmail: selectedCustomer.email,
@@ -840,10 +981,13 @@ const Customers = ({ setActiveTab, setServiceInitialData }) => {
 
             {editorOpen && (
                 <CustomerEditor
+                    // Mevcut kayda geçildiğinde form o kaydın bilgileriyle yeniden kurulur
+                    key={customerKey(editing) || 'new'}
                     customer={editing}
                     existingCustomers={list}
                     onClose={closeEditor}
                     onSubmit={handleSubmit}
+                    onUseExisting={handleUseExisting}
                 />
             )}
         </div>
