@@ -24,6 +24,9 @@ import GlobalDialogs from './components/GlobalDialogs';
 import { useAppContext } from './context/AppContext';
 import { hasPermission } from './utils/permissions';
 
+// Çok sütunlu, tek ekrana sığması gereken sayfalar daha geniş kabuk kullanır
+const WIDE_TABS = ['service'];
+
 function App() {
   const { currentUser, servicePoints, visibleServicePoints, selectedStoreId, setSelectedStoreId } = useAppContext();
   const role = currentUser?.role?.toLowerCase();
@@ -92,7 +95,8 @@ function App() {
           /* Sistem Ayarları tam genişlik: sol menü ekranın solunda, içerik kalan alanı doldurur */
           <Settings />
         ) : (
-        <div className="max-w-[1200px] mx-auto w-full flex-1 min-h-0 flex flex-col">
+        /* Servis kaydı üç sütunlu tek ekran olduğu için daha geniş bir kabuk kullanır */
+        <div className={`${WIDE_TABS.includes(activeTab) ? 'max-w-[1600px]' : 'max-w-[1200px]'} mx-auto w-full flex-1 min-h-0 flex flex-col`}>
           {/* Top Header with Notifications removed */}
           {activeTab === 'dashboard' && <Dashboard />}
           {activeTab === 'service' && <ServiceAcceptance setActiveTab={setActiveTab} initialData={serviceInitialData} clearInitialData={() => setServiceInitialData(null)} />}
