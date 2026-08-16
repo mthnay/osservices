@@ -36,7 +36,7 @@ const InlineSelect = ({
     disabled = false,
     disabledText,
     icon: Icon,
-    // Sıkışık formlarda alan yüksekliğini diğer inputlarla (42px) eşitler
+    // Sıkışık formlarda alan yüksekliğini diğer inputlarla (48px) eşitler
     dense = false,
 }) => {
     const reactId = useId();
@@ -145,7 +145,7 @@ const InlineSelect = ({
         <div className={dense ? '' : 'space-y-2'}>
             <label
                 htmlFor={baseId}
-                className={`block text-[10px] font-bold uppercase tracking-widest text-gray-500 ${dense ? 'mb-1.5 ml-0.5' : 'ml-1'}`}
+                className={`block font-bold uppercase tracking-widest text-gray-500 ${dense ? 'text-[11px] mb-2 ml-0.5' : 'text-[10px] ml-1'}`}
             >
                 {label}
             </label>
@@ -153,7 +153,7 @@ const InlineSelect = ({
             <div ref={wrapRef} className="relative">
                 <div className="relative">
                     {open && (
-                        <Search size={16} aria-hidden="true" className={`absolute top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none ${dense ? 'left-3' : 'left-4'}`} />
+                        <Search size={16} aria-hidden="true" className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                     )}
                     <input
                         ref={inputRef}
@@ -173,14 +173,14 @@ const InlineSelect = ({
                         onFocus={() => { if (!disabled) setOpen(true); }}
                         onClick={() => { if (!disabled) setOpen(true); }}
                         onKeyDown={handleKeyDown}
-                        className={`w-full bg-gray-50 border border-gray-200 outline-none text-sm font-bold text-gray-900 placeholder:font-bold placeholder:text-gray-400 focus:bg-white focus:border-[#0071e3] focus-visible:ring-4 focus-visible:ring-[#0071e3]/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed ${dense ? 'py-2.5 rounded-lg' : 'py-4 rounded-md'} ${open
-                            ? (dense ? 'pl-10 pr-9' : 'pl-11 pr-10')
-                            : (dense ? 'pl-4 pr-9' : 'pl-5 pr-10')}`}
+                        className={`w-full bg-gray-50 border border-gray-200 outline-none font-bold text-gray-900 placeholder:font-bold placeholder:text-gray-400 focus:bg-white focus:border-[#0071e3] focus-visible:ring-4 focus-visible:ring-[#0071e3]/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed ${dense ? 'py-3 rounded-xl text-[15px]' : 'py-4 rounded-md text-sm'} ${open
+                            ? (dense ? 'pl-11 pr-10' : 'pl-11 pr-10')
+                            : (dense ? 'pl-4 pr-10' : 'pl-5 pr-10')}`}
                     />
                     <TrailingIcon
-                        size={dense ? 16 : 18}
+                        size={18}
                         aria-hidden="true"
-                        className={`absolute top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none transition-transform ${dense ? 'right-3' : 'right-4'} ${open ? 'rotate-180' : ''}`}
+                        className={`absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none transition-transform ${open ? 'rotate-180' : ''}`}
                     />
                 </div>
 

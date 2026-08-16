@@ -62,13 +62,13 @@ const PRODUCT_GROUPS = [
     { id: 'other', label: 'Aksesuar & Beats', icon: Box, color: 'bg-purple-600', img: getProductImage('other') }
 ];
 
-/* Sıkışık form dili: alanlar tek ekrana sığsın diye ortak ölçüler.
-   Alan yüksekliği 42px; kartlar ve başlıklar buna göre daraltıldı. */
-const FIELD = 'w-full px-4 py-2.5 rounded-lg bg-gray-50 border border-gray-200 outline-none text-sm font-semibold text-gray-900 focus:bg-white focus:border-[#0071e3] focus-visible:ring-4 focus-visible:ring-[#0071e3]/20 transition-all';
-const LABEL = 'block text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1.5 ml-0.5';
-const CARD = 'gsx-card p-4';
-const CARD_TITLE = 'flex items-center gap-2 text-[13px] font-semibold text-gray-900 mb-3';
-const CARD_ICON = 'w-7 h-7 rounded-md bg-gray-100 text-gray-500 flex items-center justify-center shrink-0';
+/* Orta boy form dili: alanlar rahat okunur kalsın ama tek ekrana sığsın.
+   Alan yüksekliği 48px; kartlar ekran yüksekliğini doldurur. */
+const FIELD = 'w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 outline-none text-[15px] font-semibold text-gray-900 focus:bg-white focus:border-[#0071e3] focus-visible:ring-4 focus-visible:ring-[#0071e3]/20 transition-all';
+const LABEL = 'block text-[11px] font-bold uppercase tracking-widest text-gray-500 mb-2 ml-0.5';
+const CARD = 'gsx-card p-5';
+const CARD_TITLE = 'flex items-center gap-3 text-[15px] font-semibold text-gray-900 mb-4';
+const CARD_ICON = 'w-9 h-9 rounded-lg bg-gray-100 text-gray-500 flex items-center justify-center shrink-0';
 
 // Fallback images if the ones above are not reachable
 const PRODUCT_IMAGES = {
@@ -547,17 +547,17 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
     return (
         <div className="page-shell animate-fade-in">
             {/* Üst şerit — sabit kalır, yalnızca form alanı kayar */}
-            <div className="shrink-0 flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-gray-100">
+            <div className="shrink-0 flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-gray-100">
                 <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-10 h-10 bg-blue-50 rounded-lg text-blue-600 border border-blue-100 flex items-center justify-center shrink-0">
-                        <Wrench size={20} />
+                    <div className="w-12 h-12 bg-blue-50 rounded-xl text-blue-600 border border-blue-100 flex items-center justify-center shrink-0">
+                        <Wrench size={24} />
                     </div>
                     <div className="min-w-0">
-                        <h2 className="text-xl font-semibold text-gray-900 tracking-tight leading-tight">Servis Kaydı</h2>
-                        <p className="text-[11px] font-medium text-gray-500 truncate">Cihaz ve müşteri bilgilerini eksiksiz doldurun.</p>
+                        <h2 className="text-2xl font-semibold text-gray-900 tracking-tight leading-tight">Servis Kaydı</h2>
+                        <p className="text-[13px] font-medium text-gray-500 truncate">Cihaz ve müşteri bilgilerini eksiksiz doldurun.</p>
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                     {canPickStore && (
                         <div className="relative" ref={storeSelectRef}>
                             <button 
@@ -600,16 +600,16 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                             )}
                         </div>
                     )}
-                    <div className="flex items-center gap-1 bg-white p-1 rounded-lg border border-gray-200 shadow-sm">
+                    <div className="flex items-center gap-1 bg-white p-1.5 rounded-xl border border-gray-200 shadow-sm">
                         {STEPS.map(({ id, label }) => (
                             <button
                                 key={id}
                                 type="button"
                                 onClick={() => setStep(id)}
                                 aria-current={step === id ? 'step' : undefined}
-                                className={`px-3 py-1.5 rounded-md text-[11px] font-bold transition-all flex items-center gap-2 outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25 ${step === id ? 'bg-gray-100 text-gray-900 shadow-sm' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}`}
+                                className={`px-4 py-2 rounded-lg text-[12px] font-bold transition-all flex items-center gap-2 outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25 ${step === id ? 'bg-gray-100 text-gray-900 shadow-sm' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}`}
                             >
-                                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${step === id ? 'bg-gray-900 text-white' : 'bg-gray-200 text-gray-500'}`}>{id}</span>
+                                <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] ${step === id ? 'bg-gray-900 text-white' : 'bg-gray-200 text-gray-500'}`}>{id}</span>
                                 <span className="hidden sm:inline">{label}</span>
                             </button>
                         ))}
@@ -617,17 +617,17 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                 </div>
             </div>
 
-            {/* Form alanı — tek sütun, tüm genişlik */}
-            <div className="page-scroll py-4 pr-1">
+            {/* Form alanı — ekranın kalan yüksekliğini doldurur */}
+            <div className="page-scroll py-5 pr-1">
                 {step === 1 && (
-                    <div className="animate-scale-up">
-                        <div className={CARD}>
+                    <div className="animate-scale-up h-full">
+                        <div className={`${CARD} h-full flex flex-col`}>
                             <h3 className={CARD_TITLE}>
-                                <span className={CARD_ICON}><User size={16} strokeWidth={2.5} /></span>
+                                <span className={CARD_ICON}><User size={18} strokeWidth={2.5} /></span>
                                 Müşteri Bilgileri
                             </h3>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-12 gap-x-4 gap-y-3">
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-12 gap-x-6 gap-y-4">
                                 {/* Ad Soyad */}
                                 <div className="xl:col-span-4">
                                     <label htmlFor="sa-name" className={LABEL}>
@@ -655,7 +655,7 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                                                     key={opt.id} type="button"
                                                     onClick={() => setFormData({ ...formData, customerType: opt.id })}
                                                     aria-pressed={active}
-                                                    className={`h-[42px] rounded-lg border text-[13px] font-bold transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25 ${active
+                                                    className={`h-[48px] rounded-xl border text-[14px] font-bold transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25 ${active
                                                         ? 'bg-[#0071e3] border-[#0071e3] text-white shadow-sm shadow-[#0071e3]/20'
                                                         : 'bg-gray-50 border-gray-200 text-[#1d1d1f] hover:bg-white'}`}
                                                 >
@@ -677,12 +677,12 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                                             placeholder={formData.customerType === 'kurumsal' ? '10 haneli' : '11 haneli'}
                                             aria-invalid={formData.customerType === 'bireysel' && isTCValid === false ? 'true' : undefined}
                                             aria-describedby="sa-tc-status"
-                                            className={`w-full pl-4 pr-10 py-2.5 rounded-lg border outline-none font-mono font-bold text-sm transition-all ${formData.customerType === 'bireysel' && isTCValid === true ? 'bg-green-50 border-green-500 text-green-900' : formData.customerType === 'bireysel' && isTCValid === false ? 'bg-red-50 border-red-500 text-red-900' : 'bg-gray-50 border-gray-200 focus:bg-white focus:border-[#0071e3]'}`}
+                                            className={`w-full pl-4 pr-11 py-3 rounded-xl border outline-none font-mono font-bold text-[15px] transition-all ${formData.customerType === 'bireysel' && isTCValid === true ? 'bg-green-50 border-green-500 text-green-900' : formData.customerType === 'bireysel' && isTCValid === false ? 'bg-red-50 border-red-500 text-red-900' : 'bg-gray-50 border-gray-200 focus:bg-white focus:border-[#0071e3]'}`}
                                             value={formData.customerTC}
                                             onChange={(e) => setFormData({ ...formData, customerTC: e.target.value.replace(/\D/g, '') })}
                                         />
-                                        {formData.customerType === 'bireysel' && isTCValid === true && <div className="absolute right-3 top-1/2 -translate-y-1/2 text-green-600"><CheckCircle size={16} strokeWidth={3} /></div>}
-                                        {formData.customerType === 'bireysel' && isTCValid === false && <div className="absolute right-3 top-1/2 -translate-y-1/2 text-red-500"><AlertCircle size={16} strokeWidth={3} /></div>}
+                                        {formData.customerType === 'bireysel' && isTCValid === true && <div className="absolute right-3.5 top-1/2 -translate-y-1/2 text-green-600"><CheckCircle size={18} strokeWidth={3} /></div>}
+                                        {formData.customerType === 'bireysel' && isTCValid === false && <div className="absolute right-3.5 top-1/2 -translate-y-1/2 text-red-500"><AlertCircle size={18} strokeWidth={3} /></div>}
                                     </div>
                                     <p id="sa-tc-status" className="sr-only" aria-live="polite">
                                         {formData.customerType === 'bireysel' && isTCValid === false ? 'TC kimlik numarası geçersiz' : ''}
@@ -728,7 +728,7 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                                                     key={opt.id || 'none'} type="button"
                                                     onClick={() => setFormData({ ...formData, satisfaction: opt.id })}
                                                     aria-pressed={active}
-                                                    className={`h-[42px] px-2 rounded-lg border text-[11px] font-bold transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25 ${active
+                                                    className={`h-[48px] px-2 rounded-xl border text-[12px] font-bold transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25 ${active
                                                         ? `${opt.tone} text-white shadow-sm`
                                                         : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-white'}`}
                                                 >
@@ -776,7 +776,7 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                                 <div className="md:col-span-2 xl:col-span-6">
                                     <label htmlFor="sa-address" className={LABEL}>Açık Adres</label>
                                     <textarea
-                                        id="sa-address" rows="2" placeholder="Mahalle, cadde, sokak, kapı no…"
+                                        id="sa-address" rows="3" placeholder="Mahalle, cadde, sokak, kapı no…"
                                         className={`${FIELD} resize-none`}
                                         value={formData.customerAddress}
                                         onChange={(e) => setFormData({ ...formData, customerAddress: e.target.value })}
@@ -786,9 +786,9 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
 
                             {/* Kayıtlı cari eşleşmesi — çözülmeden kayıt tamamlanamaz */}
                             {linkedCustomer ? (
-                                    <div className="mt-4 p-3 bg-white border border-green-200 rounded-xl flex items-center gap-3">
-                                        <span aria-hidden="true" className="w-10 h-10 bg-[#008000] rounded-full flex items-center justify-center text-white shrink-0">
-                                            <CheckCircle size={20} strokeWidth={2.5} />
+                                    <div className="mt-5 p-4 bg-white border border-green-200 rounded-xl flex items-center gap-4">
+                                        <span aria-hidden="true" className="w-12 h-12 bg-[#008000] rounded-full flex items-center justify-center text-white shrink-0">
+                                            <CheckCircle size={22} strokeWidth={2.5} />
                                         </span>
                                         <div className="flex-1 min-w-0">
                                             <p className="font-bold text-gray-900 text-sm truncate">{linkedCustomer.name}</p>
@@ -807,7 +807,7 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                             ) : customerMatch.matches.length > 0 && (
                                     <div
                                         role={blocksCreate(customerMatch.level) ? 'alert' : undefined}
-                                        className={`mt-4 p-3 rounded-xl border space-y-2.5 ${customerMatch.level === 'exact'
+                                        className={`mt-5 p-4 rounded-xl border space-y-3 ${customerMatch.level === 'exact'
                                             ? 'border-[#e30000]/30 bg-[#e30000]/5'
                                             : customerMatch.level === 'confirm'
                                                 ? 'border-[#ff9500]/35 bg-[#ff9500]/5'
@@ -869,21 +869,21 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                 )}
 
                 {step === 2 && (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-12 gap-4 items-start animate-scale-up">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-12 gap-5 animate-scale-up xl:h-full">
                         {/* Cihaz kimliği */}
-                        <div className="xl:col-span-5">
-                            <div className={CARD}>
-                                <div className="flex items-center justify-between gap-3 mb-3">
-                                    <h3 className="flex items-center gap-2 text-[13px] font-semibold text-gray-900">
-                                        <span className={CARD_ICON}><Phone size={16} strokeWidth={2.5} /></span>
+                        <div className="xl:col-span-5 xl:h-full">
+                            <div className={`${CARD} h-full flex flex-col`}>
+                                <div className="flex items-center justify-between gap-3 mb-4">
+                                    <h3 className="flex items-center gap-3 text-[15px] font-semibold text-gray-900">
+                                        <span className={CARD_ICON}><Phone size={18} strokeWidth={2.5} /></span>
                                         Cihaz Kimliği
                                     </h3>
-                                    <button onClick={openAppleCoverage} className="text-[11px] font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-colors shrink-0">
-                                        Garanti Sorgula <ExternalLink size={12} />
+                                    <button onClick={openAppleCoverage} className="text-[12px] font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-4 py-2 rounded-lg flex items-center gap-2 transition-colors shrink-0">
+                                        Garanti Sorgula <ExternalLink size={14} />
                                     </button>
                                 </div>
 
-                                <div className="space-y-3">
+                                <div className="space-y-4">
                                     <div>
                                         <p className={LABEL}>
                                             Ürün Grubu <span className="text-[#e30000]" aria-hidden="true">*</span>
@@ -892,37 +892,37 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                                             type="button"
                                             onClick={() => setShowProductPicker(true)}
                                             aria-haspopup="dialog"
-                                            className="w-full p-2 rounded-lg bg-gray-50 border border-gray-200 flex items-center justify-between gap-3 text-left hover:bg-white hover:border-gray-300 transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
+                                            className="w-full p-2.5 rounded-xl bg-gray-50 border border-gray-200 flex items-center justify-between gap-3 text-left hover:bg-white hover:border-gray-300 transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
                                         >
                                             <span className="flex items-center gap-3 min-w-0">
                                                 {selectedProductGroup ? (
                                                     <>
-                                                        <span className={`w-9 h-9 rounded-md flex items-center justify-center text-white shadow-sm shrink-0 ${selectedProductGroup.color}`}>
-                                                            <selectedProductGroup.icon size={18} />
+                                                        <span className={`w-11 h-11 rounded-lg flex items-center justify-center text-white shadow-sm shrink-0 ${selectedProductGroup.color}`}>
+                                                            <selectedProductGroup.icon size={22} />
                                                         </span>
-                                                        <span className="text-sm font-bold text-gray-900 truncate">{selectedProductGroup.label}</span>
+                                                        <span className="text-[15px] font-bold text-gray-900 truncate">{selectedProductGroup.label}</span>
                                                     </>
                                                 ) : (
                                                     <>
-                                                        <span className="w-9 h-9 rounded-md bg-gray-200 text-gray-400 flex items-center justify-center shrink-0">
-                                                            <Package size={18} />
+                                                        <span className="w-11 h-11 rounded-lg bg-gray-200 text-gray-400 flex items-center justify-center shrink-0">
+                                                            <Package size={22} />
                                                         </span>
-                                                        <span className="text-sm font-bold text-gray-400 truncate">Ürün Grubu Seçiniz</span>
+                                                        <span className="text-[15px] font-bold text-gray-400 truncate">Ürün Grubu Seçiniz</span>
                                                     </>
                                                 )}
                                             </span>
-                                            <ChevronDown size={16} className="text-gray-400 shrink-0" aria-hidden="true" />
+                                            <ChevronDown size={18} className="text-gray-400 shrink-0" aria-hidden="true" />
                                         </button>
                                     </div>
 
                                     {formData.productGroup && (
-                                        <div className="flex items-center justify-between bg-gray-50 p-1.5 rounded-lg border border-gray-100 animate-in slide-in-from-top-2">
-                                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide ml-2">İşlem Türü</span>
+                                        <div className="flex items-center justify-between bg-gray-50 p-2 rounded-xl border border-gray-100 animate-in slide-in-from-top-2">
+                                            <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wide ml-2">İşlem Türü</span>
                                             <div className="flex gap-1">
                                                 {['iphone', 'ipad', 'mac'].includes(formData.productGroup) && (
-                                                    <button onClick={() => setFormData({ ...formData, serviceType: 'repair' })} className={`px-3 py-1 rounded-md text-[10px] font-semibold uppercase transition-all ${formData.serviceType === 'repair' ? 'bg-white text-blue-600 shadow-sm border border-blue-100' : 'text-gray-400 hover:bg-white'}`}>Onarım</button>
+                                                    <button onClick={() => setFormData({ ...formData, serviceType: 'repair' })} className={`px-4 py-1.5 rounded-lg text-[11px] font-semibold uppercase transition-all ${formData.serviceType === 'repair' ? 'bg-white text-blue-600 shadow-sm border border-blue-100' : 'text-gray-400 hover:bg-white'}`}>Onarım</button>
                                                 )}
-                                                <button onClick={() => setFormData({ ...formData, serviceType: 'exchange' })} className={`px-3 py-1 rounded-md text-[10px] font-semibold uppercase transition-all ${formData.serviceType === 'exchange' ? 'bg-white text-blue-600 shadow-sm border border-blue-100' : 'text-gray-400 hover:bg-white'}`}>Değişim</button>
+                                                <button onClick={() => setFormData({ ...formData, serviceType: 'exchange' })} className={`px-4 py-1.5 rounded-lg text-[11px] font-semibold uppercase transition-all ${formData.serviceType === 'exchange' ? 'bg-white text-blue-600 shadow-sm border border-blue-100' : 'text-gray-400 hover:bg-white'}`}>Değişim</button>
                                             </div>
                                         </div>
                                     )}
@@ -933,14 +933,14 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                                             <input
                                                 type="text"
                                                 placeholder="Örn: C7H..."
-                                                className="w-full pl-10 pr-20 py-2.5 rounded-lg bg-gray-50 border border-gray-200 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all font-mono font-bold text-sm text-gray-900 uppercase"
+                                                className="w-full pl-11 pr-24 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all font-mono font-bold text-[15px] text-gray-900 uppercase"
                                                 value={formData.serialNumber}
                                                 onChange={(e) => setFormData({ ...formData, serialNumber: e.target.value.toUpperCase() })}
                                             />
-                                            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors"><Fingerprint size={16} /></div>
-                                            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
-                                                <button onClick={() => { showToast('Kamera başlatılıyor...', 'info'); serialInputRef.current?.click(); }} className="p-1.5 hover:bg-blue-50 rounded-md text-blue-600 transition-colors"><Camera size={16} strokeWidth={2.5} /></button>
-                                                <button onClick={handleSerialSearch} disabled={searching} className="p-1.5 hover:bg-blue-50 rounded-md text-blue-600 transition-colors">{searching ? <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div> : <Search size={16} strokeWidth={2.5} />}</button>
+                                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors"><Fingerprint size={18} /></div>
+                                            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                                                <button onClick={() => { showToast('Kamera başlatılıyor...', 'info'); serialInputRef.current?.click(); }} className="p-2 hover:bg-blue-50 rounded-lg text-blue-600 transition-colors"><Camera size={18} strokeWidth={2.5} /></button>
+                                                <button onClick={handleSerialSearch} disabled={searching} className="p-2 hover:bg-blue-50 rounded-lg text-blue-600 transition-colors">{searching ? <div className="w-[18px] h-[18px] border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div> : <Search size={18} strokeWidth={2.5} />}</button>
                                             </div>
                                         </div>
                                     </div>
@@ -951,12 +951,12 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                                             <input
                                                 type="text"
                                                 placeholder="Örn: iPhone 13..."
-                                                className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-gray-50 border border-gray-200 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all font-bold text-sm text-gray-900"
+                                                className="w-full pl-11 pr-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all font-bold text-[15px] text-gray-900"
                                                 value={formData.deviceModel}
                                                 onChange={handleDeviceModelChange}
                                                 onFocus={() => formData.deviceModel.length > 1 && setShowSuggestions(true)}
                                             />
-                                            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors"><Package size={16} /></div>
+                                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors"><Package size={18} /></div>
                                             {showSuggestions && deviceSuggestions.length > 0 && (
                                                 <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-md shadow-2xl border border-gray-100 max-h-64 overflow-y-auto z-50 animate-in fade-in slide-in-from-top-2 custom-scrollbar">
                                                     <div className="p-2 sticky top-0 bg-white/95 backdrop-blur-sm border-b border-gray-100 z-10"><span className="text-[10px] font-semibold uppercase text-gray-400 px-2">Önerilen Modeller ({deviceSuggestions.length})</span></div>
@@ -980,7 +980,7 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                                                 type="text"
                                                 maxLength="15"
                                                 placeholder="35..."
-                                                className="w-full px-4 py-2.5 rounded-lg bg-gray-50 border border-gray-200 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all font-mono text-sm uppercase text-gray-900 font-bold"
+                                                className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all font-mono text-[15px] uppercase text-gray-900 font-bold"
                                                 value={formData.imei1}
                                                 onChange={(e) => setFormData({ ...formData, imei1: e.target.value.replace(/\D/g, '') })}
                                             />
@@ -991,7 +991,7 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                                                 type="text"
                                                 maxLength="15"
                                                 placeholder="35..."
-                                                className="w-full px-4 py-2.5 rounded-lg bg-gray-50 border border-gray-200 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all font-mono text-sm uppercase text-gray-900 font-bold"
+                                                className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all font-mono text-[15px] uppercase text-gray-900 font-bold"
                                                 value={formData.imei2}
                                                 onChange={(e) => setFormData({ ...formData, imei2: e.target.value.replace(/\D/g, '') })}
                                             />
@@ -1002,82 +1002,82 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                         </div>
 
                         {/* Garanti + fiziksel durum */}
-                        <div className="xl:col-span-4 space-y-4">
+                        <div className="xl:col-span-4 xl:h-full flex flex-col gap-5">
                             <div className={CARD}>
                                 <h3 className={CARD_TITLE}>
-                                    <span className={CARD_ICON}><Shield size={16} strokeWidth={2.5} /></span>
+                                    <span className={CARD_ICON}><Shield size={18} strokeWidth={2.5} /></span>
                                     Garanti Kapsamı <span className="text-[#e30000]" aria-hidden="true">*</span>
                                 </h3>
-                                <div className="grid grid-cols-2 gap-2">
+                                <div className="grid grid-cols-2 gap-3">
                                     {[{ id: 'standard', label: 'Standart Garanti', icon: Shield }, { id: 'applecare', label: 'AppleCare+', icon: CheckCircle }, { id: 'troy-koruma', label: 'Troy Ekstra Koruma', icon: Shield }, { id: 'out-of-warranty', label: 'Garantisi Bitmiş', icon: ShieldAlert }].map((type) => (
-                                        <button key={type.id} onClick={() => setFormData({ ...formData, warrantyStatus: type.id })} className={`p-2.5 rounded-lg border flex items-center gap-2 text-left transition-all ${formData.warrantyStatus === type.id ? 'border-blue-500 bg-blue-50/60 text-blue-900 shadow-sm' : 'border-gray-200 bg-gray-50 hover:bg-white text-gray-600'}`}>
-                                            <span className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 ${formData.warrantyStatus === type.id ? 'bg-white text-blue-600' : 'bg-white text-gray-400'}`}><type.icon size={15} strokeWidth={2.5} /></span>
-                                            <span className="font-bold text-[11px] leading-tight">{type.label}</span>
+                                        <button key={type.id} onClick={() => setFormData({ ...formData, warrantyStatus: type.id })} className={`p-3.5 rounded-xl border flex items-center gap-3 text-left transition-all ${formData.warrantyStatus === type.id ? 'border-blue-500 bg-blue-50/60 text-blue-900 shadow-sm' : 'border-gray-200 bg-gray-50 hover:bg-white text-gray-600'}`}>
+                                            <span className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${formData.warrantyStatus === type.id ? 'bg-white text-blue-600' : 'bg-white text-gray-400'}`}><type.icon size={18} strokeWidth={2.5} /></span>
+                                            <span className="font-bold text-[13px] leading-tight">{type.label}</span>
                                         </button>
                                     ))}
                                 </div>
                                 {formData.warrantyStatus === 'out-of-warranty' && (
-                                    <div className="mt-3 pt-3 border-t border-gray-100 animate-in fade-in slide-in-from-top-2">
+                                    <div className="mt-4 pt-4 border-t border-gray-100 animate-in fade-in slide-in-from-top-2">
                                         <label className={LABEL}>Tahmini / Alınan Tutar</label>
                                         <div className="relative">
-                                            <input type="text" placeholder="0.00" className="w-full pl-9 pr-4 py-2.5 rounded-lg bg-orange-50/50 border border-orange-200 outline-none font-bold text-sm text-orange-900" value={formData.estimatedCost} onChange={(e) => setFormData({ ...formData, estimatedCost: e.target.value })} />
-                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-orange-400 font-semibold text-sm">₺</span>
+                                            <input type="text" placeholder="0.00" className="w-full pl-10 pr-4 py-3 rounded-xl bg-orange-50/50 border border-orange-200 outline-none font-bold text-[15px] text-orange-900" value={formData.estimatedCost} onChange={(e) => setFormData({ ...formData, estimatedCost: e.target.value })} />
+                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-orange-400 font-semibold text-[15px]">₺</span>
                                         </div>
                                     </div>
                                 )}
                             </div>
 
-                            <div className={CARD}>
+                            <div className={`${CARD} xl:flex-1 xl:flex xl:flex-col`}>
                                 <h3 className={CARD_TITLE}>
-                                    <span className={CARD_ICON}><AlertTriangle size={16} strokeWidth={2.5} /></span>
+                                    <span className={CARD_ICON}><AlertTriangle size={18} strokeWidth={2.5} /></span>
                                     Fiziksel Durum
                                 </h3>
-                                <div className="grid grid-cols-2 gap-2">
+                                <div className="grid grid-cols-2 gap-3 xl:flex-1 xl:auto-rows-fr">
                                     {['Ekran Çizik', 'Kasa Darbe', 'Kamera Çatlak', 'Sıvı Teması', 'Yamulma', 'Tuş Arızası', 'FaceID Arızası', 'Arka Cam Kırık', 'Lekeler', 'Soyulma'].map((item) => (
-                                        <button key={item} onClick={() => toggleCondition(item)} className={`py-2 px-3 rounded-lg text-[11px] font-bold border transition-all text-left ${formData.visualCondition.includes(item) ? 'bg-red-50 border-red-200 text-red-600 shadow-sm' : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-white'}`}>{item}</button>
+                                        <button key={item} onClick={() => toggleCondition(item)} className={`py-3 px-4 rounded-xl text-[13px] font-bold border transition-all text-left ${formData.visualCondition.includes(item) ? 'bg-red-50 border-red-200 text-red-600 shadow-sm' : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-white'}`}>{item}</button>
                                     ))}
                                 </div>
                             </div>
                         </div>
 
                         {/* Sorun detayı + fotoğraflar */}
-                        <div className="xl:col-span-3 space-y-4">
-                            <div className={CARD}>
+                        <div className="xl:col-span-3 xl:h-full flex flex-col gap-5">
+                            <div className={`${CARD} xl:flex-1 xl:flex xl:flex-col`}>
                                 <h3 className={CARD_TITLE}>
-                                    <span className={CARD_ICON}><AlertTriangle size={16} strokeWidth={2.5} /></span>
+                                    <span className={CARD_ICON}><AlertTriangle size={18} strokeWidth={2.5} /></span>
                                     Sorun Detayları
                                 </h3>
-                                <textarea rows="4" placeholder="Müşteri şikayetini yazınız…" value={formData.issueDescription} onChange={(e) => setFormData({ ...formData, issueDescription: e.target.value })} className="w-full px-4 py-2.5 rounded-lg bg-gray-50 border border-gray-200 outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 resize-none transition-all text-[13px] leading-relaxed font-medium text-gray-700"></textarea>
-                                <div className="flex flex-wrap gap-1.5 mt-2.5">
+                                <textarea rows="5" placeholder="Müşteri şikayetini yazınız…" value={formData.issueDescription} onChange={(e) => setFormData({ ...formData, issueDescription: e.target.value })} className="w-full xl:flex-1 px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 resize-none transition-all text-[14px] leading-relaxed font-medium text-gray-700"></textarea>
+                                <div className="flex flex-wrap gap-2 mt-3">
                                     {['Batarya Sorunu', 'Şarj Olmuyor', 'Ekran Kırık', 'Sıvı Teması', 'FaceID Çalışmıyor'].map(tag => (
-                                        <button key={tag} onClick={() => setFormData(prev => ({ ...prev, issueDescription: prev.issueDescription ? prev.issueDescription + ', ' + tag : tag }))} className="text-[10px] font-bold px-2.5 py-1.5 bg-white border border-gray-200 hover:border-blue-400 hover:text-blue-600 text-gray-500 rounded-md transition-all">+ {tag}</button>
+                                        <button key={tag} onClick={() => setFormData(prev => ({ ...prev, issueDescription: prev.issueDescription ? prev.issueDescription + ', ' + tag : tag }))} className="text-[11px] font-bold px-3 py-2 bg-white border border-gray-200 hover:border-blue-400 hover:text-blue-600 text-gray-500 rounded-lg transition-all">+ {tag}</button>
                                     ))}
                                 </div>
                             </div>
 
                             <div className={CARD}>
-                                <div className="flex items-center justify-between gap-3 mb-3">
-                                    <h3 className="flex items-center gap-2 text-[13px] font-semibold text-gray-900">
-                                        <span className={CARD_ICON}><Camera size={16} strokeWidth={2.5} /></span>
+                                <div className="flex items-center justify-between gap-3 mb-4">
+                                    <h3 className="flex items-center gap-3 text-[15px] font-semibold text-gray-900">
+                                        <span className={CARD_ICON}><Camera size={18} strokeWidth={2.5} /></span>
                                         Fotoğraflar
                                     </h3>
-                                    <button onClick={handleAddPhoto} disabled={uploading} className="bg-gray-900 hover:bg-black text-white px-3 py-1.5 rounded-md text-[10px] font-semibold flex items-center gap-1.5 transition-all shrink-0">{uploading ? <Loader2 size={13} className="animate-spin" /> : <ImagePlus size={13} />}Ekle</button>
+                                    <button onClick={handleAddPhoto} disabled={uploading} className="bg-gray-900 hover:bg-black text-white px-4 py-2 rounded-lg text-[12px] font-semibold flex items-center gap-2 transition-all shrink-0">{uploading ? <Loader2 size={15} className="animate-spin" /> : <ImagePlus size={15} />}Ekle</button>
                                 </div>
                                 <input type="file" ref={fileInputRef} className="hidden" accept="image/jpeg, image/png" capture="environment" onChange={(e) => handleFileChange(e, 'before')} />
-                                <div className="grid grid-cols-3 gap-2">
+                                <div className="grid grid-cols-3 gap-3">
                                     {formData.beforeImages?.map((url, index) => (
                                         <div key={index} className="relative aspect-square group rounded-xl overflow-hidden border border-gray-100 shadow-sm">
                                             <img src={url} alt="Before" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 backdrop-blur-sm">
-                                                <button onClick={() => window.open(url, '_blank')} className="p-1.5 bg-white/20 rounded-lg text-white hover:bg-white/40"><ExternalLink size={14} /></button>
-                                                <button onClick={() => removePhoto(index, 'before')} className="p-1.5 bg-red-500/80 rounded-lg text-white hover:bg-red-600"><X size={14} /></button>
+                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-sm">
+                                                <button onClick={() => window.open(url, '_blank')} className="p-2 bg-white/20 rounded-lg text-white hover:bg-white/40"><ExternalLink size={15} /></button>
+                                                <button onClick={() => removePhoto(index, 'before')} className="p-2 bg-red-500/80 rounded-lg text-white hover:bg-red-600"><X size={15} /></button>
                                             </div>
                                         </div>
                                     ))}
                                     {(!formData.beforeImages || formData.beforeImages.length < 5) && (
-                                        <button onClick={handleAddPhoto} className="aspect-square rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 flex flex-col items-center justify-center gap-1 text-gray-400 hover:bg-white hover:border-blue-200 transition-all">
-                                            <Camera size={18} strokeWidth={1.5} />
-                                            <span className="text-[9px] font-semibold uppercase">Ekle</span>
+                                        <button onClick={handleAddPhoto} className="aspect-square rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 flex flex-col items-center justify-center gap-1.5 text-gray-400 hover:bg-white hover:border-blue-200 transition-all">
+                                            <Camera size={22} strokeWidth={1.5} />
+                                            <span className="text-[10px] font-semibold uppercase">Ekle</span>
                                         </button>
                                     )}
                                 </div>
@@ -1087,20 +1087,20 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                 )}
 
                 {step === 3 && (
-                    <div className="animate-scale-up">
-                        <div className={CARD}>
+                    <div className="animate-scale-up h-full">
+                        <div className={`${CARD} h-full flex flex-col`}>
                             <h3 className={CARD_TITLE}>
-                                <span className={CARD_ICON}><FileText size={16} strokeWidth={2.5} /></span>
+                                <span className={CARD_ICON}><FileText size={18} strokeWidth={2.5} /></span>
                                 Onay ve Teslim
                             </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                <label className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all ${formData.findMyOff ? 'bg-green-50 border-green-200 shadow-sm' : 'bg-white border-gray-200'}`}>
-                                    <div className={`mt-0.5 w-6 h-6 rounded-md border-2 flex items-center justify-center shrink-0 ${formData.findMyOff ? 'bg-green-500 border-green-500 text-white' : 'border-gray-300'}`}><Check size={14} strokeWidth={4} className={formData.findMyOff ? 'opacity-100' : 'opacity-0'} /><input type="checkbox" className="hidden" checked={formData.findMyOff} onChange={(e) => setFormData({ ...formData, findMyOff: e.target.checked })} /></div>
-                                    <div><span className="font-bold text-gray-900 block text-sm mb-1">Cihazımı Bul (FMI) Kapalı</span><span className="text-[10px] font-bold bg-black text-white px-2 py-0.5 rounded uppercase mr-2">Zorunlu</span><span className="text-[12px] text-gray-500 font-medium">Apple prosedürleri gereği kapalı olmadan servis kaydı açılamaz.</span></div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <label className={`flex items-start gap-4 p-5 rounded-xl border cursor-pointer transition-all ${formData.findMyOff ? 'bg-green-50 border-green-200 shadow-sm' : 'bg-white border-gray-200'}`}>
+                                    <div className={`mt-0.5 w-7 h-7 rounded-lg border-2 flex items-center justify-center shrink-0 ${formData.findMyOff ? 'bg-green-500 border-green-500 text-white' : 'border-gray-300'}`}><Check size={16} strokeWidth={4} className={formData.findMyOff ? 'opacity-100' : 'opacity-0'} /><input type="checkbox" className="hidden" checked={formData.findMyOff} onChange={(e) => setFormData({ ...formData, findMyOff: e.target.checked })} /></div>
+                                    <div><span className="font-bold text-gray-900 block text-[16px] mb-1.5">Cihazımı Bul (FMI) Kapalı</span><span className="text-[11px] font-bold bg-black text-white px-2 py-0.5 rounded uppercase mr-2">Zorunlu</span><span className="text-[13px] text-gray-500 font-medium">Apple prosedürleri gereği kapalı olmadan servis kaydı açılamaz.</span></div>
                                 </label>
-                                <label className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all ${formData.backupTaken ? 'bg-blue-50 border-blue-200 shadow-sm' : 'bg-white border-gray-200'}`}>
-                                    <div className={`mt-0.5 w-6 h-6 rounded-md border-2 flex items-center justify-center shrink-0 ${formData.backupTaken ? 'bg-blue-500 border-blue-500 text-white' : 'border-gray-300'}`}><Check size={14} strokeWidth={4} className={formData.backupTaken ? 'opacity-100' : 'opacity-0'} /><input type="checkbox" className="hidden" checked={formData.backupTaken} onChange={(e) => setFormData({ ...formData, backupTaken: e.target.checked })} /></div>
-                                    <div><span className="font-bold text-gray-900 block text-sm mb-1">Yedekleme Sorumluluğu</span><span className="text-[12px] text-gray-500 font-medium">Müşteri veri kaybı riskini kabul etti.</span></div>
+                                <label className={`flex items-start gap-4 p-5 rounded-xl border cursor-pointer transition-all ${formData.backupTaken ? 'bg-blue-50 border-blue-200 shadow-sm' : 'bg-white border-gray-200'}`}>
+                                    <div className={`mt-0.5 w-7 h-7 rounded-lg border-2 flex items-center justify-center shrink-0 ${formData.backupTaken ? 'bg-blue-500 border-blue-500 text-white' : 'border-gray-300'}`}><Check size={16} strokeWidth={4} className={formData.backupTaken ? 'opacity-100' : 'opacity-0'} /><input type="checkbox" className="hidden" checked={formData.backupTaken} onChange={(e) => setFormData({ ...formData, backupTaken: e.target.checked })} /></div>
+                                    <div><span className="font-bold text-gray-900 block text-[16px] mb-1.5">Yedekleme Sorumluluğu</span><span className="text-[13px] text-gray-500 font-medium">Müşteri veri kaybı riskini kabul etti.</span></div>
                                 </label>
                             </div>
                         </div>
@@ -1109,8 +1109,8 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
             </div>
 
             {/* Alt aksiyon çubuğu — her zaman görünür */}
-            <div className="shrink-0 flex items-center justify-between gap-3 pt-3 border-t border-gray-100">
-                <p className="text-[11px] font-bold uppercase tracking-widest text-gray-400">
+            <div className="shrink-0 flex items-center justify-between gap-3 pt-4 border-t border-gray-100">
+                <p className="text-[12px] font-bold uppercase tracking-widest text-gray-400">
                     Adım {step} / {STEPS.length} · {STEPS.find(s => s.id === step)?.label}
                 </p>
                 <div className="flex items-center gap-3">
@@ -1119,27 +1119,27 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                             type="button"
                             onClick={() => setStep(step - 1)}
                             aria-label="Önceki adım"
-                            className="px-4 py-2.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 font-bold transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
+                            className="px-5 py-3 rounded-xl border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 font-bold transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
                         >
-                            <ArrowLeft size={18} />
+                            <ArrowLeft size={20} />
                         </button>
                     )}
                     {step < 3 ? (
                         <button
                             type="button"
                             onClick={() => setStep(step + 1)}
-                            className="bg-gray-900 text-white px-5 py-2.5 rounded-lg text-sm font-bold hover:bg-black transition-all flex items-center justify-center gap-2 shadow-lg outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
+                            className="bg-gray-900 text-white px-6 py-3 rounded-xl text-[15px] font-bold hover:bg-black transition-all flex items-center justify-center gap-2 shadow-lg outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
                         >
-                            Sonraki Adım <ChevronRight size={16} />
+                            Sonraki Adım <ChevronRight size={18} />
                         </button>
                     ) : (
                         <button
                             type="button"
                             onClick={handlePrepareSubmission}
                             disabled={!formData.findMyOff || uploading}
-                            className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 shadow-lg outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25 ${(!formData.findMyOff || uploading) ? 'bg-gray-400 cursor-not-allowed opacity-50' : 'bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-blue-200'}`}
+                            className={`px-6 py-3 rounded-xl text-[15px] font-bold transition-all flex items-center justify-center gap-2 shadow-lg outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25 ${(!formData.findMyOff || uploading) ? 'bg-gray-400 cursor-not-allowed opacity-50' : 'bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-blue-200'}`}
                         >
-                            {uploading ? 'Görsel Yükleniyor...' : <><Save size={16} strokeWidth={2.5} /> Kaydı Tamamla</>}
+                            {uploading ? 'Görsel Yükleniyor...' : <><Save size={18} strokeWidth={2.5} /> Kaydı Tamamla</>}
                         </button>
                     )}
                 </div>
