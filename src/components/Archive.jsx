@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useId } from 'react';
+import React, { useState, useMemo, useId, useRef, useEffect } from 'react';
 import {
     Search, User, Eye, Download, ChevronDown, Store, ChevronRight,
     ShieldCheck, Database, X, SlidersHorizontal, RotateCcw, CalendarDays,
@@ -171,6 +171,28 @@ const Archive = () => {
     const [expandedGroups, setExpandedGroups] = useState([]);
     const [selectedRepair, setSelectedRepair] = useState(null);
     const [showBatchExport, setShowBatchExport] = useState(false);
+    // Filtreler varsayılan olarak kapalı; açılır panel olarak listenin üzerine biner,
+    // böylece kapalıyken tüm dikey alan arşiv kayıtlarına kalır.
+    const [filtersOpen, setFiltersOpen] = useState(false);
+    const filterPanelRef = useRef(null);
+
+    useEffect(() => {
+        if (!filtersOpen) return;
+
+        const handlePointerDown = (event) => {
+            if (!filterPanelRef.current?.contains(event.target)) setFiltersOpen(false);
+        };
+        const handleKeyDown = (event) => {
+            if (event.key === 'Escape') setFiltersOpen(false);
+        };
+
+        document.addEventListener('mousedown', handlePointerDown);
+        document.addEventListener('keydown', handleKeyDown);
+        return () => {
+            document.removeEventListener('mousedown', handlePointerDown);
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [filtersOpen]);
 
     const storeNameById = useMemo(
         () => new Map((servicePoints || []).map(sp => [String(sp.id), sp.name])),
@@ -378,7 +400,7 @@ const Archive = () => {
             </div>
 
             {/* Arama + gruplama + sıralama */}
-            <div className="bg-white rounded-[24px] border border-gray-200 shadow-sm">
+            <div className="relative z-20 bg-white rounded-[24px] border border-gray-200 shadow-sm">
                 <div className="p-4 sm:p-5 flex flex-col lg:flex-row lg:items-end gap-4">
                     <div className="flex-1 min-w-0">
                         <label htmlFor={`${uid}-search`} className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">
@@ -431,37 +453,8 @@ const Archive = () => {
                     </div>
                 </div>
 
-                {/* Filtreler */}
-                <details className="border-t border-gray-100 group/filters" open>
-                    <summary className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 cursor-pointer select-none list-none outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25">
-                        <span className="flex items-center gap-2 text-[13px] font-semibold text-[#1d1d1f]">
-                            <SlidersHorizontal size={15} className="text-[#0071e3]" aria-hidden="true" />
-                            Filtreler
-                            {activeFilterCount > 0 && (
-                                <span className="text-[10px] font-bold text-white bg-[#0071e3] rounded-full px-2 py-0.5">
-                                    {activeFilterCount}
-                                </span>
-                            )}
-                        </span>
-                        <ChevronDown size={16} className="text-gray-400 group-open/filters:rotate-180 transition-transform" aria-hidden="true" />
-                    </summary>
-
-                    <div className="px-4 sm:px-5 pb-5 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
-                        {Object.entries(FACETS).map(([key, facet]) => (
-                            <FacetGroup
-                                key={key}
-                                facetKey={key}
-                                label={facet.label}
-                                options={facetOptions[key] || []}
-                                selected={filters[key]}
-                                onToggle={toggleFilter}
-                            />
-                        ))}
-                    </div>
-                </details>
-
-                {/* Sonuç özeti + aktif filtre etiketleri */}
-                <div className="border-t border-gray-100 px-4 sm:px-5 py-3 flex flex-wrap items-center gap-2">
+                {/* Sonuç özeti + aktif filtre etiketleri + açılır filtre paneli */}
+                <div ref={filterPanelRef} className="relative border-t border-gray-100 px-4 sm:px-5 py-3 flex flex-wrap items-center gap-2">
                     <p aria-live="polite" className="text-[13px] font-semibold text-[#1d1d1f]">
                         {sorted.length} kayıt
                         {isNarrowed && <span className="font-medium text-gray-500"> / {scope.length} arşiv kaydı</span>}
@@ -480,14 +473,93 @@ const Archive = () => {
                         </button>
                     ))}
 
-                    {isNarrowed && (
+                    <div className="ml-auto flex items-center gap-2">
+                        {isNarrowed && (
+                            <button
+                                type="button"
+                                onClick={clearAll}
+                                className="inline-flex items-center gap-1.5 h-9 px-3 rounded-xl text-[12px] font-semibold text-gray-600 hover:bg-[#f5f5f7] transition-colors outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
+                            >
+                                <RotateCcw size={13} aria-hidden="true" /> Filtreleri temizle
+                            </button>
+                        )}
+
                         <button
                             type="button"
-                            onClick={clearAll}
-                            className="ml-auto inline-flex items-center gap-1.5 h-8 px-3 rounded-xl text-[12px] font-semibold text-gray-600 hover:bg-[#f5f5f7] transition-colors outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
+                            onClick={() => setFiltersOpen(open => !open)}
+                            aria-expanded={filtersOpen}
+                            aria-controls={`${uid}-filters`}
+                            className={`inline-flex items-center gap-2 h-9 px-3.5 rounded-xl border text-[12px] font-semibold transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25 ${filtersOpen || activeFilterCount > 0
+                                ? 'bg-[#0071e3] text-white border-[#0071e3]'
+                                : 'bg-white text-[#1d1d1f] border-gray-200 hover:bg-[#f5f5f7]'}`}
                         >
-                            <RotateCcw size={13} aria-hidden="true" /> Filtreleri temizle
+                            <SlidersHorizontal size={14} aria-hidden="true" />
+                            Filtreler
+                            {activeFilterCount > 0 && (
+                                <span className={`text-[10px] font-bold rounded-full px-1.5 py-0.5 ${filtersOpen || activeFilterCount > 0 ? 'bg-white/20 text-white' : 'bg-[#0071e3] text-white'}`}>
+                                    {activeFilterCount}
+                                </span>
+                            )}
+                            <ChevronDown size={14} aria-hidden="true" className={`transition-transform ${filtersOpen ? 'rotate-180' : ''}`} />
                         </button>
+                    </div>
+
+                    {filtersOpen && (
+                        <div
+                            id={`${uid}-filters`}
+                            className="absolute left-2 right-2 sm:left-3 sm:right-3 top-full z-30 mt-2 bg-white rounded-[20px] border border-gray-200 shadow-xl shadow-black/10 overflow-hidden"
+                        >
+                            <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 border-b border-gray-100 bg-[#f5f5f7]/60">
+                                <span className="flex items-center gap-2 text-[13px] font-semibold text-[#1d1d1f]">
+                                    <SlidersHorizontal size={15} className="text-[#0071e3]" aria-hidden="true" />
+                                    Kategorilere göre süz
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => setFiltersOpen(false)}
+                                    aria-label="Filtre panelini kapat"
+                                    className="h-8 w-8 rounded-lg text-gray-400 hover:text-[#1d1d1f] hover:bg-white flex items-center justify-center transition-colors outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
+                                >
+                                    <X size={15} aria-hidden="true" />
+                                </button>
+                            </div>
+
+                            <div className="page-scroll max-h-[min(58vh,440px)] px-4 sm:px-5 py-5 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
+                                {Object.entries(FACETS).map(([key, facet]) => (
+                                    <FacetGroup
+                                        key={key}
+                                        facetKey={key}
+                                        label={facet.label}
+                                        options={facetOptions[key] || []}
+                                        selected={filters[key]}
+                                        onToggle={toggleFilter}
+                                    />
+                                ))}
+                            </div>
+
+                            <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 border-t border-gray-100 bg-[#f5f5f7]/60">
+                                <span className="text-[12px] font-semibold text-gray-600">
+                                    {sorted.length} kayıt eşleşiyor
+                                </span>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setFilters(EMPTY_FILTERS)}
+                                        disabled={activeFilterCount === 0}
+                                        className="inline-flex items-center gap-1.5 h-9 px-3 rounded-xl text-[12px] font-semibold text-gray-600 hover:bg-white disabled:opacity-40 disabled:hover:bg-transparent transition-colors outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
+                                    >
+                                        <RotateCcw size={13} aria-hidden="true" /> Sıfırla
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setFiltersOpen(false)}
+                                        className="h-9 px-4 rounded-xl bg-[#0071e3] text-white text-[12px] font-semibold hover:bg-[#0077ed] transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
+                                    >
+                                        Kapat
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     )}
                 </div>
             </div>
