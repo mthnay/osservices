@@ -237,7 +237,8 @@ const StockManagement = () => {
             (part.partNumber && part.partNumber.toLowerCase().includes(searchTerm.toLowerCase())) ||
             (part.id && part.id.toString().includes(searchTerm));
         const matchesCategory = activeCategory === 'all' || part.category === activeCategory;
-        const matchesStore = selectedStoreId === 0 || String(part.storeId) === String(selectedStoreId);
+        // Bütün birim kodları sistem geneli: mağaza filtresine tabi değil
+        const matchesStore = isWholeUnitView || selectedStoreId === 0 || String(part.storeId) === String(selectedStoreId);
         const matchesWarehouse = part.warehouseType === warehouseType || (!part.warehouseType && warehouseType === 'KGB');
         return matchesSearch && matchesCategory && matchesStore && matchesWarehouse;
     });
@@ -245,7 +246,7 @@ const StockManagement = () => {
     // Kategori seçenekleri: aktif ambar ve mağaza kapsamındaki kayıtlardan üretilir
     const categoryOptions = useMemo(() => {
         const scope = inventory.filter(part => {
-            const matchesStore = selectedStoreId === 0 || String(part.storeId) === String(selectedStoreId);
+            const matchesStore = isWholeUnitView || selectedStoreId === 0 || String(part.storeId) === String(selectedStoreId);
             const matchesWarehouse = part.warehouseType === warehouseType || (!part.warehouseType && warehouseType === 'KGB');
             return matchesStore && matchesWarehouse && part.category !== 'loaner';
         });
@@ -262,7 +263,7 @@ const StockManagement = () => {
                 .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'tr'))
                 .map(([value, count]) => ({ value, label: value, count }))
         ];
-    }, [inventory, selectedStoreId, warehouseType]);
+    }, [inventory, selectedStoreId, warehouseType, isWholeUnitView]);
 
     const totalItems = filteredParts.length;
     const lowStockItems = filteredParts.filter(p => (p.quantity ?? 0) < (p.minLevel ?? 0)).length;
@@ -505,7 +506,7 @@ const StockManagement = () => {
                                 <tr className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                                     <th className="px-6 py-4 bg-[#f5f5f7] border-b border-gray-200">Parça Bilgisi</th>
                                     <th className="px-6 py-4 bg-[#f5f5f7] border-b border-gray-200">P/N Kodu</th>
-                                    {selectedStoreId === 0 && <th className="px-6 py-4 bg-[#f5f5f7] border-b border-gray-200">Şube</th>}
+                                    {!isWholeUnitView && selectedStoreId === 0 && <th className="px-6 py-4 bg-[#f5f5f7] border-b border-gray-200">Şube</th>}
                                     {!isWholeUnitView && <th className="px-6 py-4 bg-[#f5f5f7] border-b border-gray-200 text-center">Stok Adedi</th>}
                                     <th className="px-6 py-4 bg-[#f5f5f7] border-b border-gray-200 text-right">İşlem</th>
                                 </tr>
@@ -575,7 +576,7 @@ const StockManagement = () => {
                                         <td className="px-6 py-4">
                                             <span className="text-[12px] font-mono font-black text-gray-600 bg-gray-150/70 border border-gray-200/50 px-2.5 py-1 rounded-lg uppercase shadow-sm">{item.partNumber || '-'}</span>
                                         </td>
-                                        {selectedStoreId === 0 && (
+                                        {!isWholeUnitView && selectedStoreId === 0 && (
                                             <td className="px-6 py-4">
                                                 <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100 uppercase">
                                                     {servicePoints.find(s => String(s.id) === String(item.storeId))?.name || 'Genel'}

@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import Toast from '../components/Toast';
 import { hasPermission, ROLES, setGlobalRoles, getAccessibleStoreIds } from '../utils/permissions';
+import { isWholeUnitItem } from '../utils/warehouse';
 
 const AppContext = createContext();
 
@@ -1043,16 +1044,25 @@ export const AppProvider = ({ children }) => {
             if (itemToSave.kbbSerial && (!itemToSave.kbbSerials || itemToSave.kbbSerials.length === 0)) {
                 itemToSave.kbbSerials = [itemToSave.kbbSerial];
             }
-            // Mağaza ambar ayrımı: geçerli bir mağaza zorunlu (storeId=0 "tüm mağazalar" sentinelidir, öksüz kayıt yaratır)
-            const resolvedStoreId = Number(itemToSave.storeId ?? currentUser?.storeId);
-            if (!resolvedStoreId || Number.isNaN(resolvedStoreId)) {
-                showToast('Parça eklemek için geçerli bir mağaza seçilmelidir.', 'error');
-                return false;
+            // Bütün birim kodları sistem genelidir: bir ambara bağlanmaz,
+            // bu yüzden mağaza zorunluluğundan muaftır.
+            let payload;
+            if (isWholeUnitItem(itemToSave)) {
+                payload = { ...itemToSave, storeId: 0, quantity: 0, minLevel: 0 };
+            } else {
+                // Mağaza ambar ayrımı: geçerli bir mağaza zorunlu (storeId=0 "tüm mağazalar" sentinelidir, öksüz kayıt yaratır)
+                const resolvedStoreId = Number(itemToSave.storeId ?? currentUser?.storeId);
+                if (!resolvedStoreId || Number.isNaN(resolvedStoreId)) {
+                    showToast('Parça eklemek için geçerli bir mağaza seçilmelidir.', 'error');
+                    return false;
+                }
+                payload = { ...itemToSave, storeId: resolvedStoreId };
             }
+
             const res = await apiFetch(`${API_URL}/inventory`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ...itemToSave, storeId: resolvedStoreId })
+                body: JSON.stringify(payload)
             });
             if (res.ok) {
                 const saved = await res.json();
@@ -1569,6 +1579,19 @@ export const AppProvider = ({ children }) => {
         return list.filter(item => allowed.includes(String(item[storeIdKey])));
     }, [currentUser, isAdmin, selectedStoreId]);
 
+    /**
+     * Envanter mağaza kapsamına göre süzülür; ancak bütün birim kodları
+     * sistem geneli olduğu için hangi mağaza seçili olursa olsun listede kalır.
+     */
+    const scopedInventory = React.useMemo(() => {
+        const scoped = filterByStore(inventory);
+        const seen = new Set(scoped.map(item => item._id || item.id));
+        const wholeUnits = inventory.filter(
+            item => isWholeUnitItem(item) && !seen.has(item._id || item.id)
+        );
+        return wholeUnits.length ? [...scoped, ...wholeUnits] : scoped;
+    }, [inventory, filterByStore]);
+
     return (
         <AppContext.Provider value={{
             API_URL,
@@ -1581,7 +1604,7 @@ export const AppProvider = ({ children }) => {
             visibleServicePoints,
             searchQuery,
             setSearchQuery,
-            inventory: filterByStore(inventory),
+            inventory: scopedInventory,
             allInventory: inventory,
             technicians: (() => {
                 const baseTechnicians = filterByStore(technicians);

@@ -137,10 +137,14 @@ const InventoryEntryModal = ({ mode = 'KGB', stores = [], defaultStoreId = '', o
             next.partNumber = isWholeUnit ? 'Bütün birim kodu zorunludur.' : 'Parça kodu (P/N) zorunludur.';
         }
         if (mode === 'loaner' && !form.serialNumber.trim()) next.serialNumber = 'Cihaz seri numarası zorunludur.';
-        if (noStoreAvailable) {
-            next.storeId = 'Hesabınıza tanımlı bir mağaza ambarı yok. Ayarlar › Mağazalar bölümünden mağaza tanımlayın veya yöneticinizden mağaza yetkisi isteyin.';
-        } else if (!form.storeId || !(Number(form.storeId) > 0)) {
-            next.storeId = 'Mağaza ambarı seçilmelidir.';
+
+        // Bütün birim kodu sistem geneli kaydedilir; mağaza ambarı istenmez
+        if (!isWholeUnit) {
+            if (noStoreAvailable) {
+                next.storeId = 'Hesabınıza tanımlı bir mağaza ambarı yok. Ayarlar › Mağazalar bölümünden mağaza tanımlayın veya yöneticinizden mağaza yetkisi isteyin.';
+            } else if (!form.storeId || !(Number(form.storeId) > 0)) {
+                next.storeId = 'Mağaza ambarı seçilmelidir.';
+            }
         }
 
         const duplicate = serials.find((s, i) => serials.indexOf(s) !== i);
@@ -161,7 +165,8 @@ const InventoryEntryModal = ({ mode = 'KGB', stores = [], defaultStoreId = '', o
         const payload = {
             name: form.name.trim(),
             category: mode === 'loaner' ? 'loaner' : form.category,
-            storeId: Number(form.storeId),
+            // Bütün birim ambara bağlı değildir; 0 "sistem geneli" demektir
+            storeId: isWholeUnit ? 0 : Number(form.storeId),
             price: Number(form.price) || 0,
             location: form.location.trim(),
             warehouseType: mode === 'loaner' ? 'KGB' : mode,
@@ -356,10 +361,22 @@ const InventoryEntryModal = ({ mode = 'KGB', stores = [], defaultStoreId = '', o
                         </div>
                     </div>
 
+                    {/* Bütün birim kodu hiçbir ambara bağlanmaz; mağaza bölümü hiç gösterilmez */}
+                    {isWholeUnit ? (
+                        <div className="pt-2 border-t border-gray-100">
+                            <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                <Layers size={13} className="text-[#bf5b04]" aria-hidden="true" /> Kayıt Kapsamı
+                            </h4>
+                            <p className="text-[11px] font-medium text-gray-500 leading-snug bg-[#f5f5f7] border border-gray-200 rounded-xl px-4 py-3">
+                                Bu kod sisteme geneline kaydedilir; herhangi bir mağaza ambarına bağlanmaz
+                                ve tüm mağazalardan görünür.
+                            </p>
+                        </div>
+                    ) : (
                     <div className="pt-2 border-t border-gray-100">
                         <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-2">
                             <Store size={13} className="text-[#0071e3]" aria-hidden="true" /> Mağaza Ambarı
-                            {mode !== 'loaner' && !isWholeUnit && ' & Stok'}
+                            {mode !== 'loaner' && ' & Stok'}
                         </h4>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -388,7 +405,7 @@ const InventoryEntryModal = ({ mode = 'KGB', stores = [], defaultStoreId = '', o
                                 )}
                             </div>
 
-                            {mode !== 'loaner' && !isWholeUnit && (
+                            {mode !== 'loaner' && (
                                 <div>
                                     <label htmlFor={fieldId('minLevel')} className={labelCls}>Kritik Stok Seviyesi</label>
                                     <input
@@ -403,7 +420,7 @@ const InventoryEntryModal = ({ mode = 'KGB', stores = [], defaultStoreId = '', o
                             )}
                         </div>
 
-                        {isWholeUnit ? null : mode === 'loaner' ? (
+                        {mode === 'loaner' ? (
                             <div className="mt-4">
                                 <label htmlFor={fieldId('loanNote')} className={labelCls}>Not (opsiyonel)</label>
                                 <textarea
@@ -439,6 +456,7 @@ const InventoryEntryModal = ({ mode = 'KGB', stores = [], defaultStoreId = '', o
                             </div>
                         )}
                     </div>
+                    )}
                 </div>
 
                 {/* Alt bar */}
@@ -448,7 +466,7 @@ const InventoryEntryModal = ({ mode = 'KGB', stores = [], defaultStoreId = '', o
                         <span className="text-lg font-bold text-[#1d1d1f]">
                             {isWholeUnit ? '1 kod' : `${effectiveQty} adet`}
                         </span>
-                        {storeName && (
+                        {!isWholeUnit && storeName && (
                             <span className="text-[11px] font-bold text-[#0071e3] bg-blue-50 border border-blue-100 px-2.5 py-1 rounded-lg flex items-center gap-1 truncate">
                                 <Store size={11} aria-hidden="true" /> {storeName}
                             </span>
@@ -464,7 +482,7 @@ const InventoryEntryModal = ({ mode = 'KGB', stores = [], defaultStoreId = '', o
                         </button>
                         <button
                             type="submit"
-                            disabled={saving || noStoreAvailable}
+                            disabled={saving || (!isWholeUnit && noStoreAvailable)}
                             className="px-8 py-3 bg-[#0071e3] hover:bg-[#0077ed] disabled:opacity-60 text-white font-bold text-sm rounded-xl transition-all active:scale-95 flex items-center gap-2 outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
                         >
                             {saving ? <Plus size={18} className="animate-spin" aria-hidden="true" /> : <CheckCircle size={18} aria-hidden="true" />}

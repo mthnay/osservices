@@ -27,6 +27,7 @@ import { fileURLToPath } from 'url';
 import jwt from 'jsonwebtoken';
 import { verifyToken, requireRole, requirePermission } from './middleware/auth.js';
 import { findCustomerMatches, describeMatch, isForceable } from './customerMatch.js';
+import { WAREHOUSE_WHOLE_UNIT, isWholeUnitItem, WHOLE_UNIT_STORE_ID } from './warehouse.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'troy-fallback-secret-key-2026';
@@ -759,7 +760,7 @@ router.post('/users/forgot-password', async (req, res) => {
 // --- Inventory ---
 router.get('/inventory', async (req, res) => {
     try {
-        const filter = {};
+        let filter = {};
         if (canViewAllStores(req.user)) {
             // Yetkili hesap: opsiyonel seçili mağaza filtresi
             if (req.query.storeId && req.query.storeId !== '0') filter.storeId = Number(req.query.storeId);
@@ -767,6 +768,12 @@ router.get('/inventory', async (req, res) => {
             // Yetkisiz kullanıcı: yalnızca erişim yetkisi olan mağazalar (JWT'den zorlanır)
             filter.storeId = { $in: accessibleStoreIds(req.user) };
         }
+
+        // Bütün birim kodları sistem genelidir; mağaza kapsamına takılmamalı
+        if (filter.storeId !== undefined) {
+            filter = { $or: [{ storeId: filter.storeId }, { warehouseType: WAREHOUSE_WHOLE_UNIT }] };
+        }
+
         const inventory = await Inventory.find(filter).lean();
         res.json(inventory);
     } catch (err) {
@@ -775,8 +782,11 @@ router.get('/inventory', async (req, res) => {
 });
 
 router.post('/inventory', requirePermission('manage_stock', ['storemanager', 'accountant']), async (req, res) => {
-    // Yetki: yetkisiz kullanıcı yalnızca erişimli mağazasına parça ekleyebilir
-    if (!canViewAllStores(req.user) && !canAccessStore(req.user, req.body.storeId)) {
+    const wholeUnit = isWholeUnitItem(req.body);
+
+    // Yetki: yetkisiz kullanıcı yalnızca erişimli mağazasına parça ekleyebilir.
+    // Bütün birim kodu bir ambara ait olmadığı için bu kontrolden muaftır.
+    if (!wholeUnit && !canViewAllStores(req.user) && !canAccessStore(req.user, req.body.storeId)) {
         return res.status(403).json({ message: 'Bu mağazaya parça ekleme yetkiniz yok.' });
     }
     const data = { ...req.body };
@@ -787,12 +797,19 @@ router.post('/inventory', requirePermission('manage_stock', ['storemanager', 'ac
         data.kbbSerials = [data.kbbSerial];
     }
 
-    // Mağaza ambarı zorunlu: storeId olmadan kayıt hiçbir ambarda görünmez
-    const storeId = Number(data.storeId);
-    if (!storeId || Number.isNaN(storeId)) {
-        return res.status(400).json({ message: 'Parça eklemek için geçerli bir mağaza ambarı seçilmelidir.' });
+    if (wholeUnit) {
+        // Bütün birim kodu sistem geneli tutulur; stok ve ambar alanı yoktur
+        data.storeId = WHOLE_UNIT_STORE_ID;
+        data.quantity = 0;
+        data.minLevel = 0;
+    } else {
+        // Mağaza ambarı zorunlu: storeId olmadan kayıt hiçbir ambarda görünmez
+        const storeId = Number(data.storeId);
+        if (!storeId || Number.isNaN(storeId)) {
+            return res.status(400).json({ message: 'Parça eklemek için geçerli bir mağaza ambarı seçilmelidir.' });
+        }
+        data.storeId = storeId;
     }
-    data.storeId = storeId;
 
     // Eski kurulumlarda "inventories" koleksiyonunda id üzerinde benzersiz indeks
     // kalabiliyor; id boş bırakılırsa ikinci kayıt "dup key: { id: null }" ile
@@ -820,9 +837,10 @@ router.put('/inventory/:id', requirePermission('manage_stock', ['storemanager', 
         const filter = { $or: [{ id: id }] };
         if (mongoose.Types.ObjectId.isValid(id)) filter.$or.push({ _id: id });
         
-        // Yetki: kaydın mağazası erişimli değilse güncelleme
+        // Yetki: kaydın mağazası erişimli değilse güncelleme.
+        // Bütün birim kodları ambara bağlı olmadığı için bu kontrolden muaftır.
         const current = await Inventory.findOne(filter);
-        if (current && !canAccessStore(req.user, current.storeId)) {
+        if (current && !isWholeUnitItem(current) && !canAccessStore(req.user, current.storeId)) {
             return res.status(403).json({ message: 'Bu parça üzerinde işlem yetkiniz yok (farklı mağaza).' });
         }
 
@@ -852,9 +870,10 @@ router.delete('/inventory/:id', requirePermission('manage_stock', ['storemanager
         const filter = { $or: [{ id: id }] };
         if (mongoose.Types.ObjectId.isValid(id)) filter.$or.push({ _id: id });
 
-        // Yetki: kaydın mağazası erişimli değilse silme
+        // Yetki: kaydın mağazası erişimli değilse silme.
+        // Bütün birim kodları ambara bağlı olmadığı için bu kontrolden muaftır.
         const target = await Inventory.findOne(filter);
-        if (target && !canAccessStore(req.user, target.storeId)) {
+        if (target && !isWholeUnitItem(target) && !canAccessStore(req.user, target.storeId)) {
             return res.status(403).json({ message: 'Bu parçayı silme yetkiniz yok (farklı mağaza).', success: false });
         }
 
