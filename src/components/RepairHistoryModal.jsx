@@ -754,8 +754,13 @@ const RepairHistoryModal = ({ repair: initialRepair, onClose, onSaveDiagnosis })
                                                     <tr className="bg-gray-50 text-[9px] font-bold uppercase tracking-wider text-gray-400">
                                                         <th className="px-4 py-3">Parça</th>
                                                         <th className="px-4 py-3">Parça No</th>
-                                                        <th className="px-4 py-3">KBB (Eski Seri)</th>
-                                                        <th className="px-4 py-3">KGB (Yeni Seri)</th>
+                                                        {/* Bütün birim kayıtlarında seri numaraları parça değil cihaz bazlıdır */}
+                                                        <th className="px-4 py-3">
+                                                            {repair.parts.every(p => p.isWholeUnit) ? 'Arızalı Cihaz Seri' : 'KBB (Eski Seri)'}
+                                                        </th>
+                                                        <th className="px-4 py-3">
+                                                            {repair.parts.every(p => p.isWholeUnit) ? 'Gelen Cihaz Seri' : 'KGB (Yeni Seri)'}
+                                                        </th>
                                                         <th className="px-4 py-3 text-right">Fiyat</th>
                                                         <th className="px-4 py-3 text-center">Durum</th>
                                                     </tr>
@@ -763,10 +768,17 @@ const RepairHistoryModal = ({ repair: initialRepair, onClose, onSaveDiagnosis })
                                                 <tbody className="divide-y divide-gray-50">
                                                     {repair.parts.map((p, i) => (
                                                         <tr key={i} className="hover:bg-gray-50/50">
-                                                            <td className="px-4 py-3 text-xs font-semibold text-gray-900">{p.description || '—'}</td>
+                                                            <td className="px-4 py-3 text-xs font-semibold text-gray-900">
+                                                                {p.description || '—'}
+                                                                {p.isWholeUnit && (
+                                                                    <span className="ml-2 text-[9px] font-bold uppercase tracking-wide text-[#bf5b04] bg-[#ff9500]/10 border border-[#ff9500]/25 px-1.5 py-0.5 rounded">
+                                                                        Bütün Birim
+                                                                    </span>
+                                                                )}
+                                                            </td>
                                                             <td className="px-4 py-3 text-[11px] font-mono text-gray-500">{p.partNumber || '—'}</td>
-                                                            <td className="px-4 py-3 text-[11px] font-mono text-gray-500 uppercase">{p.kbbSerial || '—'}</td>
-                                                            <td className="px-4 py-3 text-[11px] font-mono text-gray-500 uppercase">{p.kgbSerial || '—'}</td>
+                                                            <td className="px-4 py-3 text-[11px] font-mono text-gray-500 uppercase">{(p.isWholeUnit ? p.faultyDeviceSerial : p.kbbSerial) || '—'}</td>
+                                                            <td className="px-4 py-3 text-[11px] font-mono text-gray-500 uppercase">{(p.isWholeUnit ? p.replacementDeviceSerial : p.kgbSerial) || '—'}</td>
                                                             <td className="px-4 py-3 text-xs font-bold text-gray-900 text-right">{fmtMoney(p.price) || '—'}</td>
                                                             <td className="px-4 py-3 text-center">
                                                                 <span className="text-[9px] font-bold px-2 py-0.5 rounded uppercase bg-gray-100 text-gray-500">{p.status || 'Pending'}</span>

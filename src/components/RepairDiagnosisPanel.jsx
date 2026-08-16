@@ -7,6 +7,7 @@ import CustomerNotificationModal from './CustomerNotificationModal';
 import { useAppContext } from '../context/AppContext';
 import ConfirmationModal from './ConfirmationModal';
 import AISuggestionCard from './AISuggestionCard';
+import { isStockedItem, isWholeUnitItem, findWholeUnitByCode } from '../utils/warehouse';
 
 const REPAIR_TYPES = [
     { id: 'carry-in', label: 'Bizzat Teslim (Mağaza İçi)', hint: 'Cihaz mağazada onarılacak', target: 'in-store' },
@@ -15,6 +16,26 @@ const REPAIR_TYPES = [
     { id: 'approval', label: 'Müşteri Onayı Bekleyen', hint: 'Teklif müşteri onayına sunulacak', target: 'approval-pending' },
     { id: 'service', label: 'Onarım Olmayan Servis', hint: 'Onarım gerektirmeyen işlem', target: 'ready-pickup' }
 ];
+
+/*
+   Parça bölümü onarım türüne göre üç farklı davranır:
+
+     inventory  → Envanterden parça seçilir / depodan sipariş açılır.
+                  Yalnızca cihazın mağazada kaldığı akışlar: Bizzat Teslim ve
+                  Değiştirmeden Önce İade.
+     whole-unit → Cihaz komple Onarım Merkezi'ne gider. Envanter/sipariş yerine
+                  bütün birim kodu girilir; kod kataloğdan çözülüp açıklamasıyla
+                  eklenir. Seri no alanları cihaz bazlıdır (KBB/KGB değil).
+     none       → Parça kullanılmayan akışlar (teklif bekleyen, onarımsız servis).
+*/
+const PARTS_ENABLED_TYPES = ['carry-in', 'returnbefore'];
+const WHOLE_UNIT_TYPES = ['mail-in'];
+
+const partsModeOf = (repairType) => {
+    if (PARTS_ENABLED_TYPES.includes(repairType)) return 'inventory';
+    if (WHOLE_UNIT_TYPES.includes(repairType)) return 'whole-unit';
+    return 'none';
+};
 
 const RETURN_REASONS = [
     'Arıza Tekrarlanamadı (No Trouble Found)',
@@ -100,15 +121,32 @@ const RepairDiagnosisPanel = ({ repair, onSave, onCancel, embedded = false }) =>
     const errorSummaryRef = useRef(null);
     const repairIdInputRef = useRef(null);
 
+    // Bütün birim kodu girişi (yalnızca Bütün Birim Posta akışında)
+    const [wholeUnitCode, setWholeUnitCode] = useState('');
+
+    const partsMode = partsModeOf(formData.repairType);
+
+    // Bütün birim kayıtları stoklu parça aramasına karışmaz
     const filteredInventory = useMemo(() => {
         const q = partSearch.toLowerCase();
-        return (inventory || []).filter(i => i.category !== 'loaner' && (
+        return (inventory || []).filter(i => isStockedItem(i) && (
             (i.name || '').toLowerCase().includes(q) ||
             (i.partNumber || '').toLowerCase().includes(q) ||
             (i.id || '').toLowerCase().includes(q) ||
             (i.sku || '').toLowerCase().includes(q)
         ));
     }, [inventory, partSearch]);
+
+    const wholeUnitCatalog = useMemo(
+        () => (inventory || []).filter(isWholeUnitItem),
+        [inventory]
+    );
+
+    /** Girilen kod kataloğda var mı — kullanıcıya anlık geri bildirim için */
+    const wholeUnitPreview = useMemo(
+        () => findWholeUnitByCode(inventory, wholeUnitCode),
+        [inventory, wholeUnitCode]
+    );
 
     const dropdownOpen = showPartDropdown && partSearch.trim().length > 0;
 
@@ -193,8 +231,69 @@ const RepairDiagnosisPanel = ({ repair, onSave, onCancel, embedded = false }) =>
         setActiveOption(-1);
     };
 
+    /**
+     * Bütün birim kodunu kataloğdan çözüp parça listesine ekler.
+     * Kod kataloğda yoksa kayıt açılmaz — envanterdeki bütün birim listesi
+     * tek doğruluk kaynağıdır.
+     */
+    const addWholeUnitPart = () => {
+        const code = wholeUnitCode.trim().toUpperCase();
+        if (!code) return;
+
+        if (formData.parts.length >= MAX_PARTS) {
+            showToast(`En fazla ${MAX_PARTS} kayıt ekleyebilirsiniz.`, 'warning');
+            return;
+        }
+
+        const match = findWholeUnitByCode(inventory, code);
+        if (!match) {
+            showToast(`"${code}" envanterdeki bütün birim listesinde tanımlı değil. Önce Ambar › Bütün Birim bölümünden ekleyin.`, 'error');
+            return;
+        }
+
+        const alreadyAdded = formData.parts.some(
+            p => String(p.partNumber || '').toUpperCase() === String(match.partNumber || code).toUpperCase()
+        );
+        if (alreadyAdded) {
+            showToast('Bu bütün birim kodu zaten eklendi.', 'warning');
+            return;
+        }
+
+        setFormData(prev => ({
+            ...prev,
+            parts: [...prev.parts, {
+                inventoryId: match.id,
+                partNumber: match.partNumber || code,
+                description: match.name,
+                isWholeUnit: true,
+                // Bütün birimde cihazın kendisi gönderildiği için seri no cihaz bazlı
+                faultyDeviceSerial: repair?.serial || '',
+                replacementDeviceSerial: '',
+                needsOrder: false,
+                availableSerials: []
+            }]
+        }));
+
+        setWholeUnitCode('');
+    };
+
     const removePart = (index) => {
         setFormData(prev => ({ ...prev, parts: prev.parts.filter((_, i) => i !== index) }));
+    };
+
+    /**
+     * Onarım türü değişince parça bölümünün modu da değişir; önceki moda ait
+     * kayıtlar (stoklu parça ↔ bütün birim) geçersiz olduğu için temizlenir.
+     */
+    const handleRepairTypeChange = (typeId) => {
+        const mustClear = partsModeOf(typeId) !== partsMode && formData.parts.length > 0;
+        if (mustClear) {
+            showToast('Onarım türü değiştiği için eklenen parça kayıtları temizlendi.', 'info');
+        }
+        setFormData(prev => ({ ...prev, repairType: typeId, parts: mustClear ? [] : prev.parts }));
+        setErrors(prev => ({ ...prev, repairType: undefined, parts: undefined }));
+        setPartSearch('');
+        setWholeUnitCode('');
     };
 
     const updatePart = (index, field, value) => {
@@ -232,9 +331,17 @@ const RepairDiagnosisPanel = ({ repair, onSave, onCancel, embedded = false }) =>
         if (!formData.notes.trim()) next.notes = 'Teknisyen notu zorunludur.';
         if (formData.repairType === 'approval' && !quoteAmount) next.quoteAmount = 'Teklif tutarını girin.';
 
-        const incompleteIndex = formData.parts.findIndex(p => (!p.needsOrder && !p.kgbSerial) || !p.kbbSerial);
-        if (incompleteIndex > -1) {
-            next.parts = `${incompleteIndex + 1}. parçanın seri numarası eksik.`;
+        if (partsMode === 'whole-unit') {
+            // Gelen cihaz seri no onarım merkezi dönüşünde girilir, burada zorunlu değil
+            const incompleteIndex = formData.parts.findIndex(p => !String(p.faultyDeviceSerial || '').trim());
+            if (incompleteIndex > -1) {
+                next.parts = `${incompleteIndex + 1}. bütün birim kaydında arızalı cihaz seri no eksik.`;
+            }
+        } else if (partsMode === 'inventory') {
+            const incompleteIndex = formData.parts.findIndex(p => (!p.needsOrder && !p.kgbSerial) || !p.kbbSerial);
+            if (incompleteIndex > -1) {
+                next.parts = `${incompleteIndex + 1}. parçanın seri numarası eksik.`;
+            }
         }
 
         setErrors(next);
@@ -271,6 +378,9 @@ const RepairDiagnosisPanel = ({ repair, onSave, onCancel, embedded = false }) =>
 
         // Parçaları stoktan düş veya envantere sipariş olarak ekle
         for (const part of formData.parts) {
+            // Bütün birim kayıtları stoksuzdur; stok hareketi oluşturmaz
+            if (part.isWholeUnit) continue;
+
             if (part.isNewInventoryItem) {
                 await addInventoryItem({
                     id: part.partNumber || `P-${Date.now().toString().slice(-6)}`,
@@ -323,8 +433,9 @@ const RepairDiagnosisPanel = ({ repair, onSave, onCancel, embedded = false }) =>
 
         const finalReason = returnReason === 'Diğer' ? customReturnReason : returnReason;
 
-        // Teşhis esnasında parça eklendiyse stoğa geri al
+        // Teşhis esnasında parça eklendiyse stoğa geri al (bütün birim stoksuz)
         formData.parts.forEach(part => {
+            if (part.isWholeUnit) return;
             const invItem = (inventory || []).find(i => i.id === part.inventoryId);
             if (invItem) {
                 const updatedSerials = [...(invItem.kgbSerials || [])];
@@ -478,10 +589,7 @@ const RepairDiagnosisPanel = ({ repair, onSave, onCancel, embedded = false }) =>
                                             name={fieldId('repairType')}
                                             value={type.id}
                                             checked={selected}
-                                            onChange={() => {
-                                                setFormData(prev => ({ ...prev, repairType: type.id }));
-                                                setErrors(prev => ({ ...prev, repairType: undefined }));
-                                            }}
+                                            onChange={() => handleRepairTypeChange(type.id)}
                                             className="sr-only"
                                         />
                                         <span
@@ -587,18 +695,93 @@ const RepairDiagnosisPanel = ({ repair, onSave, onCancel, embedded = false }) =>
                         />
                     </FieldGroup>
 
-                    {/* 3 · Parçalar */}
+                    {/* 3 · Parçalar — bölüm onarım türüne göre şekil değiştirir */}
                     <FieldGroup
                         index="3"
-                        title="Kullanılan Parçalar"
-                        hint={`Envanterden seçin ya da depodan sipariş açın. En fazla ${MAX_PARTS} parça.`}
+                        title={partsMode === 'whole-unit' ? 'Bütün Birim Parçası' : 'Kullanılan Parçalar'}
+                        hint={
+                            partsMode === 'inventory'
+                                ? `Envanterden seçin ya da depodan sipariş açın. En fazla ${MAX_PARTS} parça.`
+                                : partsMode === 'whole-unit'
+                                    ? 'Cihaz komple Onarım Merkezi’ne gider. Envanterdeki bütün birim kodunu girin.'
+                                    : 'Bu onarım türünde parça kullanılmaz.'
+                        }
                         icon={Zap}
                         action={
-                            <span className="shrink-0 text-[11px] font-bold text-gray-500 bg-[#f5f5f7] border border-gray-200 rounded-full px-2.5 py-1" aria-live="polite">
-                                {formData.parts.length}/{MAX_PARTS}
-                            </span>
+                            partsMode === 'none' ? null : (
+                                <span className="shrink-0 text-[11px] font-bold text-gray-500 bg-[#f5f5f7] border border-gray-200 rounded-full px-2.5 py-1" aria-live="polite">
+                                    {formData.parts.length}/{MAX_PARTS}
+                                </span>
+                            )
                         }
                     >
+                        {partsMode === 'none' && (
+                            <div className="rounded-xl border border-dashed border-gray-300 bg-[#f5f5f7]/60 px-5 py-6 text-center">
+                                <Package size={22} className="mx-auto text-gray-400 mb-2" aria-hidden="true" />
+                                <p className="text-[12px] font-medium text-gray-500 leading-snug">
+                                    Envanterden parça ekleme ve depodan sipariş alanı yalnızca
+                                    <strong className="font-semibold text-gray-600"> Bizzat Teslim </strong>
+                                    ve
+                                    <strong className="font-semibold text-gray-600"> Değiştirmeden Önce İade </strong>
+                                    akışlarında açılır.
+                                </p>
+                            </div>
+                        )}
+
+                        {partsMode === 'whole-unit' && (
+                            <div>
+                                <label htmlFor={fieldId('wholeUnitCode')} className="block text-[12px] font-semibold text-[#1d1d1f] mb-2">
+                                    Bütün birim parçası ekle
+                                </label>
+                                <div className="flex gap-2">
+                                    <div className="relative flex-1">
+                                        <Search size={16} aria-hidden="true" className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                                        <input
+                                            id={fieldId('wholeUnitCode')}
+                                            type="text"
+                                            autoComplete="off"
+                                            list={fieldId('wholeUnitList')}
+                                            className={`${inputBase} h-12 pl-11 pr-4 font-mono font-semibold uppercase`}
+                                            placeholder="Bütün birim kodu…"
+                                            value={wholeUnitCode}
+                                            onChange={(e) => setWholeUnitCode(e.target.value.toUpperCase())}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    e.preventDefault();
+                                                    addWholeUnitPart();
+                                                }
+                                            }}
+                                            aria-describedby={fieldId('wholeUnit-hint')}
+                                        />
+                                        <datalist id={fieldId('wholeUnitList')}>
+                                            {wholeUnitCatalog.map(item => (
+                                                <option key={item._id || item.id} value={item.partNumber || item.id}>
+                                                    {item.name}
+                                                </option>
+                                            ))}
+                                        </datalist>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={addWholeUnitPart}
+                                        disabled={!wholeUnitCode.trim()}
+                                        className={`${ghostButton} h-12 px-5 bg-[#1d1d1f] text-white hover:bg-black disabled:opacity-40 disabled:cursor-not-allowed shrink-0`}
+                                    >
+                                        <Plus size={15} aria-hidden="true" /> Ekle
+                                    </button>
+                                </div>
+
+                                <p id={fieldId('wholeUnit-hint')} className="mt-1.5 text-[11px] text-gray-500" aria-live="polite">
+                                    {wholeUnitCode.trim()
+                                        ? (wholeUnitPreview
+                                            ? `Eşleşen kayıt: ${wholeUnitPreview.name}`
+                                            : 'Bu kod envanterdeki bütün birim listesinde yok.')
+                                        : `Envanterde ${wholeUnitCatalog.length} bütün birim kodu tanımlı. Kod girildiğinde açıklaması otomatik gelir.`}
+                                </p>
+                            </div>
+                        )}
+
+                        {partsMode === 'inventory' && (
                         <div ref={comboRef} className="relative">
                             <label htmlFor={fieldId('partSearch')} className="block text-[12px] font-semibold text-[#1d1d1f] mb-2">
                                 Envanterde parça ara
@@ -678,15 +861,83 @@ const RepairDiagnosisPanel = ({ repair, onSave, onCancel, embedded = false }) =>
                                 </div>
                             )}
                         </div>
+                        )}
 
-                        {formData.parts.length === 0 ? (
+                        {partsMode !== 'none' && formData.parts.length === 0 ? (
                             <div className="mt-4 rounded-xl border border-dashed border-gray-300 bg-[#f5f5f7]/60 px-5 py-6 text-center">
                                 <Package size={22} className="mx-auto text-gray-400 mb-2" aria-hidden="true" />
-                                <p className="text-[12px] font-medium text-gray-500">Henüz parça eklenmedi. Parça kullanılmadıysa bu bölümü boş bırakabilirsiniz.</p>
+                                <p className="text-[12px] font-medium text-gray-500">
+                                    {partsMode === 'whole-unit'
+                                        ? 'Henüz bütün birim eklenmedi. Yukarıdan kodu girip ekleyin.'
+                                        : 'Henüz parça eklenmedi. Parça kullanılmadıysa bu bölümü boş bırakabilirsiniz.'}
+                                </p>
                             </div>
-                        ) : (
+                        ) : formData.parts.length > 0 && (
                             <ul className="mt-4 space-y-3">
-                                {formData.parts.map((part, index) => (
+                                {formData.parts.map((part, index) => part.isWholeUnit ? (
+                                    /* Bütün birim kaydı: stok yok, seri numaraları cihaz bazlı */
+                                    <li key={part.inventoryId + index}>
+                                        <fieldset className="rounded-xl border border-gray-200 bg-white p-4">
+                                            <legend className="sr-only">{index + 1}. bütün birim</legend>
+
+                                            <div className="flex items-start justify-between gap-3 pb-3 border-b border-gray-100">
+                                                <div className="flex-1 min-w-0">
+                                                    <h4 className="text-[13px] font-semibold text-[#1d1d1f]">{part.description}</h4>
+                                                    <span className="inline-block mt-1 text-[10px] font-mono font-bold tracking-wide uppercase text-gray-600 bg-[#f5f5f7] border border-gray-200 px-2 py-0.5 rounded">
+                                                        {part.partNumber || '—'}
+                                                    </span>
+                                                    <span className="inline-block mt-1 ml-2 text-[10px] font-bold uppercase tracking-wide text-[#0071e3] bg-[#0071e3]/8 border border-[#0071e3]/20 px-2 py-0.5 rounded">
+                                                        Bütün Birim
+                                                    </span>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removePart(index)}
+                                                    className="w-9 h-9 shrink-0 rounded-lg border border-gray-200 bg-white text-gray-500 hover:text-[#c30000] hover:border-[#c30000]/30 hover:bg-[#fff5f5] flex items-center justify-center transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#c30000]/20"
+                                                >
+                                                    <Trash2 size={15} aria-hidden="true" />
+                                                    <span className="sr-only">{index + 1}. bütün birim kaydını kaldır</span>
+                                                </button>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
+                                                {/* Cihazdan giden arızalı birim */}
+                                                <div>
+                                                    <label htmlFor={fieldId(`part-${index}-faulty`)} className="flex items-center justify-between gap-2 text-[11px] font-semibold text-[#b25e00] mb-1.5">
+                                                        <span>Arızalı cihaz seri no</span>
+                                                        <span className="font-medium text-gray-500">Gönderilen cihaz</span>
+                                                    </label>
+                                                    <input
+                                                        id={fieldId(`part-${index}-faulty`)}
+                                                        type="text"
+                                                        className={`${inputBase} h-11 px-3 font-mono font-semibold uppercase`}
+                                                        placeholder="Cihazın seri numarası"
+                                                        value={part.faultyDeviceSerial || ''}
+                                                        onChange={(e) => updatePart(index, 'faultyDeviceSerial', e.target.value.toUpperCase())}
+                                                        aria-required="true"
+                                                        aria-invalid={!part.faultyDeviceSerial && errors.parts ? 'true' : undefined}
+                                                    />
+                                                </div>
+
+                                                {/* Onarım merkezinden dönen birim — sonradan doldurulur */}
+                                                <div>
+                                                    <label htmlFor={fieldId(`part-${index}-replacement`)} className="flex items-center justify-between gap-2 text-[11px] font-semibold text-[#1e7e34] mb-1.5">
+                                                        <span>Gelen cihaz seri no</span>
+                                                        <span className="font-medium text-gray-500">Opsiyonel</span>
+                                                    </label>
+                                                    <input
+                                                        id={fieldId(`part-${index}-replacement`)}
+                                                        type="text"
+                                                        className={`${inputBase} h-11 px-3 font-mono font-semibold uppercase`}
+                                                        placeholder="Onarım merkezi dönüşünde girilir"
+                                                        value={part.replacementDeviceSerial || ''}
+                                                        onChange={(e) => updatePart(index, 'replacementDeviceSerial', e.target.value.toUpperCase())}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </fieldset>
+                                    </li>
+                                ) : (
                                     <li key={part.inventoryId + index}>
                                         <fieldset className="rounded-xl border border-gray-200 bg-white p-4">
                                             <legend className="sr-only">{index + 1}. parça</legend>

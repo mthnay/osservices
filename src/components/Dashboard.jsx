@@ -4,6 +4,7 @@ import { Clock, CheckCircle, Activity, TrendingUp, PieChart, ArrowUpRight, Arrow
 import { useAppContext } from '../context/AppContext';
 // eslint-disable-next-line no-unused-vars
 import { hasPermission, ROLES } from '../utils/permissions';
+import { isStockedItem } from '../utils/warehouse';
 
 // eslint-disable-next-line no-unused-vars
 const StatCard = ({ title, value, subtitle, icon: Icon, colorClass, trend, trendValue }) => (
@@ -239,7 +240,8 @@ const Dashboard = () => {
     }, [repairs]);
 
     const lowStockItems = useMemo(() => {
-        return inventory.filter(i => i.quantity <= i.minLevel).slice(0, 3);
+        // Bütün birim kodları ve ödünç cihazlar stok takibine girmez
+        return inventory.filter(i => isStockedItem(i) && i.quantity <= i.minLevel).slice(0, 3);
     }, [inventory]);
 
     const { date, time } = {

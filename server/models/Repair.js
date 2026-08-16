@@ -38,6 +38,12 @@ const repairSchema = new mongoose.Schema({
         partNumber: String,
         kgbSerial: String,  // New Part Serial
         kbbSerial: String,  // Old Part Serial
+        // Bütün Birim Posta akışı: cihaz komple Onarım Merkezi'ne gider.
+        // Stok hareketi oluşmaz, seri numaraları parça değil cihaz bazlıdır.
+        isWholeUnit: { type: Boolean, default: false },
+        faultyDeviceSerial: String,      // Gönderilen arızalı cihaz
+        replacementDeviceSerial: String, // Onarım merkezinden dönen cihaz
+        needsOrder: Boolean,
         price: Number,
         status: { type: String, default: 'Pending' } // Pending, Ordered, Received, Installed
     }],

@@ -178,7 +178,8 @@ const TechnicianWorkspace = ({ repairId, onClose, setActiveTab }) => {
         }
 
         const updatedParts = getUpdatedParts();
-        const incompletePart = updatedParts.find(p => !p.kgbSerial?.trim());
+        // Bütün birim kayıtlarında KGB serisi yoktur; seri takibi cihaz bazlıdır
+        const incompletePart = updatedParts.find(p => !p.isWholeUnit && !p.kgbSerial?.trim());
 
         if (incompletePart) {
             appAlert(`${incompletePart.description} için KGB seri numarası zorunludur.`, 'error');
@@ -376,7 +377,31 @@ const TechnicianWorkspace = ({ repairId, onClose, setActiveTab }) => {
                                     </div>
 
                                     <div className="space-y-4">
-                                        {repair.parts.map((part, idx) => (
+                                        {repair.parts.map((part, idx) => part.isWholeUnit ? (
+                                            /* Bütün birim: parça sökülmez, seri takibi cihaz üzerinden yapılır */
+                                            <div key={idx} className="p-6 bg-[#fbfbfd] rounded-2xl border border-gray-100">
+                                                <div className="flex items-center justify-between mb-4">
+                                                    <span className="text-[11px] font-black text-[#1d1d1f] uppercase">{part.description}</span>
+                                                    <span className="text-[10px] font-bold uppercase tracking-wide text-[#bf5b04] bg-[#ff9500]/10 border border-[#ff9500]/25 px-2 py-0.5 rounded">
+                                                        Bütün Birim · {part.partNumber}
+                                                    </span>
+                                                </div>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                    <div className="space-y-1.5">
+                                                        <p className="text-[9px] font-bold text-gray-400 uppercase ml-1">Arızalı Cihaz Seri</p>
+                                                        <p className="h-12 px-4 flex items-center bg-white border border-gray-200 rounded-xl text-xs font-mono font-bold uppercase text-gray-600">
+                                                            {part.faultyDeviceSerial || '—'}
+                                                        </p>
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <p className="text-[9px] font-bold text-gray-400 uppercase ml-1">Gelen Cihaz Seri</p>
+                                                        <p className="h-12 px-4 flex items-center bg-white border border-gray-200 rounded-xl text-xs font-mono font-bold uppercase text-gray-600">
+                                                            {part.replacementDeviceSerial || '—'}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ) : (
                                             <div key={idx} className="p-6 bg-[#fbfbfd] rounded-2xl border border-gray-100">
                                                 <div className="flex items-center justify-between mb-4">
                                                     <span className="text-[11px] font-black text-[#1d1d1f] uppercase">{part.description}</span>

@@ -12,6 +12,7 @@ import { hasPermission, ROLES } from '../utils/permissions';
 import { appConfirm, appPrompt } from '../utils/alert';
 import MyPhoneIcon from './LocalIcons';
 import InventoryEntryModal from './InventoryEntryModal';
+import { WAREHOUSE_WHOLE_UNIT } from '../utils/warehouse';
 
 const StockManagement = () => {
     const { 
@@ -37,9 +38,11 @@ const StockManagement = () => {
 
     const [searchTerm, setSearchTerm] = useState('');
     const [activeCategory, setActiveCategory] = useState('all');
+    // 'KGB' | 'KBB' | 'BB' (bütün birim — stoksuz kod kataloğu)
     const [warehouseType, setWarehouseType] = useState('KGB');
+    const isWholeUnitView = warehouseType === WAREHOUSE_WHOLE_UNIT;
     const [showStoreDropdown, setShowStoreDropdown] = useState(false);
-    // Envanter girişi modalı: 'KGB' | 'KBB' | 'loaner' | null
+    // Envanter girişi modalı: 'KGB' | 'KBB' | 'BB' | 'loaner' | null
     const [entryMode, setEntryMode] = useState(null);
     const [selectedPartDetails, setSelectedPartDetails] = useState(null);
 
@@ -143,7 +146,9 @@ const StockManagement = () => {
         if (success) {
             const label = payload.category === 'loaner'
                 ? 'Ödünç cihaz eklendi'
-                : `${payload.warehouseType} ambarına parça eklendi`;
+                : payload.warehouseType === WAREHOUSE_WHOLE_UNIT
+                    ? 'Bütün birim kodu eklendi'
+                    : `${payload.warehouseType} ambarına parça eklendi`;
             showToast(label, 'success');
         }
         return success;
@@ -332,7 +337,7 @@ const StockManagement = () => {
                     <nav className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
                         <span>Envanter Yönetimi</span>
                         <ChevronRight size={10} />
-                        <span className="text-[#0071e3]">{activeMainTab === 'inventory' ? `${warehouseType} Ambarı` : 'Apple İade / KBB'}</span>
+                        <span className="text-[#0071e3]">{activeMainTab === 'inventory' ? (isWholeUnitView ? 'Bütün Birim Kodları' : `${warehouseType} Ambarı`) : 'Apple İade / KBB'}</span>
                     </nav>
                     <h1 className="text-3xl font-bold text-[#1d1d1f] tracking-tight">Stok Yönetimi</h1>
                 </div>
@@ -417,6 +422,12 @@ const StockManagement = () => {
                             >
                                 <Recycle size={15} /> KBB · İade / İkinci El
                             </button>
+                            <button
+                                onClick={() => { setWarehouseType(WAREHOUSE_WHOLE_UNIT); setActiveCategory('all'); }}
+                                className={`px-5 py-2 rounded-lg text-[13px] font-bold transition-all duration-200 flex items-center gap-2 ${isWholeUnitView ? 'bg-white text-[#bf5b04] shadow-sm ring-1 ring-black/5' : 'text-gray-500 hover:text-gray-700'}`}
+                            >
+                                <Layers size={15} /> Bütün Birim · Kodlar
+                            </button>
                         </div>
 
                         <div className="flex items-center gap-3 w-full md:w-auto">
@@ -436,7 +447,7 @@ const StockManagement = () => {
                                     onClick={() => setEntryMode(warehouseType)}
                                     className="bg-[#0071e3] hover:bg-[#0077ed] text-white h-10 px-6 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 shadow-lg shadow-[#0071e3]/20 flex-shrink-0 active:scale-95 outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
                                 >
-                                    <Plus size={18} /> {warehouseType} Parça Ekle
+                                    <Plus size={18} /> {isWholeUnitView ? 'Bütün Birim Kodu Ekle' : `${warehouseType} Parça Ekle`}
                                 </button>
                             )}
                         </div>
@@ -465,13 +476,15 @@ const StockManagement = () => {
                         })}
                     </div>
 
-                    {/* Stats Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {[
+                    {/* Stats Grid — bütün birim stoksuz olduğu için yalnızca kod sayısı gösterilir */}
+                    <div className={`grid grid-cols-1 gap-4 ${isWholeUnitView ? '' : 'md:grid-cols-3'}`}>
+                        {(isWholeUnitView ? [
+                            { label: 'Tanımlı Kod', value: totalItems, subtitle: 'Bütün birim kodu (stok tutulmaz)', icon: Layers, color: 'text-[#bf5b04]' }
+                        ] : [
                             { label: 'Toplam Parça', value: totalItems, subtitle: 'Envanterdeki parçalar', icon: Package, color: 'text-[#0071e3]' },
                             { label: 'Kritik Stok', value: lowStockItems, subtitle: 'Tedarik gerekenler', icon: AlertTriangle, color: lowStockItems > 0 ? 'text-[#e30000]' : 'text-gray-400' },
                             { label: 'Envanter Değeri', value: new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(totalValue), subtitle: 'Genel tutar', icon: Tag, color: 'text-[#8e24aa]' }
-                        ].map((stat, idx) => (
+                        ]).map((stat, idx) => (
                             <div key={idx} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4 transition-all hover:shadow-md">
                                 <div className={`p-3 rounded-xl bg-gray-50 ${stat.color}`}>
                                     <stat.icon size={20} />
@@ -493,7 +506,7 @@ const StockManagement = () => {
                                     <th className="px-6 py-4 bg-[#f5f5f7] border-b border-gray-200">Parça Bilgisi</th>
                                     <th className="px-6 py-4 bg-[#f5f5f7] border-b border-gray-200">P/N Kodu</th>
                                     {selectedStoreId === 0 && <th className="px-6 py-4 bg-[#f5f5f7] border-b border-gray-200">Şube</th>}
-                                    <th className="px-6 py-4 bg-[#f5f5f7] border-b border-gray-200 text-center">Stok Adedi</th>
+                                    {!isWholeUnitView && <th className="px-6 py-4 bg-[#f5f5f7] border-b border-gray-200 text-center">Stok Adedi</th>}
                                     <th className="px-6 py-4 bg-[#f5f5f7] border-b border-gray-200 text-right">İşlem</th>
                                 </tr>
                             </thead>
@@ -531,7 +544,9 @@ const StockManagement = () => {
                                                         <p className="text-sm font-bold text-[#1d1d1f] leading-none group-hover:text-[#0071e3] transition-colors">
                                                             {item.name}
                                                         </p>
-                                                        {item.quantity === 0 ? (
+                                                        {isWholeUnitView ? (
+                                                            <span className="text-[9px] font-extrabold px-2 py-0.5 rounded-full bg-[#ff9500]/10 text-[#bf5b04] border border-[#ff9500]/25">BÜTÜN BİRİM</span>
+                                                        ) : item.quantity === 0 ? (
                                                             <span className="text-[9px] font-extrabold px-2 py-0.5 rounded-full bg-red-50 text-red-650 border border-red-200/50 shadow-sm shadow-red-50/50">STOKTA YOK</span>
                                                         ) : item.quantity < item.minLevel ? (
                                                             <span className="text-[9px] font-extrabold px-2 py-0.5 rounded-full bg-amber-50 text-amber-650 border border-amber-200/50 shadow-sm shadow-amber-50/50 animate-pulse">KRİTİK</span>
@@ -567,11 +582,13 @@ const StockManagement = () => {
                                                 </span>
                                             </td>
                                         )}
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center justify-center">
-                                                <span className={`text-[15px] font-black w-12 text-center ${item.quantity < item.minLevel ? 'text-red-500 font-extrabold scale-110 duration-200' : 'text-gray-900'}`}>{item.quantity}</span>
-                                            </div>
-                                        </td>
+                                        {!isWholeUnitView && (
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center justify-center">
+                                                    <span className={`text-[15px] font-black w-12 text-center ${item.quantity < item.minLevel ? 'text-red-500 font-extrabold scale-110 duration-200' : 'text-gray-900'}`}>{item.quantity}</span>
+                                                </div>
+                                            </td>
+                                        )}
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex justify-end gap-2">
                                                 <div className="p-2 text-gray-400 group-hover:text-[#0071e3] group-hover:translate-x-1 transition-all duration-200">
@@ -586,9 +603,13 @@ const StockManagement = () => {
                         {filteredParts.length === 0 && (
                             <div className="py-20 text-center">
                                 <Package className="mx-auto text-gray-200 mb-4" size={48} />
-                                <h3 className="text-lg font-bold text-[#1d1d1f]">Parça Bulunamadı</h3>
+                                <h3 className="text-lg font-bold text-[#1d1d1f]">
+                                    {isWholeUnitView ? 'Bütün Birim Kodu Bulunamadı' : 'Parça Bulunamadı'}
+                                </h3>
                                 <p className="text-sm text-gray-500 mt-1">
-                                    Bu {warehouseType} ambarında {selectedStoreId === 0 ? '' : 'bu mağazaya ait '}kayıtlı parça yok.
+                                    {isWholeUnitView
+                                        ? `Henüz ${selectedStoreId === 0 ? '' : 'bu mağazaya ait '}bütün birim kodu tanımlanmamış.`
+                                        : `Bu ${warehouseType} ambarında ${selectedStoreId === 0 ? '' : 'bu mağazaya ait '}kayıtlı parça yok.`}
                                 </p>
                             </div>
                         )}

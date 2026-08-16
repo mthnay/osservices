@@ -1132,7 +1132,9 @@ export const AppProvider = ({ children }) => {
     };
 
     const processStockMovement = async (repairId, parts) => {
-        if (!parts || parts.length === 0) return true;
+        // Bütün birim kayıtları stoksuzdur; KGB düşümü / KBB girişi oluşturmaz
+        const stockParts = (parts || []).filter(p => !p.isWholeUnit);
+        if (stockParts.length === 0) return true;
 
         try {
             // Backend endpoint to process stock movement in one go
@@ -1140,7 +1142,7 @@ export const AppProvider = ({ children }) => {
             const res = await apiFetch(`${API_URL}/inventory/process-movement`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ repairId, parts })
+                body: JSON.stringify({ repairId, parts: stockParts })
             });
 
             if (res.ok) {
@@ -1152,7 +1154,7 @@ export const AppProvider = ({ children }) => {
                 // Fallback: If endpoint doesn't exist, we'll need to do it manually (for backward compatibility)
                 console.warn("process-movement endpoint not found, falling back to manual updates.");
 
-                for (const part of parts) {
+                for (const part of stockParts) {
                     const storeId = part.storeId || currentUser?.storeId || 0;
 
                     // 1. KGB'den Düş

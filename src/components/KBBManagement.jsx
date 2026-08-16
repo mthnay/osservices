@@ -5,6 +5,7 @@ import { useAppContext } from '../context/AppContext';
 import { appAlert } from '../utils/alert';
 import { appConfirm, appPrompt } from '../utils/alert';
 import { hasPermission } from '../utils/permissions';
+import { isStockedItem } from '../utils/warehouse';
 
 const KBBManagement = () => {
     const { repairs, updateRepair, showToast, currentUser, servicePoints, inventory, updateInventoryItem, addInventoryItem, removeInventoryItem, selectedStoreId } = useAppContext();
@@ -15,6 +16,12 @@ const KBBManagement = () => {
             console.log("KBBManagement - Current User Role:", currentUser.role);
         }
     }, [currentUser]);
+
+    // Stok sayımları bütün birim kodlarını ve ödünç cihazları kapsamaz
+    const stockedInventory = useMemo(
+        () => inventory.filter(i => isStockedItem(i) && (selectedStoreId === 0 || String(i.storeId) === String(selectedStoreId))),
+        [inventory, selectedStoreId]
+    );
 
     const [activeTab, setActiveTab] = useState('stocks'); // 'stocks', 'loaners', 'returns'
     // eslint-disable-next-line no-unused-vars
@@ -177,9 +184,9 @@ const KBBManagement = () => {
             {/* İstatistik Kartları - Ana Sayfa Stili */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
                 {[
-                    { label: 'TOPLAM PARÇA', value: (selectedStoreId === 0 ? inventory : inventory.filter(i => String(i.storeId) === String(selectedStoreId))).length, icon: Package, color: 'text-gray-400', bg: 'bg-white', iconBg: 'bg-gray-50' },
+                    { label: 'TOPLAM PARÇA', value: stockedInventory.length, icon: Package, color: 'text-gray-400', bg: 'bg-white', iconBg: 'bg-gray-50' },
                     { label: 'BEKLEYEN İADE', value: kbbList.length, icon: ArrowRightLeft, color: 'text-indigo-500', bg: 'bg-white', iconBg: 'bg-indigo-50' },
-                    { label: 'KRİTİK STOK', value: (selectedStoreId === 0 ? inventory : inventory.filter(i => String(i.storeId) === String(selectedStoreId))).filter(s => s.quantity < 3).length, icon: AlertCircle, color: 'text-orange-500', bg: 'bg-white', iconBg: 'bg-orange-50' },
+                    { label: 'KRİTİK STOK', value: stockedInventory.filter(s => s.quantity < 3).length, icon: AlertCircle, color: 'text-orange-500', bg: 'bg-white', iconBg: 'bg-orange-50' },
                     { label: 'MAĞAZA SAYISI', value: selectedStoreId === 0 ? servicePoints.length : '1', icon: Clock, color: 'text-green-500', bg: 'bg-white', iconBg: 'bg-green-50' }
                 ].map((stat, idx) => (
                     <div key={idx} className="bg-white p-4 rounded-lg border border-gray-100 shadow-sm flex items-center justify-between">
@@ -326,8 +333,8 @@ const KBBManagement = () => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
-                                {inventory.filter(i => i.category !== 'loaner' && (selectedStoreId === 0 || String(i.storeId) === String(selectedStoreId))).length > 0 ? (
-                                    inventory.filter(i => i.category !== 'loaner' && (selectedStoreId === 0 || String(i.storeId) === String(selectedStoreId))).map((item) => (
+                                {stockedInventory.length > 0 ? (
+                                    stockedInventory.map((item) => (
                                         <tr key={item._id || item.id} onClick={() => setSelectedStockItem(item)} className="hover:bg-blue-50/50 transition-colors group cursor-pointer">
                                             <td className="px-8 py-4">
                                                 <div className="flex items-center gap-4">

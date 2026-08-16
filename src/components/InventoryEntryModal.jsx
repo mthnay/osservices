@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useId, useRef, useMemo } from 'react';
-import { X, Plus, Package, Recycle, Box, Store, AlertCircle, CheckCircle, Smartphone } from 'lucide-react';
+import { X, Plus, Package, Recycle, Box, Store, AlertCircle, CheckCircle, Smartphone, Layers } from 'lucide-react';
+import { WAREHOUSE_WHOLE_UNIT } from '../utils/warehouse';
 
 const CATEGORIES = ['iPhone', 'iPad', 'Mac', 'Watch', 'Aksesuar', 'Diğer'];
 
@@ -24,6 +25,17 @@ const MODES = {
         serialHint: 'Cihazdan sökülen arızalı parçaların seri numaraları. Her satıra bir adet ya da virgülle ayırın.',
         serialPlaceholder: 'KBB123, KBB456',
         serialField: 'kbbSerials'
+    },
+    // Bütün birim: stok tutulmaz, yalnızca kod + açıklama kataloğu
+    [WAREHOUSE_WHOLE_UNIT]: {
+        crumb: 'Bütün Birim · Kod Kaydı',
+        title: 'Yeni Bütün Birim Parçası',
+        icon: Layers,
+        accent: 'bg-[#bf5b04]',
+        serialLabel: null,
+        serialHint: null,
+        serialPlaceholder: null,
+        serialField: null
     },
     loaner: {
         crumb: 'Ödünç Cihaz',
@@ -50,6 +62,8 @@ const parseSerials = (value) =>
 const InventoryEntryModal = ({ mode = 'KGB', stores = [], defaultStoreId = '', onClose, onSave }) => {
     const config = MODES[mode] || MODES.KGB;
     const Icon = config.icon;
+    // Bütün birim yalnızca kod kataloğudur: stok, seri, fiyat ve raf alanı yok
+    const isWholeUnit = mode === WAREHOUSE_WHOLE_UNIT;
     const uid = useId();
     const fieldId = (name) => `${uid}-${name}`;
     const dialogRef = useRef(null);
@@ -71,7 +85,7 @@ const InventoryEntryModal = ({ mode = 'KGB', stores = [], defaultStoreId = '', o
     const [saving, setSaving] = useState(false);
 
     const serials = useMemo(() => parseSerials(form.serials), [form.serials]);
-    const effectiveQty = mode === 'loaner' ? 1 : (serials.length || 1);
+    const effectiveQty = isWholeUnit ? 0 : (mode === 'loaner' ? 1 : (serials.length || 1));
 
     // Kayıt yalnızca sayısal mağaza id'sine bağlanabilir; id'si olmayan mağaza
     // seçilirse parça hiçbir ambarda görünmez, bu yüzden listelenmez.
@@ -111,7 +125,9 @@ const InventoryEntryModal = ({ mode = 'KGB', stores = [], defaultStoreId = '', o
         if (!form.name.trim()) {
             next.name = mode === 'loaner' ? 'Cihaz adı zorunludur.' : 'Parça tanımı zorunludur.';
         }
-        if (mode !== 'loaner' && !form.partNumber.trim()) next.partNumber = 'Parça kodu (P/N) zorunludur.';
+        if (mode !== 'loaner' && !form.partNumber.trim()) {
+            next.partNumber = isWholeUnit ? 'Bütün birim kodu zorunludur.' : 'Parça kodu (P/N) zorunludur.';
+        }
         if (mode === 'loaner' && !form.serialNumber.trim()) next.serialNumber = 'Cihaz seri numarası zorunludur.';
         if (noStoreAvailable) {
             next.storeId = 'Hesabınıza tanımlı bir mağaza ambarı yok. Ayarlar › Mağazalar bölümünden mağaza tanımlayın veya yöneticinizden mağaza yetkisi isteyin.';
@@ -149,6 +165,12 @@ const InventoryEntryModal = ({ mode = 'KGB', stores = [], defaultStoreId = '', o
             payload.loanNote = form.loanNote.trim();
             payload.minLevel = 0;
             payload.currentCustomer = '';
+        } else if (isWholeUnit) {
+            // Stoksuz katalog kaydı: kritik seviye ve fiyat takibi yapılmaz
+            payload.partNumber = form.partNumber.trim().toUpperCase();
+            payload.minLevel = 0;
+            payload.price = 0;
+            payload.location = '';
         } else {
             payload.partNumber = form.partNumber.trim().toUpperCase();
             payload.minLevel = Number(form.minLevel) || 0;
@@ -219,19 +241,19 @@ const InventoryEntryModal = ({ mode = 'KGB', stores = [], defaultStoreId = '', o
                     <div>
                         <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-2">
                             <Package size={13} className="text-[#0071e3]" aria-hidden="true" />
-                            {mode === 'loaner' ? 'Cihaz Bilgileri' : 'Parça Bilgileri'}
+                            {mode === 'loaner' ? 'Cihaz Bilgileri' : isWholeUnit ? 'Bütün Birim Bilgileri' : 'Parça Bilgileri'}
                         </h4>
 
                         <div className="space-y-4">
                             <div>
                                 <label htmlFor={fieldId('name')} className={labelCls}>
-                                    {mode === 'loaner' ? 'Cihaz Adı' : 'Parça Tanımı'} <span className="text-[#c30000]" aria-hidden="true">*</span>
+                                    {mode === 'loaner' ? 'Cihaz Adı' : isWholeUnit ? 'Açıklama' : 'Parça Tanımı'} <span className="text-[#c30000]" aria-hidden="true">*</span>
                                 </label>
                                 <input
                                     id={fieldId('name')}
                                     type="text"
                                     className={inputCls}
-                                    placeholder={mode === 'loaner' ? 'Örn: iPhone 13 (Ödünç)' : 'Örn: iPhone 13 Pro Ekran'}
+                                    placeholder={mode === 'loaner' ? 'Örn: iPhone 13 (Ödünç)' : isWholeUnit ? 'Örn: iPhone 13 Pro Bütün Birim' : 'Örn: iPhone 13 Pro Ekran'}
                                     value={form.name}
                                     onChange={(e) => setField('name', e.target.value)}
                                     aria-required="true"
@@ -259,13 +281,13 @@ const InventoryEntryModal = ({ mode = 'KGB', stores = [], defaultStoreId = '', o
                                 ) : (
                                     <div>
                                         <label htmlFor={fieldId('partNumber')} className={labelCls}>
-                                            Parça Kodu (P/N) <span className="text-[#c30000]" aria-hidden="true">*</span>
+                                            {isWholeUnit ? 'Bütün Birim Kodu' : 'Parça Kodu (P/N)'} <span className="text-[#c30000]" aria-hidden="true">*</span>
                                         </label>
                                         <input
                                             id={fieldId('partNumber')}
                                             type="text"
                                             className={`${inputCls} font-mono uppercase`}
-                                            placeholder="661-XXXXX"
+                                            placeholder={isWholeUnit ? 'Bütün birim kodu' : '661-XXXXX'}
                                             value={form.partNumber}
                                             onChange={(e) => setField('partNumber', e.target.value)}
                                             aria-required="true"
@@ -288,41 +310,48 @@ const InventoryEntryModal = ({ mode = 'KGB', stores = [], defaultStoreId = '', o
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label htmlFor={fieldId('price')} className={labelCls}>
-                                        {mode === 'KBB' ? 'Tahmini Değer (₺)' : 'Birim Fiyat (₺)'}
-                                    </label>
-                                    <input
-                                        id={fieldId('price')}
-                                        type="number"
-                                        min="0"
-                                        step="0.01"
-                                        className={inputCls}
-                                        placeholder="0"
-                                        value={form.price}
-                                        onChange={(e) => setField('price', e.target.value)}
-                                    />
+                            {isWholeUnit ? (
+                                <p className="text-[11px] font-medium text-gray-500 leading-snug bg-[#f5f5f7] border border-gray-200 rounded-xl px-4 py-3">
+                                    Bütün birim kayıtlarında stok, seri numarası, fiyat ve raf bilgisi tutulmaz.
+                                    Yalnızca kod ve açıklaması saklanır; KGB/KBB ambarlarına karışmaz.
+                                </p>
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label htmlFor={fieldId('price')} className={labelCls}>
+                                            {mode === 'KBB' ? 'Tahmini Değer (₺)' : 'Birim Fiyat (₺)'}
+                                        </label>
+                                        <input
+                                            id={fieldId('price')}
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            className={inputCls}
+                                            placeholder="0"
+                                            value={form.price}
+                                            onChange={(e) => setField('price', e.target.value)}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label htmlFor={fieldId('location')} className={labelCls}>Raf / Konum</label>
+                                        <input
+                                            id={fieldId('location')}
+                                            type="text"
+                                            className={inputCls}
+                                            placeholder="Örn: A-3 Rafı"
+                                            value={form.location}
+                                            onChange={(e) => setField('location', e.target.value)}
+                                        />
+                                    </div>
                                 </div>
-                                <div>
-                                    <label htmlFor={fieldId('location')} className={labelCls}>Raf / Konum</label>
-                                    <input
-                                        id={fieldId('location')}
-                                        type="text"
-                                        className={inputCls}
-                                        placeholder="Örn: A-3 Rafı"
-                                        value={form.location}
-                                        onChange={(e) => setField('location', e.target.value)}
-                                    />
-                                </div>
-                            </div>
+                            )}
                         </div>
                     </div>
 
                     <div className="pt-2 border-t border-gray-100">
                         <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-2">
                             <Store size={13} className="text-[#0071e3]" aria-hidden="true" /> Mağaza Ambarı
-                            {mode !== 'loaner' && ' & Stok'}
+                            {mode !== 'loaner' && !isWholeUnit && ' & Stok'}
                         </h4>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -351,7 +380,7 @@ const InventoryEntryModal = ({ mode = 'KGB', stores = [], defaultStoreId = '', o
                                 )}
                             </div>
 
-                            {mode !== 'loaner' && (
+                            {mode !== 'loaner' && !isWholeUnit && (
                                 <div>
                                     <label htmlFor={fieldId('minLevel')} className={labelCls}>Kritik Stok Seviyesi</label>
                                     <input
@@ -366,7 +395,7 @@ const InventoryEntryModal = ({ mode = 'KGB', stores = [], defaultStoreId = '', o
                             )}
                         </div>
 
-                        {mode === 'loaner' ? (
+                        {isWholeUnit ? null : mode === 'loaner' ? (
                             <div className="mt-4">
                                 <label htmlFor={fieldId('loanNote')} className={labelCls}>Not (opsiyonel)</label>
                                 <textarea
@@ -408,7 +437,9 @@ const InventoryEntryModal = ({ mode = 'KGB', stores = [], defaultStoreId = '', o
                 <div className="px-8 py-5 bg-[#f5f5f7] border-t border-gray-100 flex items-center justify-between gap-4 shrink-0">
                     <div className="flex items-center gap-3 min-w-0">
                         <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Eklenecek</span>
-                        <span className="text-lg font-bold text-[#1d1d1f]">{effectiveQty} adet</span>
+                        <span className="text-lg font-bold text-[#1d1d1f]">
+                            {isWholeUnit ? '1 kod' : `${effectiveQty} adet`}
+                        </span>
                         {storeName && (
                             <span className="text-[11px] font-bold text-[#0071e3] bg-blue-50 border border-blue-100 px-2.5 py-1 rounded-lg flex items-center gap-1 truncate">
                                 <Store size={11} aria-hidden="true" /> {storeName}
