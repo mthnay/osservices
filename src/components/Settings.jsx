@@ -1103,7 +1103,7 @@ const Settings = () => {
     );
 
     return (
-        <div className="animate-fade-in -mx-6 w-[calc(100%+3rem)] px-4">
+        <div className="page-scroll animate-fade-in -mx-6 w-[calc(100%+3rem)] px-4">
             {/* Mobil sekme şeridi (yatay kaydırmalı) */}
             <div className="lg:hidden -mx-4 px-4 mb-4 overflow-x-auto custom-scrollbar">
                 <div className="flex gap-2 w-max pb-1">

@@ -288,7 +288,7 @@ const WarehouseManagement = () => {
     /* -------------------------------- render -------------------------------- */
 
     return (
-        <div className="space-y-8 animate-fade-in">
+        <div className="page-scroll space-y-8 animate-fade-in pr-1">
             {/* Başlık + genel durum */}
             <header className="space-y-6">
                 <div className="flex flex-wrap items-end justify-between gap-4">

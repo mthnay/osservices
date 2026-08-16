@@ -86,12 +86,12 @@ function App() {
       <GlobalDialogs />
       <TopNav activeTab={activeTab} setActiveTab={setActiveTab} />
 
-      <main className="flex-1 min-h-0 w-full pt-20 pb-9 px-6 transition-all duration-300 relative">
+      <main className="flex-1 min-h-0 w-full pt-20 pb-9 px-6 flex flex-col transition-all duration-300 relative">
         {activeTab === 'settings' && hasPermission(currentUser, 'manage_settings') ? (
           /* Sistem Ayarları tam genişlik: sol menü ekranın solunda, içerik kalan alanı doldurur */
           <Settings />
         ) : (
-        <div className="max-w-[1200px] mx-auto h-full flex flex-col min-h-0">
+        <div className="max-w-[1200px] mx-auto w-full flex-1 min-h-0 flex flex-col">
           {/* Top Header with Notifications removed */}
           {activeTab === 'dashboard' && <Dashboard />}
           {activeTab === 'service' && <ServiceAcceptance setActiveTab={setActiveTab} initialData={serviceInitialData} clearInitialData={() => setServiceInitialData(null)} />}

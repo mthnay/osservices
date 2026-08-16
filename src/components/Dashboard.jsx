@@ -250,7 +250,7 @@ const Dashboard = () => {
     };
 
     return (
-        <div className="space-y-6">
+        <div className="page-scroll space-y-6 pr-1">
             {/* Header Area */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 py-2 mb-2">
                 <div>

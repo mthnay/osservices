@@ -142,7 +142,7 @@ const KBBManagement = () => {
     };
 
     return (
-        <div className="space-y-6 animate-fade-in">
+        <div className="page-scroll space-y-6 animate-fade-in pr-1">
             {/* Header - Ana Sayfa Stili */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 py-4 border-b border-gray-100 mb-6">
                 <div className="flex items-center gap-4">
