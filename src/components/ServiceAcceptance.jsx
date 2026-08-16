@@ -53,11 +53,11 @@ const STEPS = [
 ];
 
 // Tek ekrana sığması için ortak, sıkışık ama okunur ölçüler
-const FIELD = 'w-full px-3.5 py-2.5 rounded-lg bg-gray-50 border border-gray-200 outline-none text-sm font-semibold text-gray-900 focus:bg-white focus:border-[#0071e3] focus-visible:ring-4 focus-visible:ring-[#0071e3]/20 transition-all';
-const LABEL = 'block text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1.5 ml-0.5';
-const CARD = 'gsx-card p-4';
-const CARD_TITLE = 'flex items-center gap-2.5 text-[13px] font-semibold text-gray-900 mb-3';
-const CARD_ICON = 'w-8 h-8 rounded-lg bg-gray-100 text-gray-500 flex items-center justify-center shrink-0';
+const FIELD = 'w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 outline-none text-[15px] font-semibold text-gray-900 focus:bg-white focus:border-[#0071e3] focus-visible:ring-4 focus-visible:ring-[#0071e3]/20 transition-all';
+const LABEL = 'block text-[11px] font-bold uppercase tracking-widest text-gray-500 mb-2 ml-0.5';
+const CARD = 'gsx-card p-5';
+const CARD_TITLE = 'flex items-center gap-3 text-[15px] font-semibold text-gray-900 mb-4';
+const CARD_ICON = 'w-9 h-9 rounded-lg bg-gray-100 text-gray-500 flex items-center justify-center shrink-0';
 
 const PRODUCT_GROUPS = [
     { id: 'iphone', label: 'iPhone', icon: MyPhoneIcon, color: 'bg-blue-600', img: getProductImage('iphone') },
@@ -558,12 +558,12 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
             {/* Üst şerit — sabit kalır */}
             <div className="shrink-0 flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-gray-100">
                 <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-11 h-11 bg-blue-50 rounded-xl text-blue-600 border border-blue-100 flex items-center justify-center shrink-0">
-                        <Wrench size={22} />
+                    <div className="w-12 h-12 bg-blue-50 rounded-xl text-blue-600 border border-blue-100 flex items-center justify-center shrink-0">
+                        <Wrench size={24} />
                     </div>
                     <div className="min-w-0">
-                        <h2 className="text-[22px] font-semibold text-gray-900 tracking-tight leading-tight">Servis Kaydı</h2>
-                        <p className="text-[12px] font-medium text-gray-500 truncate">Müşteri ve cihaz bilgilerini tek ekranda doldurun.</p>
+                        <h2 className="text-[26px] font-semibold text-gray-900 tracking-tight leading-tight">Servis Kaydı</h2>
+                        <p className="text-[13px] font-medium text-gray-500 truncate">Müşteri ve cihaz bilgilerini tek ekranda doldurun.</p>
                     </div>
                 </div>
 
@@ -614,7 +614,7 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                                 type="button"
                                 onClick={() => setStep(id)}
                                 aria-current={step === id ? 'step' : undefined}
-                                className={`h-8 px-3 rounded-lg text-[11px] font-bold transition-all flex items-center gap-2 outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25 ${step === id ? 'bg-gray-100 text-gray-900 shadow-sm' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}`}
+                                className={`h-9 px-3.5 rounded-lg text-[12px] font-bold transition-all flex items-center gap-2 outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25 ${step === id ? 'bg-gray-100 text-gray-900 shadow-sm' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}`}
                             >
                                 <span aria-hidden="true" className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${step === id ? 'bg-gray-900 text-white' : 'bg-gray-200 text-gray-500'}`}>{id}</span>
                                 <span className="hidden md:inline">{label}</span>
@@ -631,7 +631,7 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                         {/* --- Müşteri --- */}
                         <section aria-labelledby="sa-customer-title" className={`${CARD} xl:col-span-4`}>
                             <h3 id="sa-customer-title" className={CARD_TITLE}>
-                                <span className={CARD_ICON}><User size={16} strokeWidth={2.5} /></span>
+                                <span className={CARD_ICON}><User size={18} strokeWidth={2.5} /></span>
                                 Müşteri Bilgileri
                             </h3>
 
@@ -658,7 +658,7 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                                                     key={opt.id} type="button"
                                                     onClick={() => setFormData({ ...formData, customerType: opt.id })}
                                                     aria-pressed={active}
-                                                    className={`h-[42px] rounded-lg border text-[13px] font-bold transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25 ${active
+                                                    className={`h-[46px] rounded-xl border text-[14px] font-bold transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25 ${active
                                                         ? 'bg-[#0071e3] border-[#0071e3] text-white shadow-sm shadow-[#0071e3]/20'
                                                         : 'bg-gray-50 border-gray-200 text-[#1d1d1f] hover:bg-white'}`}
                                                 >
@@ -679,7 +679,7 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                                             placeholder={formData.customerType === 'kurumsal' ? '10 haneli' : '11 haneli'}
                                             aria-invalid={formData.customerType === 'bireysel' && isTCValid === false ? 'true' : undefined}
                                             aria-describedby="sa-tc-status"
-                                            className={`w-full pl-3.5 pr-9 py-2.5 rounded-lg border outline-none font-mono font-bold text-sm transition-all ${formData.customerType === 'bireysel' && isTCValid === true ? 'bg-green-50 border-green-500 text-green-900' : formData.customerType === 'bireysel' && isTCValid === false ? 'bg-red-50 border-red-500 text-red-900' : 'bg-gray-50 border-gray-200 focus:bg-white focus:border-[#0071e3]'}`}
+                                            className={`w-full pl-4 pr-10 py-3 rounded-xl border outline-none font-mono font-bold text-[15px] transition-all ${formData.customerType === 'bireysel' && isTCValid === true ? 'bg-green-50 border-green-500 text-green-900' : formData.customerType === 'bireysel' && isTCValid === false ? 'bg-red-50 border-red-500 text-red-900' : 'bg-gray-50 border-gray-200 focus:bg-white focus:border-[#0071e3]'}`}
                                             value={formData.customerTC}
                                             onChange={(e) => setFormData({ ...formData, customerTC: e.target.value.replace(/\D/g, '') })}
                                         />
@@ -764,7 +764,7 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                                                     key={opt.id || 'none'} type="button"
                                                     onClick={() => setFormData({ ...formData, satisfaction: opt.id })}
                                                     aria-pressed={active}
-                                                    className={`h-[42px] px-1.5 rounded-lg border text-[11px] font-bold transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25 ${active
+                                                    className={`h-[46px] px-2 rounded-xl border text-[12px] font-bold transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25 ${active
                                                         ? `${opt.tone} text-white shadow-sm`
                                                         : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-white'}`}
                                                 >
@@ -855,8 +855,8 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                         <div className="xl:col-span-4 space-y-4">
                             <section aria-labelledby="sa-device-title" className={CARD}>
                                 <div className="flex items-center justify-between gap-3 mb-3">
-                                    <h3 id="sa-device-title" className="flex items-center gap-2.5 text-[13px] font-semibold text-gray-900">
-                                        <span className={CARD_ICON}><Phone size={16} strokeWidth={2.5} /></span>
+                                    <h3 id="sa-device-title" className="flex items-center gap-3 text-[15px] font-semibold text-gray-900">
+                                        <span className={CARD_ICON}><Phone size={18} strokeWidth={2.5} /></span>
                                         Cihaz Kimliği
                                     </h3>
                                     <button
@@ -879,24 +879,24 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                                             aria-haspopup="listbox"
                                             aria-expanded={showProductPicker}
                                             aria-controls="sa-product-listbox"
-                                            className={`w-full p-2 rounded-lg border flex items-center justify-between gap-3 text-left transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25 ${showProductPicker
+                                            className={`w-full p-2.5 rounded-xl border flex items-center justify-between gap-3 text-left transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25 ${showProductPicker
                                                 ? 'bg-white border-[#0071e3]'
                                                 : 'bg-gray-50 border-gray-200 hover:bg-white hover:border-gray-300'}`}
                                         >
                                             <span className="flex items-center gap-3 min-w-0">
                                                 {selectedProductGroup ? (
                                                     <>
-                                                        <span className={`w-9 h-9 rounded-lg flex items-center justify-center text-white shadow-sm shrink-0 ${selectedProductGroup.color}`}>
-                                                            <selectedProductGroup.icon size={18} />
+                                                        <span className={`w-11 h-11 rounded-lg flex items-center justify-center text-white shadow-sm shrink-0 ${selectedProductGroup.color}`}>
+                                                            <selectedProductGroup.icon size={22} />
                                                         </span>
-                                                        <span className="text-sm font-bold text-gray-900 truncate">{selectedProductGroup.label}</span>
+                                                        <span className="text-[15px] font-bold text-gray-900 truncate">{selectedProductGroup.label}</span>
                                                     </>
                                                 ) : (
                                                     <>
-                                                        <span className="w-9 h-9 rounded-lg bg-gray-200 text-gray-400 flex items-center justify-center shrink-0">
-                                                            <Package size={18} />
+                                                        <span className="w-11 h-11 rounded-lg bg-gray-200 text-gray-400 flex items-center justify-center shrink-0">
+                                                            <Package size={22} />
                                                         </span>
-                                                        <span className="text-sm font-bold text-gray-400 truncate">Ürün Grubu Seçiniz</span>
+                                                        <span className="text-[15px] font-bold text-gray-400 truncate">Ürün Grubu Seçiniz</span>
                                                     </>
                                                 )}
                                             </span>
@@ -933,13 +933,13 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                                     </div>
 
                                     {formData.productGroup && (
-                                        <div className="flex items-center justify-between bg-gray-50 p-1.5 rounded-lg border border-gray-100">
-                                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide ml-2">İşlem Türü</span>
+                                        <div className="flex items-center justify-between bg-gray-50 p-2 rounded-xl border border-gray-100">
+                                            <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wide ml-2">İşlem Türü</span>
                                             <div className="flex gap-1">
                                                 {['iphone', 'ipad', 'mac'].includes(formData.productGroup) && (
-                                                    <button type="button" onClick={() => setFormData({ ...formData, serviceType: 'repair' })} aria-pressed={formData.serviceType === 'repair'} className={`px-3 py-1 rounded-md text-[10px] font-semibold uppercase transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25 ${formData.serviceType === 'repair' ? 'bg-white text-blue-600 shadow-sm border border-blue-100' : 'text-gray-400 hover:bg-white'}`}>Onarım</button>
+                                                    <button type="button" onClick={() => setFormData({ ...formData, serviceType: 'repair' })} aria-pressed={formData.serviceType === 'repair'} className={`px-3.5 py-1.5 rounded-lg text-[11px] font-semibold uppercase transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25 ${formData.serviceType === 'repair' ? 'bg-white text-blue-600 shadow-sm border border-blue-100' : 'text-gray-400 hover:bg-white'}`}>Onarım</button>
                                                 )}
-                                                <button type="button" onClick={() => setFormData({ ...formData, serviceType: 'exchange' })} aria-pressed={formData.serviceType === 'exchange'} className={`px-3 py-1 rounded-md text-[10px] font-semibold uppercase transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25 ${formData.serviceType === 'exchange' ? 'bg-white text-blue-600 shadow-sm border border-blue-100' : 'text-gray-400 hover:bg-white'}`}>Değişim</button>
+                                                <button type="button" onClick={() => setFormData({ ...formData, serviceType: 'exchange' })} aria-pressed={formData.serviceType === 'exchange'} className={`px-3.5 py-1.5 rounded-lg text-[11px] font-semibold uppercase transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25 ${formData.serviceType === 'exchange' ? 'bg-white text-blue-600 shadow-sm border border-blue-100' : 'text-gray-400 hover:bg-white'}`}>Değişim</button>
                                             </div>
                                         </div>
                                     )}
@@ -953,7 +953,7 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                                                 id="sa-serial"
                                                 type="text"
                                                 placeholder="Örn: C7H..."
-                                                className="w-full pl-10 pr-20 py-2.5 rounded-lg bg-gray-50 border border-gray-200 focus:bg-white focus:border-[#0071e3] focus-visible:ring-4 focus-visible:ring-[#0071e3]/20 outline-none transition-all font-mono font-bold text-sm text-gray-900 uppercase"
+                                                className="w-full pl-11 pr-24 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:bg-white focus:border-[#0071e3] focus-visible:ring-4 focus-visible:ring-[#0071e3]/20 outline-none transition-all font-mono font-bold text-[15px] text-gray-900 uppercase"
                                                 value={formData.serialNumber}
                                                 onChange={(e) => setFormData({ ...formData, serialNumber: e.target.value.toUpperCase() })}
                                             />
@@ -975,7 +975,7 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                                                 type="text"
                                                 placeholder="Örn: iPhone 13..."
                                                 autoComplete="off"
-                                                className="w-full pl-10 pr-3.5 py-2.5 rounded-lg bg-gray-50 border border-gray-200 focus:bg-white focus:border-[#0071e3] focus-visible:ring-4 focus-visible:ring-[#0071e3]/20 outline-none transition-all font-bold text-sm text-gray-900"
+                                                className="w-full pl-11 pr-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:bg-white focus:border-[#0071e3] focus-visible:ring-4 focus-visible:ring-[#0071e3]/20 outline-none transition-all font-bold text-[15px] text-gray-900"
                                                 value={formData.deviceModel}
                                                 onChange={handleDeviceModelChange}
                                                 onFocus={() => formData.deviceModel.length > 1 && setShowSuggestions(true)}
@@ -1027,7 +1027,7 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
 
                             <section aria-labelledby="sa-warranty-title" className={CARD}>
                                 <h3 id="sa-warranty-title" className={CARD_TITLE}>
-                                    <span className={CARD_ICON}><Shield size={16} strokeWidth={2.5} /></span>
+                                    <span className={CARD_ICON}><Shield size={18} strokeWidth={2.5} /></span>
                                     Garanti Kapsamı <span className="text-[#e30000]" aria-hidden="true">*</span>
                                 </h3>
                                 <div role="group" aria-labelledby="sa-warranty-title" className="grid grid-cols-2 gap-2">
@@ -1039,12 +1039,12 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                                                 type="button"
                                                 onClick={() => setFormData({ ...formData, warrantyStatus: type.id })}
                                                 aria-pressed={active}
-                                                className={`p-2.5 rounded-lg border flex items-center gap-2 text-left transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25 ${active ? 'border-[#0071e3] bg-[#0071e3]/6 text-[#1d1d1f] shadow-sm' : 'border-gray-200 bg-gray-50 hover:bg-white text-gray-600'}`}
+                                                className={`p-3 rounded-xl border flex items-center gap-2.5 text-left transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25 ${active ? 'border-[#0071e3] bg-[#0071e3]/6 text-[#1d1d1f] shadow-sm' : 'border-gray-200 bg-gray-50 hover:bg-white text-gray-600'}`}
                                             >
-                                                <span aria-hidden="true" className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${active ? 'bg-white text-[#0071e3]' : 'bg-white text-gray-400'}`}>
-                                                    <type.icon size={15} strokeWidth={2.5} />
+                                                <span aria-hidden="true" className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${active ? 'bg-white text-[#0071e3]' : 'bg-white text-gray-400'}`}>
+                                                    <type.icon size={17} strokeWidth={2.5} />
                                                 </span>
-                                                <span className="font-bold text-[11px] leading-tight">{type.label}</span>
+                                                <span className="font-bold text-[12px] leading-tight">{type.label}</span>
                                             </button>
                                         );
                                     })}
@@ -1056,7 +1056,7 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                                         <div className="relative">
                                             <input
                                                 id="sa-cost" type="text" placeholder="0.00"
-                                                className="w-full pl-8 pr-3.5 py-2.5 rounded-lg bg-orange-50/50 border border-orange-200 outline-none font-bold text-sm text-orange-900 focus-visible:ring-4 focus-visible:ring-[#ff9500]/20"
+                                                className="w-full pl-9 pr-4 py-3 rounded-xl bg-orange-50/50 border border-orange-200 outline-none font-bold text-[15px] text-orange-900 focus-visible:ring-4 focus-visible:ring-[#ff9500]/20"
                                                 value={formData.estimatedCost}
                                                 onChange={(e) => setFormData({ ...formData, estimatedCost: e.target.value })}
                                             />
@@ -1071,7 +1071,7 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                         <div className="xl:col-span-4 space-y-4">
                             <section aria-labelledby="sa-condition-title" className={CARD}>
                                 <h3 id="sa-condition-title" className={CARD_TITLE}>
-                                    <span className={CARD_ICON}><AlertTriangle size={16} strokeWidth={2.5} /></span>
+                                    <span className={CARD_ICON}><AlertTriangle size={18} strokeWidth={2.5} /></span>
                                     Fiziksel Durum
                                 </h3>
                                 <div role="group" aria-labelledby="sa-condition-title" className="grid grid-cols-2 gap-2">
@@ -1083,7 +1083,7 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                                                 type="button"
                                                 onClick={() => toggleCondition(item)}
                                                 aria-pressed={active}
-                                                className={`py-2 px-2.5 rounded-lg text-[11px] font-bold border transition-all text-left outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25 ${active ? 'bg-red-50 border-red-200 text-red-600 shadow-sm' : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-white'}`}
+                                                className={`py-2.5 px-3 rounded-xl text-[12px] font-bold border transition-all text-left outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25 ${active ? 'bg-red-50 border-red-200 text-red-600 shadow-sm' : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-white'}`}
                                             >
                                                 {item}
                                             </button>
@@ -1094,7 +1094,7 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
 
                             <section aria-labelledby="sa-issue-title" className={CARD}>
                                 <h3 id="sa-issue-title" className={CARD_TITLE}>
-                                    <span className={CARD_ICON}><FileText size={16} strokeWidth={2.5} /></span>
+                                    <span className={CARD_ICON}><FileText size={18} strokeWidth={2.5} /></span>
                                     Sorun Detayları
                                 </h3>
                                 <label htmlFor="sa-issue" className="sr-only">Müşteri şikayeti</label>
@@ -1112,7 +1112,7 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                                             key={tag}
                                             type="button"
                                             onClick={() => setFormData(prev => ({ ...prev, issueDescription: prev.issueDescription ? prev.issueDescription + ', ' + tag : tag }))}
-                                            className="text-[10px] font-bold px-2.5 py-1.5 bg-white border border-gray-200 hover:border-[#0071e3] hover:text-[#0071e3] text-gray-500 rounded-lg transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
+                                            className="text-[11px] font-bold px-3 py-2 bg-white border border-gray-200 hover:border-[#0071e3] hover:text-[#0071e3] text-gray-500 rounded-lg transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
                                         >
                                             + {tag}
                                         </button>
@@ -1122,21 +1122,21 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
 
                             <section aria-labelledby="sa-photos-title" className={CARD}>
                                 <div className="flex items-center justify-between gap-3 mb-3">
-                                    <h3 id="sa-photos-title" className="flex items-center gap-2.5 text-[13px] font-semibold text-gray-900">
-                                        <span className={CARD_ICON}><Camera size={16} strokeWidth={2.5} /></span>
+                                    <h3 id="sa-photos-title" className="flex items-center gap-3 text-[15px] font-semibold text-gray-900">
+                                        <span className={CARD_ICON}><Camera size={18} strokeWidth={2.5} /></span>
                                         Cihaz Fotoğrafları
                                     </h3>
                                     <button
                                         type="button"
                                         onClick={handleAddPhoto}
                                         disabled={uploading}
-                                        className="bg-gray-900 hover:bg-black disabled:opacity-40 text-white px-3 py-1.5 rounded-lg text-[10px] font-semibold flex items-center gap-1.5 transition-all shrink-0 outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
+                                        className="bg-gray-900 hover:bg-black disabled:opacity-40 text-white px-3.5 py-2 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 transition-all shrink-0 outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
                                     >
                                         {uploading ? <Loader2 size={13} className="animate-spin" /> : <ImagePlus size={13} />} Ekle
                                     </button>
                                 </div>
                                 <input type="file" ref={fileInputRef} className="hidden" accept="image/jpeg, image/png" capture="environment" onChange={(e) => handleFileChange(e, 'before')} />
-                                <div className="grid grid-cols-5 gap-2">
+                                <div className="grid grid-cols-4 gap-2.5">
                                     {formData.beforeImages?.map((url, index) => (
                                         <div key={index} className="relative aspect-square group rounded-lg overflow-hidden border border-gray-200">
                                             <img src={url} alt={`Kabul görseli ${index + 1}`} className="w-full h-full object-cover" />
@@ -1166,7 +1166,7 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                     <div className="max-w-3xl animate-scale-up">
                         <section aria-labelledby="sa-approval-title" className={CARD}>
                             <h3 id="sa-approval-title" className={CARD_TITLE}>
-                                <span className={CARD_ICON}><FileText size={16} strokeWidth={2.5} /></span>
+                                <span className={CARD_ICON}><FileText size={18} strokeWidth={2.5} /></span>
                                 Onay ve Teslim
                             </h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1204,7 +1204,7 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
             {/* Alt şerit — kayıt özeti ve gezinme her zaman görünür */}
             <div className="shrink-0 flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-gray-100">
                 <dl className="flex flex-wrap items-center gap-x-4 gap-y-1 min-w-0">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 shrink-0">Kayıt Özeti</span>
+                    <span className="text-[11px] font-bold uppercase tracking-widest text-gray-400 shrink-0">Kayıt Özeti</span>
                     {[
                         { label: 'Müşteri', value: formData.customerName },
                         { label: 'Telefon', value: formData.customerPhone },
@@ -1213,8 +1213,8 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                         { label: 'Seri No', value: formData.serialNumber, mono: true },
                     ].map(row => (
                         <span key={row.label} className="flex items-baseline gap-1.5 min-w-0">
-                            <dt className="text-[10px] font-bold uppercase tracking-widest text-gray-400 shrink-0">{row.label}</dt>
-                            <dd className={`text-[12px] font-semibold truncate max-w-[160px] ${row.value ? 'text-[#1d1d1f]' : 'text-gray-300'} ${row.mono ? 'font-mono' : ''}`}>
+                            <dt className="text-[11px] font-bold uppercase tracking-widest text-gray-400 shrink-0">{row.label}</dt>
+                            <dd className={`text-[13px] font-semibold truncate max-w-[180px] ${row.value ? 'text-[#1d1d1f]' : 'text-gray-300'} ${row.mono ? 'font-mono' : ''}`}>
                                 {row.value || '—'}
                             </dd>
                         </span>
