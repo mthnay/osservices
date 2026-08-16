@@ -637,9 +637,10 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                                 Müşteri Bilgileri
                             </h3>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-12 gap-x-6 gap-y-4">
+                            {/* Satırlar kalan yüksekliğe eşit aralıklarla yayılır; altta yığın boşluk kalmaz */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-12 gap-x-6 gap-y-4 xl:flex-1 xl:content-between">
                                 {/* Ad Soyad */}
-                                <div className="xl:col-span-4">
+                                <div className="xl:col-span-6">
                                     <label htmlFor="sa-name" className={LABEL}>
                                         Ad Soyad <span className="text-[#e30000]" aria-hidden="true">*</span>
                                     </label>
@@ -652,7 +653,7 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                                 </div>
 
                                 {/* Müşteri tipi */}
-                                <div className="xl:col-span-4">
+                                <div className="xl:col-span-6">
                                     <p id="sa-type-label" className={LABEL}>Müşteri Tipi</p>
                                     <div role="group" aria-labelledby="sa-type-label" className="grid grid-cols-2 gap-2">
                                         {[
@@ -677,7 +678,7 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                                 </div>
 
                                 {/* TC / VKN */}
-                                <div className="xl:col-span-4">
+                                <div className="xl:col-span-6">
                                     <label htmlFor="sa-tc" className={LABEL}>
                                         {formData.customerType === 'kurumsal' ? 'Vergi Kimlik No' : 'TC Kimlik Numarası'}
                                     </label>
@@ -700,7 +701,7 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                                 </div>
 
                                 {/* Cep numarası */}
-                                <div className="xl:col-span-4">
+                                <div className="xl:col-span-6">
                                     <label htmlFor="sa-phone" className={LABEL}>
                                         Cep Numarası <span className="text-[#e30000]" aria-hidden="true">*</span>
                                     </label>
@@ -713,7 +714,7 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                                 </div>
 
                                 {/* E-posta */}
-                                <div className="xl:col-span-4">
+                                <div className="xl:col-span-6">
                                     <label htmlFor="sa-email" className={LABEL}>Mail Adresi</label>
                                     <input
                                         id="sa-email" type="email" placeholder="ornek@email.com"
@@ -724,7 +725,7 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                                 </div>
 
                                 {/* Memnuniyet — ayrı kart yerine formun içinde */}
-                                <div className="xl:col-span-4">
+                                <div className="xl:col-span-6">
                                     <p id="sa-sat-label" className={LABEL}>Önceki Servis Memnuniyeti</p>
                                     <div role="group" aria-labelledby="sa-sat-label" className="grid grid-cols-3 gap-2">
                                         {[
@@ -750,7 +751,7 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                                 </div>
 
                                 {/* İl — alanın altında açılan aranabilir liste */}
-                                <div className="xl:col-span-3">
+                                <div className="xl:col-span-6">
                                     <InlineSelect
                                         id="sa-city"
                                         label="İl"
@@ -766,7 +767,7 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                                 </div>
 
                                 {/* İlçe — il seçilene kadar kapalı */}
-                                <div className="xl:col-span-3">
+                                <div className="xl:col-span-6">
                                     <InlineSelect
                                         id="sa-district"
                                         label="İlçe"
@@ -783,10 +784,10 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                                 </div>
 
                                 {/* Açık adres */}
-                                <div className="md:col-span-2 xl:col-span-6">
+                                <div className="md:col-span-2 xl:col-span-12">
                                     <label htmlFor="sa-address" className={LABEL}>Açık Adres</label>
                                     <textarea
-                                        id="sa-address" rows="3" placeholder="Mahalle, cadde, sokak, kapı no…"
+                                        id="sa-address" rows="4" placeholder="Mahalle, cadde, sokak, kapı no…"
                                         className={`${FIELD} resize-none`}
                                         value={formData.customerAddress}
                                         onChange={(e) => setFormData({ ...formData, customerAddress: e.target.value })}
@@ -893,7 +894,7 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                                     </button>
                                 </div>
 
-                                <div className="space-y-4">
+                                <div className="space-y-4 xl:flex-1 xl:flex xl:flex-col xl:justify-between">
                                     <div ref={productPickerRef} className="relative">
                                         <p id="sa-product-label" className={LABEL}>
                                             Ürün Grubu <span className="text-[#e30000]" aria-hidden="true">*</span>
@@ -1136,7 +1137,7 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                                 <span className={CARD_ICON}><FileText size={18} strokeWidth={2.5} /></span>
                                 Onay ve Teslim
                             </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
                                 <label className={`flex items-start gap-4 p-5 rounded-xl border cursor-pointer transition-all ${formData.findMyOff ? 'bg-green-50 border-green-200 shadow-sm' : 'bg-white border-gray-200'}`}>
                                     <div className={`mt-0.5 w-7 h-7 rounded-lg border-2 flex items-center justify-center shrink-0 ${formData.findMyOff ? 'bg-green-500 border-green-500 text-white' : 'border-gray-300'}`}><Check size={16} strokeWidth={4} className={formData.findMyOff ? 'opacity-100' : 'opacity-0'} /><input type="checkbox" className="hidden" checked={formData.findMyOff} onChange={(e) => setFormData({ ...formData, findMyOff: e.target.checked })} /></div>
                                     <div><span className="font-bold text-gray-900 block text-[16px] mb-1.5">Cihazımı Bul (FMI) Kapalı</span><span className="text-[11px] font-bold bg-black text-white px-2 py-0.5 rounded uppercase mr-2">Zorunlu</span><span className="text-[13px] text-gray-500 font-medium">Apple prosedürleri gereği kapalı olmadan servis kaydı açılamaz.</span></div>
