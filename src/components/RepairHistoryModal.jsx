@@ -41,7 +41,7 @@ const REPAIR_TYPE_LABELS = {
 };
 
 const RepairHistoryModal = ({ repair: initialRepair, onClose, onSaveDiagnosis }) => {
-    const { updateRepair, updateRepairStatus, removeRepair, repairs, servicePoints, currentUser, showToast, API_URL } = useAppContext();
+    const { updateRepair, updateRepairStatus, removeRepair, repairs, servicePoints, currentUser, showToast, API_URL, uploadMedia } = useAppContext();
     const repair = repairs.find(r => r.id === initialRepair.id) || initialRepair;
 
     // Kayıt kapanırken de animasyon oynasın diye kapanış geciktirilir.
@@ -61,6 +61,11 @@ const RepairHistoryModal = ({ repair: initialRepair, onClose, onSaveDiagnosis })
     const [invoiceNo, setInvoiceNo] = useState(repair?.invoiceNumber || '');
     const [showCustomerModal, setShowCustomerModal] = useState(false);
     const [showDeviceModal, setShowDeviceModal] = useState(false);
+
+    // Sonradan görsel ekleme (kabul / teslim)
+    const [uploadingCategory, setUploadingCategory] = useState(null);
+    const beforeInputRef = useRef(null);
+    const afterInputRef = useRef(null);
 
     // Teşhis, ayrı bir ekran değil; inceleme ekranının içinde açılan bir bölüm
     const [showDiagnosis, setShowDiagnosis] = useState(false);
@@ -210,28 +215,55 @@ const RepairHistoryModal = ({ repair: initialRepair, onClose, onSaveDiagnosis })
         requestClose();
     };
 
-    // eslint-disable-next-line no-unused-vars
-    const handlePhotoUpload = (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
+    /* Görsel ekleme: kaydın durumundan bağımsız çalışır; teslim edilmiş ya da
+       arşivlenmiş kayıtlara da sonradan görsel eklenebilir. */
+    const handleAddPhoto = (category) => {
+        (category === 'before' ? beforeInputRef : afterInputRef).current?.click();
+    };
 
-        if (file.size > 5 * 1024 * 1024) {
-            appAlert("Dosya boyutu çok büyük (Maks 5MB)", "error");
+    const handlePhotoUpload = async (e, category = 'after') => {
+        const files = Array.from(e.target.files || []);
+        e.target.value = null;
+        if (!files.length) return;
+
+        const tooBig = files.find(file => file.size > 5 * 1024 * 1024);
+        if (tooBig) {
+            appAlert(`Dosya boyutu çok büyük (Maks 5MB): ${tooBig.name}`, 'error');
             return;
         }
 
-        const reader = new FileReader();
-        reader.onloadend = () => {
-            const photoObj = {
-                id: Date.now(),
-                url: reader.result,
-                date: new Date().toLocaleString(),
-                user: currentUser?.name || 'Teknisyen'
+        const field = category === 'before' ? 'beforeImages' : 'afterImages';
+        setUploadingCategory(category);
+        try {
+            const uploaded = [];
+            for (const file of files) {
+                const data = await uploadMedia(file);
+                if (data?.url) uploaded.push(data.url);
+            }
+
+            if (!uploaded.length) {
+                showToast('Görsel yüklenemedi.', 'error');
+                return;
+            }
+
+            // Durum değişmediği için history yerine iç nota işlenir; kim ne zaman eklemiş izi kalsın
+            const label = category === 'before' ? 'kabul' : 'teslim';
+            const noteObj = {
+                text: `${uploaded.length} adet ${label} görseli eklendi.`,
+                date: new Date().toLocaleString('tr-TR'),
+                user: currentUser?.name || 'Sistem'
             };
-            const updatedPhotos = repair.photos ? [...repair.photos, photoObj] : [photoObj];
-            updateRepair(repair.id, { photos: updatedPhotos, historyNote: 'Sisteme yeni servis fotoğrafı eklendi.' });
-        };
-        reader.readAsDataURL(file);
+            await updateRepair(repair.id, {
+                [field]: [...(repair[field] || []), ...uploaded],
+                internalNotes: [...(repair.internalNotes || []), noteObj]
+            });
+            showToast(`${uploaded.length} görsel kayda eklendi.`, 'success');
+        } catch (error) {
+            console.error(error);
+            showToast('Görsel yüklenemedi.', 'error');
+        } finally {
+            setUploadingCategory(null);
+        }
     };
 
     const handlePhotoDelete = async (url, category = 'after') => {
@@ -1063,11 +1095,26 @@ const RepairHistoryModal = ({ repair: initialRepair, onClose, onSaveDiagnosis })
                                 <div className="space-y-4">
                                     <h4 className="text-[10px] font-semibold text-gray-400 text-xs uppercase tracking-wide pl-2">Görsel VMI Kayıtları</h4>
                                     <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col gap-8 h-full">
+                                        {/* Kayıt kapansa ya da teslim edilse de görsel eklenebilir */}
+                                        <input type="file" ref={beforeInputRef} className="hidden" accept="image/jpeg, image/png" multiple capture="environment" onChange={(e) => handlePhotoUpload(e, 'before')} />
+                                        <input type="file" ref={afterInputRef} className="hidden" accept="image/jpeg, image/png" multiple capture="environment" onChange={(e) => handlePhotoUpload(e, 'after')} />
+
                                         {/* Öncesi */}
                                         <div>
-                                            <div className="flex justify-between items-center mb-4 border-b border-gray-50 pb-2">
+                                            <div className="flex justify-between items-center gap-3 mb-4 border-b border-gray-50 pb-2">
                                                 <span className="text-xs font-semibold text-gray-900 flex items-center gap-2"><Camera size={14} className="text-indigo-500"/> Kabul (Öncesi)</span>
-                                                <span className="text-[10px] bg-indigo-50 text-indigo-600 border border-indigo-100 px-3 py-1 rounded-lg font-semibold shadow-sm">{repair.beforeImages?.length || repair.mediaFiles?.filter(f=>!f.isDefault).length || 0} Adet</span>
+                                                <div className="flex items-center gap-2 shrink-0">
+                                                    <span className="text-[10px] bg-indigo-50 text-indigo-600 border border-indigo-100 px-3 py-1 rounded-lg font-semibold shadow-sm">{repair.beforeImages?.length || repair.mediaFiles?.filter(f=>!f.isDefault).length || 0} Adet</span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleAddPhoto('before')}
+                                                        disabled={uploadingCategory !== null}
+                                                        className="text-[10px] font-semibold text-indigo-600 bg-white border border-indigo-100 hover:bg-indigo-50 disabled:opacity-40 px-3 py-1 rounded-lg flex items-center gap-1.5 transition-all outline-none focus-visible:ring-4 focus-visible:ring-indigo-500/25"
+                                                    >
+                                                        <PlusCircle size={12} aria-hidden="true" />
+                                                        {uploadingCategory === 'before' ? 'Yükleniyor…' : 'Görsel Ekle'}
+                                                    </button>
+                                                </div>
                                             </div>
                                             <div className="flex gap-4 overflow-x-auto custom-scrollbar pb-3">
                                                 {(repair.beforeImages || repair.mediaFiles?.filter(f=>!f.isDefault) || []).map((img, i) => (
@@ -1081,17 +1128,35 @@ const RepairHistoryModal = ({ repair: initialRepair, onClose, onSaveDiagnosis })
                                                             onClick={()=>setSelectedPhoto({url: getSafeRepairImageUrl(img.url||img, repair.productGroup, repair.device, API_URL), user: 'Servis Kabul', date: repair.date})}
                                                             className="w-24 h-24 rounded-[20px] object-cover border border-gray-200 shadow-sm"
                                                         />
+                                                        {typeof img === 'string' && (
+                                                            <button onClick={() => handlePhotoDelete(img, 'before')} aria-label="Kabul görselini sil" className="absolute -top-3 -right-3 bg-red-500 text-white rounded-full p-2 opacity-0 group-hover:opacity-100 shadow-xl border-2 border-white transition-all scale-75 group-hover:scale-100"><Trash2 size={12}/></button>
+                                                        )}
                                                     </div>
                                                 ))}
-                                                {(!repair.beforeImages?.length && (!repair.mediaFiles || repair.mediaFiles.filter(f=>!f.isDefault).length===0)) && <div className="text-xs text-gray-400 p-8 border-2 border-dashed border-gray-100 rounded-lg w-full text-center bg-gray-50 font-medium">Görsel yüklenmemiş</div>}
+                                                {(!repair.beforeImages?.length && (!repair.mediaFiles || repair.mediaFiles.filter(f=>!f.isDefault).length===0)) && (
+                                                    <button type="button" onClick={() => handleAddPhoto('before')} disabled={uploadingCategory !== null} className="text-xs text-gray-400 hover:text-indigo-600 p-8 border-2 border-dashed border-gray-100 hover:border-indigo-200 rounded-lg w-full text-center bg-gray-50 hover:bg-white font-medium transition-all disabled:opacity-40 outline-none focus-visible:ring-4 focus-visible:ring-indigo-500/25">
+                                                        Görsel yüklenmemiş — eklemek için tıklayın
+                                                    </button>
+                                                )}
                                             </div>
                                         </div>
-                                        
+
                                         {/* Sonrası */}
                                         <div>
-                                            <div className="flex justify-between items-center mb-4 border-b border-gray-50 pb-2">
+                                            <div className="flex justify-between items-center gap-3 mb-4 border-b border-gray-50 pb-2">
                                                 <span className="text-xs font-semibold text-gray-900 flex items-center gap-2"><CheckCircle size={14} className="text-emerald-500"/> Teslim (Sonrası)</span>
-                                                <span className="text-[10px] bg-emerald-50 text-emerald-600 border border-emerald-100 px-3 py-1 rounded-lg font-semibold shadow-sm">{repair.afterImages?.length || 0} Adet</span>
+                                                <div className="flex items-center gap-2 shrink-0">
+                                                    <span className="text-[10px] bg-emerald-50 text-emerald-600 border border-emerald-100 px-3 py-1 rounded-lg font-semibold shadow-sm">{repair.afterImages?.length || 0} Adet</span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleAddPhoto('after')}
+                                                        disabled={uploadingCategory !== null}
+                                                        className="text-[10px] font-semibold text-emerald-600 bg-white border border-emerald-100 hover:bg-emerald-50 disabled:opacity-40 px-3 py-1 rounded-lg flex items-center gap-1.5 transition-all outline-none focus-visible:ring-4 focus-visible:ring-emerald-500/25"
+                                                    >
+                                                        <PlusCircle size={12} aria-hidden="true" />
+                                                        {uploadingCategory === 'after' ? 'Yükleniyor…' : 'Görsel Ekle'}
+                                                    </button>
+                                                </div>
                                             </div>
                                             <div className="flex gap-4 overflow-x-auto custom-scrollbar pb-3">
                                                 {repair.afterImages?.map((url, i) => (
@@ -1105,10 +1170,14 @@ const RepairHistoryModal = ({ repair: initialRepair, onClose, onSaveDiagnosis })
                                                             onClick={()=>setSelectedPhoto({url: getSafeRepairImageUrl(url, repair.productGroup, repair.device, API_URL), user: 'Teknisyen', date: ''})}
                                                             className="w-24 h-24 rounded-[20px] object-cover border border-gray-200 shadow-sm"
                                                         />
-                                                        <button onClick={() => handlePhotoDelete(url, 'after')} className="absolute -top-3 -right-3 bg-red-500 text-white rounded-full p-2 opacity-0 group-hover:opacity-100 shadow-xl border-2 border-white transition-all scale-75 group-hover:scale-100"><Trash2 size={12}/></button>
+                                                        <button onClick={() => handlePhotoDelete(url, 'after')} aria-label="Teslim görselini sil" className="absolute -top-3 -right-3 bg-red-500 text-white rounded-full p-2 opacity-0 group-hover:opacity-100 shadow-xl border-2 border-white transition-all scale-75 group-hover:scale-100"><Trash2 size={12}/></button>
                                                     </div>
                                                 ))}
-                                                {(!repair.afterImages?.length) && <div className="text-xs text-emerald-600/60 p-8 border-2 border-dashed border-emerald-100 rounded-lg w-full text-center bg-emerald-50/50 font-bold">Onarım sonucu eklenmemiş</div>}
+                                                {(!repair.afterImages?.length) && (
+                                                    <button type="button" onClick={() => handleAddPhoto('after')} disabled={uploadingCategory !== null} className="text-xs text-emerald-600/60 hover:text-emerald-700 p-8 border-2 border-dashed border-emerald-100 hover:border-emerald-300 rounded-lg w-full text-center bg-emerald-50/50 hover:bg-white font-bold transition-all disabled:opacity-40 outline-none focus-visible:ring-4 focus-visible:ring-emerald-500/25">
+                                                        Onarım sonucu eklenmemiş — eklemek için tıklayın
+                                                    </button>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
