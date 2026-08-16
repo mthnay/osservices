@@ -344,7 +344,7 @@ const Archive = () => {
     };
 
     return (
-        <div className="space-y-6 animate-fade-in pb-10">
+        <div className="page-shell space-y-6 animate-fade-in">
             {/* Başlık */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                 <div>
@@ -493,6 +493,8 @@ const Archive = () => {
             </div>
 
             {/* Kayıtlar */}
+            {/* Yalnızca arşiv kayıtları kayar; başlık ve filtreler sabit kalır */}
+            <div className="page-scroll -mx-1 px-1">
             {scope.length === 0 ? (
                 <div className="bg-white rounded-[24px] border border-gray-200 shadow-sm py-16 text-center">
                     <Database size={40} className="mx-auto text-gray-300 mb-4" aria-hidden="true" />
@@ -581,6 +583,7 @@ const Archive = () => {
                     })}
                 </div>
             )}
+            </div>
 
             {selectedRepair && <RepairHistoryModal repair={selectedRepair} onClose={() => setSelectedRepair(null)} />}
             {showBatchExport && <BatchExportModal onClose={() => setShowBatchExport(false)} />}

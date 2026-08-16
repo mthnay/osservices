@@ -331,7 +331,7 @@ const StockManagement = () => {
     };
 
     return (
-        <div className="max-w-[1400px] mx-auto space-y-6 pb-24 animate-fade-in font-sans">
+        <div className="page-shell max-w-[1400px] mx-auto space-y-6 animate-fade-in font-sans">
             {/* GSX Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mt-4 px-1">
                 <div>
@@ -500,7 +500,7 @@ const StockManagement = () => {
                     </div>
 
                     {/* Inventory Table */}
-                    <div className="bg-white rounded-[24px] border border-gray-200 shadow-sm max-h-[550px] overflow-y-auto custom-scrollbar relative">
+                    <div className="page-scroll bg-white rounded-[24px] border border-gray-200 shadow-sm relative">
                         <table className="w-full text-left border-separate border-spacing-0">
                             <thead className="sticky top-0 z-10 bg-[#f5f5f7] border-b border-gray-200">
                                 <tr className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
@@ -660,7 +660,7 @@ const StockManagement = () => {
                     </div>
 
                     {activeKbbTab === 'returns' ? (
-                        <div className="bg-white rounded-[24px] border border-gray-200 shadow-sm max-h-[550px] overflow-y-auto custom-scrollbar relative">
+                        <div className="page-scroll bg-white rounded-[24px] border border-gray-200 shadow-sm relative">
                             <table className="w-full text-left border-separate border-spacing-0">
                                 <thead className="sticky top-0 z-10 bg-gray-50 border-b border-gray-200">
                                     <tr className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">
@@ -714,7 +714,7 @@ const StockManagement = () => {
                             </table>
                         </div>
                     ) : activeKbbTab === 'stocks' ? (
-                        <div className="bg-white rounded-[24px] border border-gray-200 shadow-sm max-h-[550px] overflow-y-auto custom-scrollbar relative">
+                        <div className="page-scroll bg-white rounded-[24px] border border-gray-200 shadow-sm relative">
                             <table className="w-full text-left border-separate border-spacing-0">
                                 <thead className="sticky top-0 z-10 bg-gray-50 border-b border-gray-200">
                                     <tr className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">

@@ -633,7 +633,7 @@ const Customers = ({ setActiveTab, setServiceInitialData }) => {
     };
 
     return (
-        <div className="space-y-8 animate-fade-in">
+        <div className="page-shell space-y-8 animate-fade-in">
             {/* Başlık + özet */}
             <header className="space-y-6">
                 <div className="flex flex-wrap items-end justify-between gap-4">
@@ -711,10 +711,10 @@ const Customers = ({ setActiveTab, setServiceInitialData }) => {
             </div>
 
             {/* Liste + künye */}
-            <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+            <div className="flex-1 min-h-0 grid grid-cols-1 xl:grid-cols-12 gap-6">
                 <section
                     aria-label="Müşteri listesi"
-                    className={selectedCustomer ? 'xl:col-span-5' : 'xl:col-span-12'}
+                    className={`page-shell ${selectedCustomer ? 'xl:col-span-5' : 'xl:col-span-12'}`}
                 >
                     {groups.length === 0 ? (
                         <EmptyState
@@ -725,7 +725,7 @@ const Customers = ({ setActiveTab, setServiceInitialData }) => {
                                 : 'Arama ya da filtreleri değiştirerek tekrar deneyin.'}
                         />
                     ) : (
-                        <div className={`space-y-3 ${selectedCustomer ? 'xl:max-h-[calc(100vh-320px)] xl:overflow-y-auto xl:pr-2 custom-scrollbar' : ''}`}>
+                        <div className="page-scroll space-y-3 pr-1">
                             {groups.map(([key, groupCustomers]) => {
                                 const collapsed = collapsedGroups.includes(key);
                                 const panelId = `customer-group-${normalize(key).replace(/[^a-z0-9]+/g, '-') || 'grup'}`;
@@ -785,7 +785,7 @@ const Customers = ({ setActiveTab, setServiceInitialData }) => {
                 </section>
 
                 {selectedCustomer && (
-                    <section aria-label="Müşteri künyesi" className="xl:col-span-7 space-y-5">
+                    <section aria-label="Müşteri künyesi" className="page-scroll xl:col-span-7 space-y-5 pr-1">
                         {/* Künye başlığı */}
                         <div className="rounded-[24px] border border-gray-200 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5 sm:p-6">
                             <div className="flex items-start justify-between gap-4">

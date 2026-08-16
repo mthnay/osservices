@@ -850,7 +850,7 @@ const StoreManagement = () => {
     }, [announcements, tasks, shifts]);
 
     return (
-        <div className="space-y-8 animate-fade-in pb-20">
+        <div className="page-scroll space-y-8 animate-fade-in pr-1">
             <style>{`
                 @media print {
                     @page {

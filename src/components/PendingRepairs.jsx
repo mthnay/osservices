@@ -118,7 +118,7 @@ const PendingRepairs = ({ setActiveTab }) => {
     };
 
     return (
-        <div className="space-y-6 animate-fade-in pb-10">
+        <div className="page-shell space-y-6 animate-fade-in">
             {/* GSX Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
@@ -206,10 +206,10 @@ const PendingRepairs = ({ setActiveTab }) => {
 
             {/* Content View */}
             {viewMode === 'list' ? (
-                <div className="bg-white rounded-[24px] border border-gray-200 shadow-sm overflow-hidden">
-                    <div className="overflow-x-auto">
+                <div className="flex-1 min-h-0 flex flex-col bg-white rounded-[24px] border border-gray-200 shadow-sm overflow-hidden">
+                    <div className="page-scroll overflow-x-auto">
                         <table className="w-full text-left border-collapse">
-                            <thead>
+                            <thead className="sticky top-0 z-10">
                                 <tr className="bg-[#f5f5f7] border-b border-gray-200">
                                     <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Kayıt Bilgisi</th>
                                     <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Müşteri & Cihaz</th>
@@ -270,7 +270,7 @@ const PendingRepairs = ({ setActiveTab }) => {
                     </div>
                 </div>
             ) : (
-                <div className="flex gap-6 overflow-x-auto pb-8 items-start min-h-[600px] custom-scrollbar">
+                <div className="page-scroll flex gap-6 overflow-x-auto pb-2 items-start">
                     {BOARD_COLUMNS.map(column => (
                         <div key={column.id} className="min-w-[300px] w-[300px] flex flex-col gap-4" onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, column.id)}>
                             <div className="flex items-center justify-between px-2">

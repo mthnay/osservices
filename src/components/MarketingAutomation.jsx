@@ -91,7 +91,7 @@ const MarketingAutomation = () => {
     };
 
     return (
-        <div className="space-y-6 animate-fade-in">
+        <div className="page-scroll space-y-6 animate-fade-in pr-1">
             {/* Header */}
             <div className="flex justify-between items-end">
                 <div>

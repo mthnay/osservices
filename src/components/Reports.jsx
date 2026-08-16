@@ -173,7 +173,7 @@ const Reports = () => {
     }, [repairs]);
 
     return (
-        <div className="space-y-8 pb-24 animate-fade-in">
+        <div className="page-scroll space-y-8 animate-fade-in pr-1">
             {/* GSX Header */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 py-4 border-b border-gray-100 mb-6">
                 <div>

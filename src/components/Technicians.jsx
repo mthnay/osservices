@@ -98,7 +98,7 @@ const Technicians = () => {
     };
 
     return (
-        <div className="space-y-6 animate-fade-in">
+        <div className="page-scroll space-y-6 animate-fade-in pr-1">
             {/* Contextual Modals */}
             {activeRepairId && <TechnicianWorkspace repairId={activeRepairId} onClose={() => setActiveRepairId(null)} />}
             {selectedHistoryRepair && <RepairHistoryModal repair={selectedHistoryRepair} onClose={() => setSelectedHistoryRepair(null)} />}

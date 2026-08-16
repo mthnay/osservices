@@ -97,7 +97,7 @@ const ReadyForPickup = () => {
     };
 
     return (
-        <div className="space-y-6 animate-fade-in pb-10">
+        <div className="page-shell space-y-6 animate-fade-in">
             {/* GSX Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
@@ -149,10 +149,10 @@ const ReadyForPickup = () => {
             </div>
 
             {/* Service Queue Table */}
-            <div className="bg-white rounded-[24px] border border-gray-200 shadow-sm overflow-hidden">
-                <div className="overflow-x-auto">
+            <div className="flex-1 min-h-0 flex flex-col bg-white rounded-[24px] border border-gray-200 shadow-sm overflow-hidden">
+                <div className="page-scroll overflow-x-auto">
                     <table className="w-full text-left border-collapse">
-                        <thead>
+                        <thead className="sticky top-0 z-10">
                             <tr className="bg-[#f5f5f7] border-b border-gray-200">
                                 <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Kayıt No</th>
                                 <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Cihaz & Müşteri Bilgisi</th>

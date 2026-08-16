@@ -208,7 +208,7 @@ const StoreOperations = () => {
     const activeStore = selectedStore ? stores.find(s => String(s.id) === String(selectedStore.id)) : null;
 
     return (
-        <div className="space-y-6 animate-fade-in pb-16">
+        <div className="page-scroll space-y-6 animate-fade-in pr-1">
             {/* Başlık */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-5">
                 <div>

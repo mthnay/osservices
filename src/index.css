@@ -33,6 +33,54 @@ body {
 }
 
 @layer components {
+  /* ------------------------------------------------------------------
+     Sabit ekran düzeni
+     Sayfanın tamamı kaymaz: başlık, özet ve filtreler yerinde durur,
+     yalnızca kayıt listesi kendi içinde kayar. Ekran kabuğu (üst menü ve
+     alt bar) her zaman görünür kalır.
+
+       .page-shell  → ekranın tamamını kaplayan dikey akış
+       .page-scroll → kalan alanı doldurup kendi içinde kayan kayıt alanı
+     ------------------------------------------------------------------ */
+  .page-shell {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+  }
+
+  .page-scroll {
+    flex: 1 1 0%;
+    /* min-height:0 olmadan flex çocuk içeriğe göre taşar ve sayfa kayar */
+    min-height: 0;
+    overflow-y: auto;
+    /* Liste sonuna gelince sayfa kaymasına devredilmesin */
+    overscroll-behavior: contain;
+  }
+
+  /* Açık zeminli kayıt alanları için ince kaydırma çubuğu
+     (custom-scrollbar koyu zemin içindir, burada görünmez kalırdı) */
+  .page-scroll::-webkit-scrollbar {
+    width: 8px;
+  }
+  .page-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .page-scroll::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.16);
+    border-radius: 10px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  .page-scroll::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.28);
+    background-clip: content-box;
+  }
+  .page-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+  }
+
   /* Modern GSX / Apple Business Core Components */
   .gsx-card {
     background: var(--color-surface);

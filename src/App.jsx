@@ -79,17 +79,19 @@ function App() {
     return <Login onTrackingClick={() => setTrackingMode(true)} />;
   }
 
+  // Pencere yüksekliği sabit: sayfa kaymaz, kayma ekranların kendi liste
+  // alanlarında olur (bkz. .page-shell / .page-scroll)
   return (
-    <div className="min-h-screen bg-[#f5f5f7] flex flex-col font-sans text-[#1d1d1f]">
+    <div className="h-screen overflow-hidden bg-[#f5f5f7] flex flex-col font-sans text-[#1d1d1f]">
       <GlobalDialogs />
       <TopNav activeTab={activeTab} setActiveTab={setActiveTab} />
 
-      <main className="flex-1 w-full pt-20 pb-20 px-6 transition-all duration-300 relative">
+      <main className="flex-1 min-h-0 w-full pt-20 pb-9 px-6 transition-all duration-300 relative">
         {activeTab === 'settings' && hasPermission(currentUser, 'manage_settings') ? (
           /* Sistem Ayarları tam genişlik: sol menü ekranın solunda, içerik kalan alanı doldurur */
           <Settings />
         ) : (
-        <div className="max-w-[1200px] mx-auto">
+        <div className="max-w-[1200px] mx-auto h-full flex flex-col min-h-0">
           {/* Top Header with Notifications removed */}
           {activeTab === 'dashboard' && <Dashboard />}
           {activeTab === 'service' && <ServiceAcceptance setActiveTab={setActiveTab} initialData={serviceInitialData} clearInitialData={() => setServiceInitialData(null)} />}

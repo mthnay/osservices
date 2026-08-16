@@ -537,7 +537,7 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
     };
 
     return (
-        <div className="space-y-6 animate-fade-in">
+        <div className="page-scroll space-y-6 animate-fade-in pr-1">
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 py-4 border-b border-gray-100 mb-6 sticky top-4 z-30 bg-[#f5f5f7]/80 backdrop-blur-md">
                 <div className="flex items-center gap-4">
                     <div className="p-3 bg-blue-50 rounded-md text-blue-600 border border-blue-100 shadow-sm">
