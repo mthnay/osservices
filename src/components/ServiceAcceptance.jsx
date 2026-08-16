@@ -40,7 +40,6 @@ import { appConfirm } from '../utils/alert';
 import { hasPermission, ROLES, getAccessibleStoreIds } from '../utils/permissions';
 import MyPhoneIcon from './LocalIcons';
 import { getProductImage } from '../utils/productImages';
-import PickerModal from './ui/PickerModal';
 import InlineSelect from './ui/InlineSelect';
 import { PROVINCES, districtsOf } from '../utils/turkeyRegions';
 import {
@@ -98,11 +97,12 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
     const [deviceSuggestions, setDeviceSuggestions] = useState([]);
     const suggestionsRef = useRef(null);
     const [showStoreSelect, setShowStoreSelect] = useState(false);
-    // Popup seçiciler: ürün grubu, il, ilçe
+    // Ürün grubu: alanın hemen altında açılan liste (ayrı pencere açılmaz)
     const [showProductPicker, setShowProductPicker] = useState(false);
     const storeSelectRef = useRef(null);
+    const productPickerRef = useRef(null);
 
-    // Click outside to close suggestions and store select
+    // Click outside to close suggestions, store select and product list
     React.useEffect(() => {
         const handleClickOutside = (event) => {
             if (suggestionsRef.current && !suggestionsRef.current.contains(event.target)) {
@@ -111,9 +111,19 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
             if (storeSelectRef.current && !storeSelectRef.current.contains(event.target)) {
                 setShowStoreSelect(false);
             }
+            if (productPickerRef.current && !productPickerRef.current.contains(event.target)) {
+                setShowProductPicker(false);
+            }
+        };
+        const handleEscape = (event) => {
+            if (event.key === 'Escape') setShowProductPicker(false);
         };
         document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
+        document.addEventListener('keydown', handleEscape);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('keydown', handleEscape);
+        };
     }, []);
 
     const [formData, setFormData] = useState({
@@ -875,15 +885,19 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                                     </button>
                                 </div>
 
-                                <div className="mb-10 space-y-2">
-                                    <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 ml-1">
+                                <div ref={productPickerRef} className="mb-10 space-y-2 relative">
+                                    <p id="sa-product-label" className="text-[10px] font-bold uppercase tracking-widest text-gray-500 ml-1">
                                         Ürün Grubu <span className="text-[#e30000]" aria-hidden="true">*</span>
                                     </p>
                                     <button
                                         type="button"
-                                        onClick={() => setShowProductPicker(true)}
-                                        aria-haspopup="dialog"
-                                        className="w-full p-4 rounded-lg bg-gray-50 border border-gray-200 flex items-center justify-between gap-4 text-left hover:bg-white hover:border-gray-300 transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
+                                        onClick={() => setShowProductPicker(open => !open)}
+                                        aria-haspopup="listbox"
+                                        aria-expanded={showProductPicker}
+                                        aria-controls="sa-product-listbox"
+                                        className={`w-full p-4 rounded-lg border flex items-center justify-between gap-4 text-left transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25 ${showProductPicker
+                                            ? 'bg-white border-[#0071e3]'
+                                            : 'bg-gray-50 border-gray-200 hover:bg-white hover:border-gray-300'}`}
                                     >
                                         <span className="flex items-center gap-4 min-w-0">
                                             {selectedProductGroup ? (
@@ -908,8 +922,43 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                                                 </>
                                             )}
                                         </span>
-                                        <ChevronDown size={18} className="text-gray-400 shrink-0" aria-hidden="true" />
+                                        <ChevronDown
+                                            size={18}
+                                            aria-hidden="true"
+                                            className={`text-gray-400 shrink-0 transition-transform ${showProductPicker ? 'rotate-180' : ''}`}
+                                        />
                                     </button>
+
+                                    {/* Alanın hemen altında açılan liste */}
+                                    {showProductPicker && (
+                                        <ul
+                                            id="sa-product-listbox"
+                                            role="listbox"
+                                            aria-labelledby="sa-product-label"
+                                            className="absolute top-full left-0 right-0 mt-2 z-40 list-none p-2 m-0 bg-white border border-gray-200 rounded-lg shadow-[0_12px_40px_rgba(0,0,0,0.12)] max-h-80 overflow-y-auto custom-scrollbar animate-in fade-in slide-in-from-top-2"
+                                        >
+                                            {PRODUCT_GROUPS.map(group => {
+                                                const selected = formData.productGroup === group.id;
+                                                return (
+                                                    <li key={group.id} role="option" aria-selected={selected}>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => { applyProductGroup(group.id); setShowProductPicker(false); }}
+                                                            className={`w-full flex items-center gap-4 p-3 rounded-md text-left transition-colors outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25 ${selected ? 'bg-[#0071e3]/8' : 'hover:bg-gray-50'}`}
+                                                        >
+                                                            <span className={`w-10 h-10 rounded-md flex items-center justify-center text-white shadow-sm shrink-0 ${group.color}`}>
+                                                                <group.icon size={20} />
+                                                            </span>
+                                                            <span className={`text-sm font-bold truncate ${selected ? 'text-[#0071e3]' : 'text-gray-900'}`}>
+                                                                {group.label}
+                                                            </span>
+                                                            {selected && <Check size={16} strokeWidth={3} className="ml-auto text-[#0071e3] shrink-0" aria-hidden="true" />}
+                                                        </button>
+                                                    </li>
+                                                );
+                                            })}
+                                        </ul>
+                                    )}
                                 </div>
 
                                 {formData.productGroup && (
@@ -1166,19 +1215,6 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                     </div>
                 </div>
             </div>
-
-            {/* Ürün grubu seçimi */}
-            {showProductPicker && (
-                <PickerModal
-                    title="Ürün Grubu Seçiniz"
-                    description="Cihazın ait olduğu ürün ailesini seçin."
-                    placeholder="Ürün grubu ara…"
-                    value={formData.productGroup}
-                    options={PRODUCT_GROUPS.map(g => ({ value: g.id, label: g.label }))}
-                    onSelect={(val) => applyProductGroup(val)}
-                    onClose={() => setShowProductPicker(false)}
-                />
-            )}
 
             {showKioskModal && (
                 <div className="fixed inset-0 bg-white z-[100] flex flex-col md:flex-row animate-in slide-in-from-bottom-5">

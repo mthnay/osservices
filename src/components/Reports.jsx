@@ -1,20 +1,40 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useId, useRef } from 'react';
 import {
-    BarChart2, Smile, Star, Users, Award, Calendar,
-    ChevronDown, Download, Heart, MessageSquare,
-    AlertTriangle, Clock, TrendingUp, DollarSign,
-    PieChart, Wallet, ShoppingCart, ArrowUpRight,
-    ArrowDownRight, MapPin, Briefcase, Meh, Frown, Save, Store
+    Smile, Star, Award, ChevronRight, Download, AlertTriangle, Clock,
+    TrendingUp, DollarSign, PieChart, Wallet, ShoppingCart, ArrowUpRight,
+    ArrowDownRight, MapPin, Meh, Frown, Save, Store, CheckCircle, Package,
+    CalendarRange, Info
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { hasPermission } from '../utils/permissions';
+import { parseRepairDate } from '../utils/archiveFilters';
 
-// Memnuniyet yüzdesine göre renk (>=90 yeşil, 80-90 sarı, <80 kırmızı)
+const TABS = [
+    { id: 'performance', label: 'Performans' },
+    { id: 'financial', label: 'Finansal' },
+    { id: 'satisfaction', label: 'Memnuniyet' }
+];
+
+const RANGES = [
+    { id: 'month', label: 'Bu Ay', months: 1 },
+    { id: 'quarter', label: 'Son 3 Ay', months: 3 },
+    { id: 'year', label: 'Son 12 Ay', months: 12 },
+    { id: 'all', label: 'Tüm Zamanlar', months: null }
+];
+
+const CLOSED_STATUSES = ['Tamamlandı', 'Teslim Edildi', 'Cihaz Hazır', 'İade Hazır', 'İade Edildi'];
+
+const PRODUCT_LABELS = {
+    iphone: 'iPhone', ipad: 'iPad', mac: 'Mac', watch: 'Apple Watch',
+    airpods: 'AirPods', other: 'Aksesuar & Beats', unknown: 'Belirtilmemiş'
+};
+
+// Memnuniyet yüzdesine göre renk (>=90 iyi, 80-90 dikkat, <80 kritik)
 const getSatisfactionTheme = (pct) => {
     if (pct === null || pct === undefined) return { text: 'text-gray-400', bg: 'bg-gray-50', border: 'border-gray-200', bar: 'bg-gray-300', label: '—' };
-    if (pct >= 90) return { text: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200', bar: 'bg-emerald-500', label: 'İYİ' };
-    if (pct >= 80) return { text: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200', bar: 'bg-amber-500', label: 'DİKKAT' };
-    return { text: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200', bar: 'bg-red-500', label: 'KRİTİK' };
+    if (pct >= 90) return { text: 'text-[#1e7e34]', bg: 'bg-[#e6f4ea]', border: 'border-[#1e7e34]/20', bar: 'bg-[#1e7e34]', label: 'İyi' };
+    if (pct >= 80) return { text: 'text-[#b25e00]', bg: 'bg-[#fff4e5]', border: 'border-[#b25e00]/20', bar: 'bg-[#ff9500]', label: 'Dikkat' };
+    return { text: 'text-[#e30000]', bg: 'bg-[#e30000]/6', border: 'border-[#e30000]/20', bar: 'bg-[#e30000]', label: 'Kritik' };
 };
 
 const calcRate = (s, n, d) => {
@@ -23,17 +43,294 @@ const calcRate = (s, n, d) => {
     return Math.round(((Number(s) || 0) / total) * 100);
 };
 
+const money = (value) => `₺${Math.round(Number(value) || 0).toLocaleString('tr-TR')}`;
+
+// "2026-05" → Date(2026, 4, 1); geçersizse null
+const monthToDate = (value) => {
+    const match = String(value || '').match(/^(\d{4})-(\d{2})/);
+    if (!match) return null;
+    const date = new Date(Number(match[1]), Number(match[2]) - 1, 1);
+    return isNaN(date.getTime()) ? null : date;
+};
+
+const monthLabel = (date) =>
+    date ? date.toLocaleDateString('tr-TR', { month: 'short', year: '2-digit' }) : '—';
+
+// Onarımın parasal karşılığı: onaylı teklif tutarı, yoksa kabulde girilen tahmini tutar
+const repairAmount = (repair) =>
+    Number(repair?.quote?.amount) || Number(repair?.estimatedCost) || 0;
+
+/** Excel'in tr-TR yerelinde sorunsuz açılması için noktalı virgül ve BOM */
+const downloadCsv = (filename, rows) => {
+    const csv = rows
+        .map(row => row.map(cell => {
+            const value = cell == null ? '' : String(cell);
+            return /[";\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
+        }).join(';'))
+        .join('\n');
+
+    const blob = new Blob([`﻿${csv}`], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+};
+
+const StatCard = ({ icon, label, value, hint, tone = 'text-gray-500 bg-gray-50', trend }) => {
+    const Icon = icon;
+    return (
+        <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex items-center gap-4">
+            <span className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${tone}`}>
+                <Icon size={19} aria-hidden="true" />
+            </span>
+            <div className="min-w-0">
+                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{label}</p>
+                <p className="text-xl font-bold text-[#1d1d1f] leading-tight tabular-nums">{value}</p>
+                {trend != null ? (
+                    <p className={`inline-flex items-center gap-1 text-[11px] font-bold ${trend >= 0 ? 'text-[#1e7e34]' : 'text-[#e30000]'}`}>
+                        {trend >= 0 ? <ArrowUpRight size={12} aria-hidden="true" /> : <ArrowDownRight size={12} aria-hidden="true" />}
+                        %{Math.abs(trend)} {hint}
+                    </p>
+                ) : hint && <p className="text-[11px] font-medium text-gray-500 truncate">{hint}</p>}
+            </div>
+        </div>
+    );
+};
+
+const Panel = ({ title, description, icon, action, children, className = '' }) => {
+    const Icon = icon;
+    return (
+        <section className={`bg-white rounded-[24px] border border-gray-200 shadow-sm ${className}`}>
+            <div className="p-4 sm:p-5 flex items-start justify-between gap-3 border-b border-gray-100">
+                <div className="flex items-center gap-3 min-w-0">
+                    {Icon && (
+                        <span aria-hidden="true" className="w-11 h-11 rounded-xl bg-[#f5f5f7] border border-gray-200 text-[#0071e3] flex items-center justify-center shrink-0">
+                            <Icon size={19} />
+                        </span>
+                    )}
+                    <div className="min-w-0">
+                        <h3 className="text-[15px] font-semibold text-[#1d1d1f] tracking-tight">{title}</h3>
+                        {description && <p className="text-[11px] font-medium text-gray-500 mt-0.5">{description}</p>}
+                    </div>
+                </div>
+                {action}
+            </div>
+            <div className="p-4 sm:p-5">{children}</div>
+        </section>
+    );
+};
+
+/** Sütun grafik: değerler etiketli, ekran okuyucu için metin özet de var */
+const BarChart = ({ data, format = (v) => v.toLocaleString('tr-TR'), summary, color = '#0071e3' }) => {
+    const max = Math.max(...data.map(d => d.value), 0);
+
+    if (!data.length || max === 0) {
+        return (
+            <p className="h-48 flex items-center justify-center text-[13px] font-medium text-gray-400">
+                Bu aralıkta gösterilecek veri yok.
+            </p>
+        );
+    }
+
+    return (
+        <div>
+            <p className="sr-only">{summary}</p>
+            <div aria-hidden="true" className="flex items-end justify-between gap-2 h-48">
+                {data.map((item, idx) => (
+                    <div key={idx} className="flex-1 flex flex-col items-center justify-end gap-2 h-full min-w-0">
+                        <span className="text-[10px] font-bold text-[#1d1d1f] tabular-nums whitespace-nowrap">
+                            {format(item.value)}
+                        </span>
+                        <div
+                            className="w-full rounded-t-lg transition-all duration-500"
+                            style={{ height: `${Math.max((item.value / max) * 100, 2)}%`, backgroundColor: color }}
+                        />
+                        <span className="text-[10px] font-semibold text-gray-500 truncate max-w-full">{item.label}</span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
 const Reports = () => {
-    // eslint-disable-next-line no-unused-vars
-    const { repairs, allTechnicians, earnings, servicePoints, allRepairs, currentUser, visibleServicePoints, satisfactionEntries, addSatisfactionEntry, showToast, selectedStoreId } = useAppContext();
-    // eslint-disable-next-line no-unused-vars
-    const [timeRange, setTimeRange] = useState('monthly');
-    const [activeTab, setActiveTab] = useState('performance'); // 'performance' | 'financial' | 'satisfaction'
+    const {
+        repairs, earnings, servicePoints, currentUser, visibleServicePoints,
+        satisfactionEntries, addSatisfactionEntry, showToast, selectedStoreId
+    } = useAppContext();
+
+    const uid = useId();
+    const [activeTab, setActiveTab] = useState('performance');
+    const [range, setRange] = useState('all');
+    const tabRefs = useRef({});
+
+    // Sekmeler arası ok tuşu gezinmesi (WAI-ARIA tabs deseni)
+    const handleTabKeyDown = (event) => {
+        const index = TABS.findIndex(t => t.id === activeTab);
+        let next = null;
+
+        if (event.key === 'ArrowRight') next = TABS[(index + 1) % TABS.length];
+        else if (event.key === 'ArrowLeft') next = TABS[(index - 1 + TABS.length) % TABS.length];
+        else if (event.key === 'Home') next = TABS[0];
+        else if (event.key === 'End') next = TABS[TABS.length - 1];
+        if (!next) return;
+
+        event.preventDefault();
+        setActiveTab(next.id);
+        tabRefs.current[next.id]?.focus();
+    };
 
     const canViewAllStores = hasPermission(currentUser, 'view_all_stores');
     const todayKey = new Date().toISOString().slice(0, 10);
+    const rangeLabel = RANGES.find(r => r.id === range)?.label || '';
 
-    // Memnuniyet giriş formu
+    // Seçili aralığın başlangıcı (null = sınırsız)
+    const rangeStart = useMemo(() => {
+        const months = RANGES.find(r => r.id === range)?.months;
+        if (!months) return null;
+        const start = new Date();
+        start.setHours(0, 0, 0, 0);
+        if (months === 1) start.setDate(1);
+        else start.setMonth(start.getMonth() - months + 1, 1);
+        return start;
+    }, [range]);
+
+    const inRange = (date) => !rangeStart || (date && date >= rangeStart);
+
+    /* ---------------- Performans ---------------- */
+
+    const scopedRepairs = useMemo(
+        () => (repairs || []).filter(r => inRange(parseRepairDate(r.date || r.createdAt))),
+        [repairs, rangeStart] // eslint-disable-line react-hooks/exhaustive-deps
+    );
+
+    const performance = useMemo(() => {
+        const total = scopedRepairs.length;
+        const completed = scopedRepairs.filter(r => CLOSED_STATUSES.includes(r.status)).length;
+        const scored = scopedRepairs.filter(r => r.feedback?.score);
+
+        const avgRating = scored.length
+            ? (scored.reduce((sum, r) => sum + r.feedback.score, 0) / scored.length)
+            : null;
+
+        const promoters = scored.filter(r => r.feedback.score >= 4).length;
+        const detractors = scored.filter(r => r.feedback.score <= 2).length;
+        const nps = scored.length ? Math.round(((promoters - detractors) / scored.length) * 100) : null;
+
+        // Aynı seri numarası birden fazla kez geldiyse tekrar onarım sayılır
+        const serials = new Map();
+        scopedRepairs.forEach(r => {
+            if (r.serial) serials.set(r.serial, (serials.get(r.serial) || 0) + 1);
+        });
+        const reRepairCount = [...serials.values()].filter(count => count > 1).length;
+        const reRepairRate = total > 0 ? Math.round((reRepairCount / total) * 100) : 0;
+
+        // Puan dağılımı (gerçek geri bildirimlerden)
+        const distribution = [5, 4, 3, 2, 1].map(star => {
+            const count = scored.filter(r => r.feedback.score === star).length;
+            return { star, count, pct: scored.length ? Math.round((count / scored.length) * 100) : 0 };
+        });
+
+        // Son 7 günün kapanan iş sayısı
+        const days = [];
+        for (let i = 6; i >= 0; i -= 1) {
+            const day = new Date();
+            day.setHours(0, 0, 0, 0);
+            day.setDate(day.getDate() - i);
+            const next = new Date(day);
+            next.setDate(next.getDate() + 1);
+
+            const value = (repairs || []).filter(r => {
+                if (!CLOSED_STATUSES.includes(r.status)) return false;
+                const closed = parseRepairDate(r.completedAt)
+                    || parseRepairDate((r.history || []).find(h => CLOSED_STATUSES.includes(h.status))?.date);
+                return closed && closed >= day && closed < next;
+            }).length;
+
+            days.push({ label: day.toLocaleDateString('tr-TR', { weekday: 'short' }), value });
+        }
+
+        return {
+            total, completed, avgRating, nps, reRepairCount, reRepairRate,
+            scoredCount: scored.length, distribution, days,
+            completionRate: total ? Math.round((completed / total) * 100) : 0
+        };
+    }, [scopedRepairs, repairs]);
+
+    /* ---------------- Finansal ---------------- */
+
+    const financial = useMemo(() => {
+        const scopedEarnings = (earnings || []).filter(e => inRange(monthToDate(e.month)));
+        const totalRevenue = scopedEarnings.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+
+        // Maliyet modeli tahminidir: ciro üzerinden sabit oranla hesaplanır
+        const estimatedCost = totalRevenue * 0.45;
+        const totalProfit = totalRevenue - estimatedCost;
+        const margin = totalRevenue ? Math.round((totalProfit / totalRevenue) * 100) : 0;
+        const totalTax = totalRevenue * 0.20;
+
+        // Aylık ciro (gerçek kayıtlardan)
+        const byMonth = new Map();
+        scopedEarnings.forEach(e => {
+            const date = monthToDate(e.month);
+            if (!date) return;
+            const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+            byMonth.set(key, (byMonth.get(key) || 0) + (Number(e.amount) || 0));
+        });
+
+        const monthlyTrend = [...byMonth.entries()]
+            .sort((a, b) => a[0].localeCompare(b[0]))
+            .slice(-12)
+            .map(([key, value]) => ({ key, label: monthLabel(monthToDate(key)), value }));
+
+        // Son iki ay karşılaştırması
+        const last = monthlyTrend[monthlyTrend.length - 1];
+        const prev = monthlyTrend[monthlyTrend.length - 2];
+        const monthOverMonth = last && prev && prev.value
+            ? Math.round(((last.value - prev.value) / prev.value) * 100)
+            : null;
+
+        const storeRevenue = (servicePoints || []).map(sp => ({
+            id: sp.id,
+            name: sp.name,
+            value: scopedEarnings
+                .filter(e => String(e.storeId) === String(sp.id))
+                .reduce((sum, e) => sum + (Number(e.amount) || 0), 0)
+        })).filter(sp => sp.value > 0).sort((a, b) => b.value - a.value);
+
+        // Ürün grubu kırılımı onarım kayıtlarındaki tutarlardan gelir
+        const byGroup = new Map();
+        scopedRepairs.forEach(r => {
+            const amount = repairAmount(r);
+            if (!amount) return;
+            const key = r.productGroup || 'unknown';
+            byGroup.set(key, (byGroup.get(key) || 0) + amount);
+        });
+
+        const groupTotal = [...byGroup.values()].reduce((sum, value) => sum + value, 0);
+        const categoryRevenue = [...byGroup.entries()]
+            .map(([key, value]) => ({
+                key,
+                name: PRODUCT_LABELS[key] || key,
+                value,
+                share: groupTotal ? Math.round((value / groupTotal) * 100) : 0
+            }))
+            .sort((a, b) => b.value - a.value);
+
+        return {
+            totalRevenue, totalProfit, totalTax, margin, monthlyTrend, monthOverMonth,
+            storeRevenue, categoryRevenue, groupTotal,
+            perRepair: scopedRepairs.length ? totalRevenue / scopedRepairs.length : 0,
+            recordCount: scopedEarnings.length
+        };
+    }, [earnings, servicePoints, scopedRepairs, rangeStart]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    /* ---------------- Memnuniyet ---------------- */
+
     const [satForm, setSatForm] = useState({
         storeId: (selectedStoreId && selectedStoreId !== 0) ? selectedStoreId : (currentUser?.storeId || ''),
         date: todayKey,
@@ -42,9 +339,52 @@ const Reports = () => {
         dissatisfied: ''
     });
     const [savingSat, setSavingSat] = useState(false);
+    const [satStoreFilter, setSatStoreFilter] = useState('all');
 
     const liveRate = calcRate(satForm.satisfied, satForm.neutral, satForm.dissatisfied);
     const liveTheme = getSatisfactionTheme(liveRate);
+
+    const scopedEntries = useMemo(() => {
+        const list = (satisfactionEntries || [])
+            .filter(e => inRange(parseRepairDate(e.date)))
+            .filter(e => satStoreFilter === 'all' || String(e.storeId) === String(satStoreFilter));
+
+        return [...list].sort((a, b) => String(b.date).localeCompare(String(a.date)));
+    }, [satisfactionEntries, rangeStart, satStoreFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const satisfactionSummary = useMemo(() => {
+        const totals = scopedEntries.reduce((acc, e) => {
+            acc.s += e.satisfied || 0; acc.n += e.neutral || 0; acc.d += e.dissatisfied || 0;
+            return acc;
+        }, { s: 0, n: 0, d: 0 });
+
+        const byStore = new Map();
+        scopedEntries.forEach(e => {
+            const current = byStore.get(String(e.storeId)) || { s: 0, n: 0, d: 0 };
+            current.s += e.satisfied || 0;
+            current.n += e.neutral || 0;
+            current.d += e.dissatisfied || 0;
+            byStore.set(String(e.storeId), current);
+        });
+
+        const storeRates = [...byStore.entries()].map(([sid, t]) => ({
+            storeId: sid,
+            name: servicePoints.find(sp => String(sp.id) === String(sid))?.name || `Mağaza ${sid}`,
+            rate: calcRate(t.s, t.n, t.d),
+            total: t.s + t.n + t.d
+        })).sort((a, b) => (b.rate ?? -1) - (a.rate ?? -1));
+
+        // Son 10 günün oran seyri (eskiden yeniye)
+        const trend = [...scopedEntries]
+            .slice(0, 10)
+            .reverse()
+            .map(e => ({
+                label: new Date(e.date).toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit' }),
+                value: calcRate(e.satisfied, e.neutral, e.dissatisfied) || 0
+            }));
+
+        return { totals, overallRate: calcRate(totals.s, totals.n, totals.d), storeRates, trend };
+    }, [scopedEntries, servicePoints]);
 
     const handleSaveSatisfaction = async () => {
         const store = canViewAllStores ? satForm.storeId : (currentUser?.storeId || '');
@@ -61,6 +401,7 @@ const Reports = () => {
             showToast('En az bir müşteri adedi girmelisiniz.', 'warning');
             return;
         }
+
         setSavingSat(true);
         const ok = await addSatisfactionEntry({
             storeId: Number(store),
@@ -70,527 +411,619 @@ const Reports = () => {
             dissatisfied: Number(satForm.dissatisfied) || 0
         });
         setSavingSat(false);
+
         if (ok) {
             showToast('Günlük memnuniyet verisi kaydedildi.', 'success');
             setSatForm(f => ({ ...f, satisfied: '', neutral: '', dissatisfied: '' }));
         }
     };
 
-    // Memnuniyet özeti (dönem geneli + mağaza bazlı)
-    const satisfactionSummary = useMemo(() => {
-        const list = satisfactionEntries || [];
-        const totals = list.reduce((acc, e) => {
-            acc.s += e.satisfied || 0; acc.n += e.neutral || 0; acc.d += e.dissatisfied || 0;
-            return acc;
-        }, { s: 0, n: 0, d: 0 });
-        const overallRate = calcRate(totals.s, totals.n, totals.d);
+    /* ---------------- Dışa aktarma ---------------- */
 
-        // Mağaza bazlı ortalama
-        const byStore = {};
-        list.forEach(e => {
-            if (!byStore[e.storeId]) byStore[e.storeId] = { s: 0, n: 0, d: 0 };
-            byStore[e.storeId].s += e.satisfied || 0;
-            byStore[e.storeId].n += e.neutral || 0;
-            byStore[e.storeId].d += e.dissatisfied || 0;
-        });
-        const storeRates = Object.entries(byStore).map(([sid, t]) => ({
-            storeId: sid,
-            name: servicePoints.find(sp => String(sp.id) === String(sid))?.name || `Mağaza ${sid}`,
-            rate: calcRate(t.s, t.n, t.d),
-            total: t.s + t.n + t.d
-        })).sort((a, b) => (b.rate ?? -1) - (a.rate ?? -1));
+    const handleExport = () => {
+        const stamp = new Date().toISOString().slice(0, 10);
 
-        return { totals, overallRate, storeRates };
-    }, [satisfactionEntries, servicePoints]);
+        if (activeTab === 'performance') {
+            const rows = [
+                ['Metrik', 'Değer'],
+                ['Aralık', rangeLabel],
+                ['Toplam kayıt', performance.total],
+                ['Kapanan kayıt', performance.completed],
+                ['Kapanma oranı (%)', performance.completionRate],
+                ['Ortalama puan', performance.avgRating != null ? performance.avgRating.toFixed(1) : '—'],
+                ['NPS', performance.nps != null ? performance.nps : '—'],
+                ['Tekrar onarım oranı (%)', performance.reRepairRate],
+                [],
+                ['Puan', 'Adet', 'Yüzde'],
+                ...performance.distribution.map(d => [`${d.star} yıldız`, d.count, `%${d.pct}`])
+            ];
+            downloadCsv(`performans-raporu-${stamp}.csv`, rows);
+        } else if (activeTab === 'financial') {
+            const rows = [
+                ['Metrik', 'Değer'],
+                ['Aralık', rangeLabel],
+                ['Toplam ciro', financial.totalRevenue],
+                ['Net kâr (tahmini)', Math.round(financial.totalProfit)],
+                ['KDV (%20)', Math.round(financial.totalTax)],
+                ['Onarım başına ortalama', Math.round(financial.perRepair)],
+                [],
+                ['Ay', 'Ciro'],
+                ...financial.monthlyTrend.map(m => [m.key, m.value]),
+                [],
+                ['Mağaza', 'Ciro'],
+                ...financial.storeRevenue.map(s => [s.name, s.value]),
+                [],
+                ['Ürün grubu', 'Tutar', 'Pay'],
+                ...financial.categoryRevenue.map(c => [c.name, c.value, `%${c.share}`])
+            ];
+            downloadCsv(`finansal-rapor-${stamp}.csv`, rows);
+        } else {
+            const rows = [
+                ['Tarih', 'Mağaza', 'Memnun', 'Nötr', 'Memnun değil', 'Toplam', 'Oran'],
+                ...scopedEntries.map(e => {
+                    const total = (e.satisfied || 0) + (e.neutral || 0) + (e.dissatisfied || 0);
+                    const rate = calcRate(e.satisfied, e.neutral, e.dissatisfied);
+                    return [
+                        e.date,
+                        servicePoints.find(s => String(s.id) === String(e.storeId))?.name || `Mağaza ${e.storeId}`,
+                        e.satisfied || 0, e.neutral || 0, e.dissatisfied || 0, total,
+                        rate != null ? `%${rate}` : '—'
+                    ];
+                })
+            ];
+            downloadCsv(`memnuniyet-raporu-${stamp}.csv`, rows);
+        }
 
-    // --- FINANCIAL CALCULATIONS ---
-    const financialStats = useMemo(() => {
-        const totalRevenue = earnings.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
-        
-        // Mock cost calculation (40% of revenue for parts, 10% for overhead)
-        const totalCost = earnings.reduce((acc, curr) => {
-            const cost = curr.type === 'Part' ? curr.amount * 0.6 : curr.amount * 0.2;
-            return acc + cost;
-        }, 0);
-        
-        const totalProfit = totalRevenue - totalCost;
-        const totalTax = totalRevenue * 0.20; // 20% KDV
+        showToast('Rapor CSV olarak indirildi.', 'success');
+    };
 
-        // Revenue by Store
-        const storeRevenue = servicePoints.map(sp => {
-            const amount = earnings
-                .filter(e => String(e.storeId) === String(sp.id))
-                .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
-            return { name: sp.name, value: amount };
-        }).sort((a,b) => b.value - a.value);
-
-        // Revenue by Category (Derived from repairs linked to earnings)
-        const catMap = {};
-        earnings.forEach(e => {
-            const repair = allRepairs.find(r => r.id === e.repairId);
-            const cat = repair?.productGroup || 'Diğer';
-            catMap[cat] = (catMap[cat] || 0) + (Number(e.amount) || 0);
-        });
-        const categoryRevenue = Object.entries(catMap).map(([name, value]) => ({ name, value }));
-
-        // Monthly Trend (Last 6 months mock)
-        const monthlyTrend = [
-            { label: 'Oca', value: totalRevenue * 0.8 },
-            { label: 'Şub', value: totalRevenue * 0.85 },
-            { label: 'Mar', value: totalRevenue * 0.95 },
-            { label: 'Nis', value: totalRevenue * 0.9 },
-            { label: 'May', value: totalRevenue },
-        ];
-
-        return {
-            totalRevenue,
-            totalProfit,
-            totalTax,
-            storeRevenue,
-            categoryRevenue,
-            monthlyTrend
-        };
-    }, [earnings, servicePoints, allRepairs]);
-
-    // --- PERFORMANCE CALCULATIONS (Existing) ---
-    const stats = useMemo(() => {
-        const totalRepairCount = repairs.length;
-        const completedRepairs = repairs.filter(r => ['Tamamlandı', 'Teslim Edildi', 'Cihaz Hazır'].includes(r.status)).length;
-        const feedbackRepairs = repairs.filter(r => r.feedback && r.feedback.score);
-        const totalScore = feedbackRepairs.reduce((acc, r) => acc + (r.feedback.score || 0), 0);
-        const avgRating = feedbackRepairs.length > 0 ? (totalScore / feedbackRepairs.length).toFixed(1) : '5.0';
-        
-        const promoters = feedbackRepairs.filter(r => r.feedback.score >= 4).length;
-        const detractors = feedbackRepairs.filter(r => r.feedback.score <= 2).length;
-        const npsScore = feedbackRepairs.length > 0 ? Math.round(((promoters - detractors) / feedbackRepairs.length) * 100) : 100;
-
-        const serials = {};
-        repairs.forEach(r => { if (r.serial) serials[r.serial] = (serials[r.serial] || 0) + 1; });
-        const reRepairCount = Object.values(serials).filter(count => count > 1).length;
-        const reRepairRate = totalRepairCount > 0 ? Math.round((reRepairCount / totalRepairCount) * 100) : 0;
-
-        return { totalRepairCount, completedRepairs, avgRating, npsScore, reRepairRate };
-    }, [repairs]);
+    const overallTheme = getSatisfactionTheme(satisfactionSummary.overallRate);
+    const fieldClass = 'w-full px-4 py-3 bg-[#f5f5f7] border border-gray-200 rounded-xl text-sm font-semibold text-[#1d1d1f] outline-none transition-all focus:bg-white focus:border-[#0071e3] focus-visible:ring-4 focus-visible:ring-[#0071e3]/20';
+    const labelClass = 'block text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-2 ml-0.5';
 
     return (
-        <div className="page-scroll space-y-8 animate-fade-in pr-1">
-            {/* GSX Header */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 py-4 border-b border-gray-100 mb-6">
-                <div>
-                    <nav className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
+        <div className="page-shell animate-fade-in">
+            {/* Başlık */}
+            <div className="shrink-0 flex flex-col xl:flex-row xl:items-end justify-between gap-4 pb-4 border-b border-gray-100">
+                <div className="min-w-0">
+                    <nav className="flex items-center gap-2 text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">
                         <span>Yönetim</span>
-                        <ChevronDown size={10} />
+                        <ChevronRight size={10} aria-hidden="true" />
                         <span className="text-[#0071e3]">Analiz & Raporlar</span>
                     </nav>
                     <h1 className="text-3xl font-bold text-[#1d1d1f] tracking-tight">Kurumsal Raporlama Merkezi</h1>
+                    <p className="text-sm text-gray-500 mt-1">
+                        Operasyon, ciro ve memnuniyet verilerini tek yerden izleyin. Tüm sayılar seçili aralığa göre hesaplanır.
+                    </p>
                 </div>
 
-                <div className="flex items-center gap-3">
-                    <div className="flex bg-[#f5f5f7] p-1 rounded-xl border border-gray-200">
-                        <button 
-                            onClick={() => setActiveTab('performance')}
-                            className={`px-6 py-2 rounded-lg text-[11px] font-bold uppercase transition-all ${activeTab === 'performance' ? 'bg-white text-[#1d1d1f] shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
-                        >
-                            Performans
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('financial')}
-                            className={`px-6 py-2 rounded-lg text-[11px] font-bold uppercase transition-all ${activeTab === 'financial' ? 'bg-white text-[#1d1d1f] shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
-                        >
-                            Finansal
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('satisfaction')}
-                            className={`px-6 py-2 rounded-lg text-[11px] font-bold uppercase transition-all ${activeTab === 'satisfaction' ? 'bg-white text-[#1d1d1f] shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
-                        >
-                            Memnuniyet
-                        </button>
+                <div className="flex flex-wrap items-center gap-3">
+                    <div role="group" aria-label="Rapor aralığı" className="flex items-center gap-1 bg-[#f5f5f7] p-1 rounded-xl border border-gray-200/70">
+                        {RANGES.map(option => (
+                            <button
+                                key={option.id}
+                                type="button"
+                                onClick={() => setRange(option.id)}
+                                aria-pressed={range === option.id}
+                                className={`h-9 px-3 rounded-lg text-[12px] font-semibold transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25 ${range === option.id
+                                    ? 'bg-white text-[#1d1d1f] shadow-sm'
+                                    : 'text-gray-500 hover:text-[#1d1d1f]'}`}
+                            >
+                                {option.label}
+                            </button>
+                        ))}
                     </div>
-                    <button className="h-10 px-4 bg-[#1d1d1f] text-white rounded-xl text-[11px] font-bold uppercase tracking-wider hover:bg-black transition-all flex items-center gap-2 shadow-lg shadow-black/10">
-                        <Download size={16} /> DIŞA AKTAR
+
+                    <button
+                        type="button"
+                        onClick={handleExport}
+                        className="inline-flex items-center gap-2 h-11 px-5 bg-white border border-gray-200 rounded-xl hover:bg-[#f5f5f7] text-[#1d1d1f] text-[13px] font-semibold transition-all shadow-sm outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
+                    >
+                        <Download size={16} aria-hidden="true" /> CSV İndir
                     </button>
                 </div>
             </div>
 
-            {activeTab === 'performance' && (
-                <>
-                    {/* Performance Summary */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div className="bg-white rounded-[32px] p-8 border border-gray-200 shadow-sm relative overflow-hidden group hover:border-[#0071e3] transition-all">
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50 rounded-bl-full -mr-16 -mt-16 opacity-50 group-hover:bg-[#0071e3]/10 transition-colors"></div>
-                            <Star size={24} className="text-[#0071e3] mb-6" />
-                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Müşteri Memnuniyeti</p>
-                            <div className="flex items-baseline gap-2">
-                                <h3 className="text-4xl font-black text-[#1d1d1f]">{stats.avgRating}</h3>
-                                <span className="text-xs text-gray-400 font-bold">/ 5.0</span>
-                            </div>
-                            <div className="mt-4 flex items-center gap-2">
-                                <div className="flex gap-0.5">
-                                    {[1, 2, 3, 4, 5].map(i => <Star key={i} size={10} className={i <= Math.round(stats.avgRating) ? "fill-[#0071e3] text-[#0071e3]" : "text-gray-200"} />)}
-                                </div>
-                                <span className="text-[10px] font-bold text-green-600 uppercase">NPS: {stats.npsScore}</span>
-                            </div>
+            {/* Sekmeler — ok tuşlarıyla gezinilir (roving tabindex) */}
+            <div
+                role="tablist"
+                aria-label="Rapor türü"
+                className="shrink-0 flex items-center gap-1 pt-4"
+                onKeyDown={handleTabKeyDown}
+            >
+                {TABS.map(tab => (
+                    <button
+                        key={tab.id}
+                        type="button"
+                        role="tab"
+                        ref={el => { tabRefs.current[tab.id] = el; }}
+                        id={`${uid}-tab-${tab.id}`}
+                        aria-selected={activeTab === tab.id}
+                        aria-controls={`${uid}-panel-${tab.id}`}
+                        tabIndex={activeTab === tab.id ? 0 : -1}
+                        onClick={() => setActiveTab(tab.id)}
+                        className={`h-10 px-5 rounded-t-xl text-[13px] font-semibold border-b-2 transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25 ${activeTab === tab.id
+                            ? 'border-[#0071e3] text-[#0071e3]'
+                            : 'border-transparent text-gray-500 hover:text-[#1d1d1f]'}`}
+                    >
+                        {tab.label}
+                    </button>
+                ))}
+            </div>
+
+            <div className="page-scroll py-5 pr-1">
+                {/* ---------- Performans ---------- */}
+                {activeTab === 'performance' && (
+                    <div
+                        role="tabpanel"
+                        id={`${uid}-panel-performance`}
+                        aria-labelledby={`${uid}-tab-performance`}
+                        className="space-y-4"
+                    >
+                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                            <StatCard
+                                icon={Star}
+                                label="Ortalama Puan"
+                                value={performance.avgRating != null ? `${performance.avgRating.toFixed(1)} / 5` : '—'}
+                                hint={performance.scoredCount ? `${performance.scoredCount} değerlendirme` : 'Değerlendirme yok'}
+                                tone="text-[#0071e3] bg-[#e8f2ff]"
+                            />
+                            <StatCard
+                                icon={Award}
+                                label="NPS"
+                                value={performance.nps != null ? performance.nps : '—'}
+                                hint="Tavsiye skoru"
+                                tone={performance.nps != null && performance.nps >= 0 ? 'text-[#1e7e34] bg-[#e6f4ea]' : 'text-gray-500 bg-gray-50'}
+                            />
+                            <StatCard
+                                icon={CheckCircle}
+                                label="Kapanan İş"
+                                value={performance.completed}
+                                hint={`${performance.total} kayıttan · %${performance.completionRate}`}
+                                tone="text-[#1e7e34] bg-[#e6f4ea]"
+                            />
+                            <StatCard
+                                icon={AlertTriangle}
+                                label="Tekrar Onarım"
+                                value={`%${performance.reRepairRate}`}
+                                hint={`${performance.reRepairCount} cihaz tekrar geldi`}
+                                tone={performance.reRepairRate > 10 ? 'text-[#e30000] bg-[#e30000]/8' : 'text-[#b25e00] bg-[#fff4e5]'}
+                            />
                         </div>
 
-                        <div className="bg-white rounded-[32px] p-8 border border-gray-200 shadow-sm group hover:border-orange-500 transition-all">
-                            <Clock size={24} className="text-orange-500 mb-6" />
-                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Operasyonel Verimlilik</p>
-                            <h3 className="text-4xl font-black text-[#1d1d1f]">{stats.completedRepairs} <span className="text-xs text-gray-400">TESLİMAT</span></h3>
-                            <p className="text-[10px] text-gray-400 font-bold mt-4 uppercase tracking-tighter flex items-center gap-1">
-                                <ArrowUpRight size={12} className="text-green-500" /> Toplam {stats.totalRepairCount} Kayıttan
-                            </p>
-                        </div>
-
-                        <div className="bg-white rounded-[32px] p-8 border border-gray-200 shadow-sm group hover:border-red-500 transition-all">
-                            <AlertTriangle size={24} className="text-red-500 mb-6" />
-                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Kalite Kontrol (Re-Repair)</p>
-                            <h3 className="text-4xl font-black text-[#1d1d1f]">%{stats.reRepairRate}</h3>
-                            <p className="text-[10px] text-red-500 font-bold mt-4 uppercase tracking-tighter">Tekrarlanan Onarım Oranı</p>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        <div className="bg-white rounded-[32px] border border-gray-200 p-8 shadow-sm">
-                            <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-8">Günlük Hizmet Kalitesi Trendi</h3>
-                            <div className="h-64">
-                                <ReportChart data={[
-                                    { label: 'Pzt', value: 85 }, { label: 'Sal', value: 92 }, { label: 'Çar', value: 78 },
-                                    { label: 'Per', value: 95 }, { label: 'Cum', value: 88 }, { label: 'Cmt', value: 98 }, { label: 'Paz', value: 90 }
-                                ]} color="#0071e3" />
-                            </div>
-                        </div>
-                        <div className="bg-white rounded-[32px] border border-gray-200 p-8 shadow-sm">
-                            <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-8">Puan Dağılım Analizi</h3>
-                            <div className="space-y-6">
-                                {[5,4,3,2,1].map(star => (
-                                    <div key={star} className="flex items-center gap-4">
-                                        <span className="text-[10px] font-bold text-gray-400 w-12 uppercase">{star} YILDIZ</span>
-                                        <div className="flex-1 h-2 bg-[#f5f5f7] rounded-full overflow-hidden">
-                                            <div className="h-full bg-[#0071e3] rounded-full" style={{ width: `${star === 5 ? 75 : star === 4 ? 15 : 5}%` }}></div>
-                                        </div>
-                                        <span className="text-[10px] font-black text-[#1d1d1f]">%{star === 5 ? 75 : star === 4 ? 15 : 5}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                </>
-            )}
-
-            {activeTab === 'financial' && (
-                <>
-                    {/* Financial Summary */}
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                        <div className="bg-[#1d1d1f] rounded-[32px] p-8 text-white shadow-2xl relative overflow-hidden group">
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-bl-full -mr-16 -mt-16"></div>
-                            <DollarSign size={24} className="text-blue-400 mb-6" />
-                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Toplam Ciro</p>
-                            <h3 className="text-3xl font-black italic">₺{financialStats.totalRevenue.toLocaleString('tr-TR')}</h3>
-                            <p className="text-[10px] text-green-400 font-bold mt-4 uppercase flex items-center gap-1">
-                                <ArrowUpRight size={12} /> Geçen Aya Göre %12 Artış
-                            </p>
-                        </div>
-
-                        <div className="bg-white rounded-[32px] p-8 border border-gray-200 shadow-sm group hover:border-green-500 transition-all">
-                            <TrendingUp size={24} className="text-green-500 mb-6" />
-                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Net Kâr (Tahmini)</p>
-                            <h3 className="text-3xl font-black text-[#1d1d1f]">₺{financialStats.totalProfit.toLocaleString('tr-TR')}</h3>
-                            <div className="mt-4 h-1 w-full bg-gray-100 rounded-full overflow-hidden">
-                                <div className="h-full bg-green-500" style={{ width: '65%' }}></div>
-                            </div>
-                        </div>
-
-                        <div className="bg-white rounded-[32px] p-8 border border-gray-200 shadow-sm group hover:border-purple-500 transition-all">
-                            <Wallet size={24} className="text-purple-500 mb-6" />
-                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">KDV Toplamı (%20)</p>
-                            <h3 className="text-3xl font-black text-[#1d1d1f]">₺{financialStats.totalTax.toLocaleString('tr-TR')}</h3>
-                            <p className="text-[10px] text-gray-400 font-bold mt-4 uppercase">Yasal Vergi Yükümlülüğü</p>
-                        </div>
-
-                        <div className="bg-white rounded-[32px] p-8 border border-gray-200 shadow-sm group hover:border-orange-500 transition-all">
-                            <ShoppingCart size={24} className="text-orange-500 mb-6" />
-                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Ort. Onarım Başına</p>
-                            <h3 className="text-3xl font-black text-[#1d1d1f]">₺{Math.round(financialStats.totalRevenue / (repairs.length || 1)).toLocaleString('tr-TR')}</h3>
-                            <p className="text-[10px] text-gray-400 font-bold mt-4 uppercase">Birim Başına Ciro</p>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-8">
-                        {/* Revenue Chart */}
-                        <div className="bg-white rounded-[32px] border border-gray-200 p-8 shadow-sm">
-                            <div className="flex justify-between items-center mb-10">
-                                <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest">Ciro Gelişim Trendi</h3>
-                                <div className="flex items-center gap-4">
-                                    <div className="flex items-center gap-1.5">
-                                        <div className="w-2 h-2 rounded-full bg-[#0071e3]"></div>
-                                        <span className="text-[10px] font-bold text-gray-500 uppercase">Gelir</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="h-72">
-                                <ReportChart data={financialStats.monthlyTrend} color="#0071e3" />
-                            </div>
-                        </div>
-
-                        {/* Store Revenue Breakdown */}
-                        <div className="bg-white rounded-[32px] border border-gray-200 p-8 shadow-sm flex flex-col">
-                            <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-8">Mağaza Bazlı Ciro Dağılımı</h3>
-                            <div className="flex-1 space-y-6">
-                                {financialStats.storeRevenue.map((sp, idx) => (
-                                    <div key={idx} className="space-y-2">
-                                        <div className="flex justify-between items-center">
-                                            <div className="flex items-center gap-2">
-                                                <MapPin size={12} className="text-gray-400" />
-                                                <span className="text-xs font-bold text-[#1d1d1f]">{sp.name}</span>
-                                            </div>
-                                            <span className="text-xs font-black text-[#1d1d1f]">₺{sp.value.toLocaleString('tr-TR')}</span>
-                                        </div>
-                                        <div className="h-2 bg-[#f5f5f7] rounded-full overflow-hidden">
-                                            <div className="h-full bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full" style={{ width: `${(sp.value / (financialStats.totalRevenue || 1)) * 100}%` }}></div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Category Analysis */}
-                    <div className="bg-white rounded-[32px] border border-gray-200 p-10 shadow-sm">
-                        <div className="flex items-center gap-4 mb-10">
-                            <div className="p-3 bg-[#f5f5f7] rounded-xl text-[#0071e3]">
-                                <PieChart size={24} />
-                            </div>
-                            <div>
-                                <h3 className="text-lg font-bold text-[#1d1d1f]">Ürün Grubu Analizi</h3>
-                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Hangi ürün grubu daha çok kazandırıyor?</p>
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-5 gap-8">
-                            {financialStats.categoryRevenue.map((cat, idx) => (
-                                <div key={idx} className="p-6 bg-[#f5f5f7] rounded-[24px] border border-transparent hover:border-[#0071e3] hover:bg-white transition-all group">
-                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1 group-hover:text-[#0071e3]">{cat.name}</p>
-                                    <h4 className="text-xl font-black text-[#1d1d1f]">₺{cat.value.toLocaleString('tr-TR')}</h4>
-                                    <div className="mt-4 text-[9px] font-bold text-gray-400 uppercase flex items-center justify-between">
-                                        <span>Pazar Payı</span>
-                                        <span className="text-[#1d1d1f]">%{Math.round((cat.value / (financialStats.totalRevenue || 1)) * 100)}</span>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </>
-            )}
-
-            {activeTab === 'satisfaction' && (
-                <>
-                    <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-8">
-                        {/* Veri Girişi */}
-                        <div className="bg-white rounded-[32px] border border-gray-200 p-8 shadow-sm">
-                            <div className="flex items-center gap-4 mb-8">
-                                <div className="p-3 bg-[#f5f5f7] rounded-xl text-[#0071e3]"><Smile size={24} /></div>
-                                <div>
-                                    <h3 className="text-lg font-bold text-[#1d1d1f]">Günlük Memnuniyet Girişi</h3>
-                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Kendi mağazanızın günlük verisi</p>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                                <div>
-                                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Mağaza</label>
-                                    {canViewAllStores ? (
-                                        <select
-                                            className="w-full px-4 py-3 bg-[#f5f5f7] border border-transparent rounded-xl text-sm font-semibold text-[#1d1d1f] focus:bg-white focus:ring-2 focus:ring-[#0071e3]/10 focus:border-[#0071e3] outline-none transition-all appearance-none"
-                                            value={satForm.storeId}
-                                            onChange={(e) => setSatForm({ ...satForm, storeId: e.target.value })}
-                                        >
-                                            <option value="">Mağaza Seçiniz...</option>
-                                            {visibleServicePoints.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                                        </select>
-                                    ) : (
-                                        <div className="w-full px-4 py-3 bg-[#f5f5f7] rounded-xl text-sm font-bold text-[#1d1d1f] flex items-center gap-2">
-                                            <Store size={14} className="text-gray-400" />
-                                            {servicePoints.find(s => String(s.id) === String(currentUser?.storeId))?.name || 'Mağazanız'}
-                                        </div>
-                                    )}
-                                </div>
-                                <div>
-                                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Tarih</label>
-                                    <input
-                                        type="date" max={todayKey}
-                                        className="w-full px-4 py-3 bg-[#f5f5f7] border border-transparent rounded-xl text-sm font-semibold text-[#1d1d1f] focus:bg-white focus:ring-2 focus:ring-[#0071e3]/10 focus:border-[#0071e3] outline-none transition-all"
-                                        value={satForm.date}
-                                        onChange={(e) => setSatForm({ ...satForm, date: e.target.value })}
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-3 gap-4 mb-6">
-                                {[
-                                    { key: 'satisfied', label: 'Memnun', icon: Smile, color: 'text-emerald-600', ring: 'focus:ring-emerald-500/20 focus:border-emerald-500' },
-                                    { key: 'neutral', label: 'Nötr', icon: Meh, color: 'text-amber-600', ring: 'focus:ring-amber-500/20 focus:border-amber-500' },
-                                    { key: 'dissatisfied', label: 'Memnun Değil', icon: Frown, color: 'text-red-600', ring: 'focus:ring-red-500/20 focus:border-red-500' }
-                                ].map(f => (
-                                    <div key={f.key} className="bg-[#f5f5f7] rounded-2xl p-4 border border-gray-100">
-                                        <div className={`flex items-center gap-1.5 mb-2 ${f.color}`}>
-                                            <f.icon size={16} />
-                                            <span className="text-[10px] font-bold uppercase tracking-tight">{f.label}</span>
-                                        </div>
-                                        <input
-                                            type="number" min="0" placeholder="0"
-                                            className={`w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-2xl font-black text-[#1d1d1f] outline-none transition-all ${f.ring}`}
-                                            value={satForm[f.key]}
-                                            onChange={(e) => setSatForm({ ...satForm, [f.key]: e.target.value })}
-                                        />
-                                    </div>
-                                ))}
-                            </div>
-
-                            <div className={`flex items-center justify-between p-4 rounded-2xl border ${liveTheme.bg} ${liveTheme.border} mb-6`}>
-                                <div className="flex items-center gap-3">
-                                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Hesaplanan Memnuniyet</span>
-                                    {liveRate !== null && <span className={`text-[9px] font-black px-2 py-0.5 rounded uppercase ${liveTheme.bg} ${liveTheme.text} border ${liveTheme.border}`}>{liveTheme.label}</span>}
-                                </div>
-                                <span className={`text-3xl font-black ${liveTheme.text}`}>{liveRate !== null ? `%${liveRate}` : '—'}</span>
-                            </div>
-
-                            <button
-                                onClick={handleSaveSatisfaction}
-                                disabled={savingSat}
-                                className="w-full bg-[#0071e3] hover:bg-[#0077ed] text-white font-bold py-3.5 rounded-2xl shadow-lg shadow-[#0071e3]/20 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                            <Panel
+                                title="Son 7 Günde Kapanan İş"
+                                description="Teslim, tamamlandı ve iade kayıtlarının günlük dağılımı"
+                                icon={Clock}
                             >
-                                <Save size={18} /> {savingSat ? 'Kaydediliyor...' : 'Günlük Veriyi Kaydet'}
-                            </button>
-                            <p className="text-[10px] text-gray-400 font-medium mt-3 text-center">Aynı gün için tekrar kayıt, o günün verisini günceller. Eşik: %90 altı sarı, %80 altı kırmızı.</p>
+                                <BarChart
+                                    data={performance.days}
+                                    summary={`Son yedi gün kapanan iş sayıları: ${performance.days.map(d => `${d.label} ${d.value}`).join(', ')}`}
+                                />
+                            </Panel>
+
+                            <Panel
+                                title="Puan Dağılımı"
+                                description={performance.scoredCount
+                                    ? `${performance.scoredCount} müşteri değerlendirmesi`
+                                    : 'Henüz müşteri değerlendirmesi yok'}
+                                icon={Star}
+                            >
+                                {performance.scoredCount === 0 ? (
+                                    <p className="py-10 text-center text-[13px] font-medium text-gray-400">
+                                        Bu aralıkta puanlanmış kayıt bulunmuyor.
+                                    </p>
+                                ) : (
+                                    <ul className="list-none p-0 m-0 space-y-3">
+                                        {performance.distribution.map(row => (
+                                            <li key={row.star} className="flex items-center gap-3">
+                                                <span className="w-16 shrink-0 text-[11px] font-bold text-gray-500 uppercase tracking-wide">
+                                                    {row.star} yıldız
+                                                </span>
+                                                <div
+                                                    role="progressbar"
+                                                    aria-valuenow={row.pct}
+                                                    aria-valuemin={0}
+                                                    aria-valuemax={100}
+                                                    aria-label={`${row.star} yıldız oranı`}
+                                                    className="flex-1 h-2 bg-[#f5f5f7] border border-gray-200 rounded-full overflow-hidden"
+                                                >
+                                                    <div className="h-full bg-[#0071e3] rounded-full" style={{ width: `${row.pct}%` }} />
+                                                </div>
+                                                <span className="w-20 text-right text-[12px] font-bold text-[#1d1d1f] tabular-nums">
+                                                    {row.count} · %{row.pct}
+                                                </span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </Panel>
+                        </div>
+                    </div>
+                )}
+
+                {/* ---------- Finansal ---------- */}
+                {activeTab === 'financial' && (
+                    <div
+                        role="tabpanel"
+                        id={`${uid}-panel-financial`}
+                        aria-labelledby={`${uid}-tab-financial`}
+                        className="space-y-4"
+                    >
+                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                            <StatCard
+                                icon={DollarSign}
+                                label="Toplam Ciro"
+                                value={money(financial.totalRevenue)}
+                                tone="text-[#0071e3] bg-[#e8f2ff]"
+                                trend={financial.monthOverMonth}
+                                hint={financial.monthOverMonth != null ? 'önceki aya göre' : `${financial.recordCount} ciro kaydı`}
+                            />
+                            <StatCard
+                                icon={TrendingUp}
+                                label="Net Kâr (Tahmini)"
+                                value={money(financial.totalProfit)}
+                                hint={`Tahmini marj %${financial.margin}`}
+                                tone="text-[#1e7e34] bg-[#e6f4ea]"
+                            />
+                            <StatCard
+                                icon={Wallet}
+                                label="KDV (%20)"
+                                value={money(financial.totalTax)}
+                                hint="Ciro üzerinden hesaplandı"
+                                tone="text-[#b25e00] bg-[#fff4e5]"
+                            />
+                            <StatCard
+                                icon={ShoppingCart}
+                                label="Onarım Başına"
+                                value={money(financial.perRepair)}
+                                hint={`${scopedRepairs.length} kayda bölündü`}
+                            />
                         </div>
 
-                        {/* Dönem Özeti */}
-                        <div className="flex flex-col gap-6">
-                            <div className={`rounded-[32px] p-8 border shadow-sm ${getSatisfactionTheme(satisfactionSummary.overallRate).bg} ${getSatisfactionTheme(satisfactionSummary.overallRate).border}`}>
-                                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">
-                                    {canViewAllStores ? 'Genel Memnuniyet (Tüm Kayıtlar)' : 'Mağaza Memnuniyeti (Dönem)'}
-                                </p>
-                                <div className="flex items-baseline gap-3">
-                                    <h3 className={`text-5xl font-black ${getSatisfactionTheme(satisfactionSummary.overallRate).text}`}>
-                                        {satisfactionSummary.overallRate !== null ? `%${satisfactionSummary.overallRate}` : '—'}
-                                    </h3>
-                                    <span className={`text-[10px] font-black px-2 py-1 rounded uppercase border ${getSatisfactionTheme(satisfactionSummary.overallRate).text} ${getSatisfactionTheme(satisfactionSummary.overallRate).border}`}>
-                                        {getSatisfactionTheme(satisfactionSummary.overallRate).label}
-                                    </span>
-                                </div>
-                                <div className="mt-6 grid grid-cols-3 gap-3 text-center">
-                                    <div><p className="text-lg font-black text-emerald-600">{satisfactionSummary.totals.s}</p><p className="text-[9px] font-bold text-gray-400 uppercase">Memnun</p></div>
-                                    <div><p className="text-lg font-black text-amber-600">{satisfactionSummary.totals.n}</p><p className="text-[9px] font-bold text-gray-400 uppercase">Nötr</p></div>
-                                    <div><p className="text-lg font-black text-red-600">{satisfactionSummary.totals.d}</p><p className="text-[9px] font-bold text-gray-400 uppercase">Memnun Değil</p></div>
-                                </div>
-                            </div>
+                        <p className="flex items-start gap-2 text-[11px] font-medium text-gray-500 bg-[#f5f5f7] border border-gray-200 rounded-xl px-3 py-2">
+                            <Info size={13} aria-hidden="true" className="shrink-0 mt-0.5 text-gray-400" />
+                            Ciro, mağaza ciro kayıtlarından gelir. Net kâr ve KDV sabit oranlı tahmindir (maliyet %45, KDV %20); muhasebe kaydı yerine geçmez.
+                        </p>
 
-                            {canViewAllStores && satisfactionSummary.storeRates.length > 0 && (
-                                <div className="bg-white rounded-[32px] border border-gray-200 p-6 shadow-sm">
-                                    <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-5">Mağaza Bazlı Memnuniyet</h3>
-                                    <div className="space-y-4">
-                                        {satisfactionSummary.storeRates.map(sr => {
-                                            const t = getSatisfactionTheme(sr.rate);
+                        <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-4">
+                            <Panel
+                                title="Aylık Ciro Seyri"
+                                description="Girilen ciro kayıtlarının aya göre toplamı"
+                                icon={CalendarRange}
+                            >
+                                <BarChart
+                                    data={financial.monthlyTrend}
+                                    format={(v) => money(v)}
+                                    summary={`Aylık ciro: ${financial.monthlyTrend.map(m => `${m.label} ${money(m.value)}`).join(', ')}`}
+                                />
+                            </Panel>
+
+                            <Panel title="Mağaza Bazlı Ciro" description="Seçili aralıktaki dağılım" icon={MapPin}>
+                                {financial.storeRevenue.length === 0 ? (
+                                    <p className="py-10 text-center text-[13px] font-medium text-gray-400">
+                                        Bu aralıkta ciro kaydı yok.
+                                    </p>
+                                ) : (
+                                    <ul className="list-none p-0 m-0 space-y-4">
+                                        {financial.storeRevenue.map(sp => {
+                                            const share = financial.totalRevenue
+                                                ? Math.round((sp.value / financial.totalRevenue) * 100)
+                                                : 0;
                                             return (
-                                                <div key={sr.storeId} className="space-y-1.5">
-                                                    <div className="flex justify-between items-center">
-                                                        <span className="text-xs font-bold text-[#1d1d1f] flex items-center gap-1.5"><MapPin size={11} className="text-gray-400" /> {sr.name}</span>
-                                                        <span className={`text-xs font-black ${t.text}`}>{sr.rate !== null ? `%${sr.rate}` : '—'}</span>
+                                                <li key={sp.id} className="space-y-1.5">
+                                                    <div className="flex justify-between items-center gap-3">
+                                                        <span className="flex items-center gap-1.5 text-[12px] font-semibold text-[#1d1d1f] min-w-0">
+                                                            <MapPin size={12} className="text-gray-400 shrink-0" aria-hidden="true" />
+                                                            <span className="truncate">{sp.name}</span>
+                                                        </span>
+                                                        <span className="text-[12px] font-bold text-[#1d1d1f] tabular-nums shrink-0">
+                                                            {money(sp.value)} <span className="text-gray-400 font-semibold">%{share}</span>
+                                                        </span>
                                                     </div>
-                                                    <div className="h-2 bg-[#f5f5f7] rounded-full overflow-hidden">
-                                                        <div className={`h-full ${t.bar} rounded-full transition-all`} style={{ width: `${sr.rate || 0}%` }}></div>
+                                                    <div
+                                                        role="progressbar"
+                                                        aria-valuenow={share}
+                                                        aria-valuemin={0}
+                                                        aria-valuemax={100}
+                                                        aria-label={`${sp.name} ciro payı`}
+                                                        className="h-2 bg-[#f5f5f7] border border-gray-200 rounded-full overflow-hidden"
+                                                    >
+                                                        <div className="h-full bg-[#0071e3] rounded-full" style={{ width: `${share}%` }} />
                                                     </div>
-                                                </div>
+                                                </li>
                                             );
                                         })}
-                                    </div>
+                                    </ul>
+                                )}
+                            </Panel>
+                        </div>
+
+                        <Panel
+                            title="Ürün Grubu Analizi"
+                            description="Onarım kayıtlarındaki onaylı teklif / tahmini tutarlar"
+                            icon={PieChart}
+                        >
+                            {financial.categoryRevenue.length === 0 ? (
+                                <p className="py-10 text-center text-[13px] font-medium text-gray-400">
+                                    Bu aralıkta tutar girilmiş onarım kaydı yok.
+                                </p>
+                            ) : (
+                                <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
+                                    {financial.categoryRevenue.map(cat => (
+                                        <div key={cat.key} className="p-4 bg-[#f5f5f7] rounded-2xl border border-gray-200">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <Package size={14} className="text-gray-400 shrink-0" aria-hidden="true" />
+                                                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest truncate">{cat.name}</p>
+                                            </div>
+                                            <p className="text-[17px] font-bold text-[#1d1d1f] tabular-nums">{money(cat.value)}</p>
+                                            <p className="text-[11px] font-semibold text-gray-500 mt-1">Pay: %{cat.share}</p>
+                                        </div>
+                                    ))}
                                 </div>
                             )}
-                        </div>
+                        </Panel>
                     </div>
+                )}
 
-                    {/* Geçmiş Kayıtlar */}
-                    <div className="bg-white rounded-[32px] border border-gray-200 shadow-sm overflow-hidden">
-                        <div className="px-8 py-6 border-b border-gray-50 flex items-center justify-between">
-                            <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest">Günlük Memnuniyet Geçmişi</h3>
-                            <span className="text-[10px] font-bold text-gray-400">{(satisfactionEntries || []).length} kayıt</span>
-                        </div>
-                        <div className="overflow-x-auto max-h-[420px] overflow-y-auto custom-scrollbar">
-                            <table className="w-full text-left border-collapse">
-                                <thead className="sticky top-0 z-10">
-                                    <tr className="bg-[#f5f5f7] text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                                        <th className="px-6 py-4">Tarih</th>
-                                        {canViewAllStores && <th className="px-6 py-4">Mağaza</th>}
-                                        <th className="px-6 py-4 text-center">Memnun</th>
-                                        <th className="px-6 py-4 text-center">Nötr</th>
-                                        <th className="px-6 py-4 text-center">Memnun Değil</th>
-                                        <th className="px-6 py-4 text-center">Toplam</th>
-                                        <th className="px-6 py-4 text-right">Memnuniyet</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-50">
-                                    {(satisfactionEntries || []).map((e) => {
-                                        const total = (e.satisfied || 0) + (e.neutral || 0) + (e.dissatisfied || 0);
-                                        const rate = calcRate(e.satisfied, e.neutral, e.dissatisfied);
-                                        const t = getSatisfactionTheme(rate);
-                                        return (
-                                            <tr key={e._id || `${e.storeId}-${e.date}`} className="hover:bg-gray-50/60 transition-colors">
-                                                <td className="px-6 py-4 text-sm font-bold text-[#1d1d1f]">{new Date(e.date).toLocaleDateString('tr-TR')}</td>
-                                                {canViewAllStores && <td className="px-6 py-4 text-xs font-semibold text-gray-500">{servicePoints.find(s => String(s.id) === String(e.storeId))?.name || `Mağaza ${e.storeId}`}</td>}
-                                                <td className="px-6 py-4 text-center text-sm font-bold text-emerald-600">{e.satisfied || 0}</td>
-                                                <td className="px-6 py-4 text-center text-sm font-bold text-amber-600">{e.neutral || 0}</td>
-                                                <td className="px-6 py-4 text-center text-sm font-bold text-red-600">{e.dissatisfied || 0}</td>
-                                                <td className="px-6 py-4 text-center text-sm font-black text-[#1d1d1f]">{total}</td>
-                                                <td className="px-6 py-4 text-right">
-                                                    <span className={`inline-flex items-center gap-1.5 text-xs font-black px-3 py-1 rounded-lg border ${t.bg} ${t.text} ${t.border}`}>
-                                                        {rate !== null ? `%${rate}` : '—'}
-                                                    </span>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                            {(satisfactionEntries || []).length === 0 && (
-                                <div className="py-16 text-center">
-                                    <Smile className="mx-auto text-gray-200 mb-3" size={40} />
-                                    <p className="text-sm font-bold text-[#1d1d1f]">Henüz memnuniyet verisi yok</p>
-                                    <p className="text-xs text-gray-500 mt-1">Yukarıdan günlük veriyi girerek başlayın.</p>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </>
-            )}
-        </div>
-    );
-};
-
-const ReportChart = ({ data, color }) => {
-    return (
-        <div className="flex items-end justify-between w-full h-full gap-4 px-2">
-            {data.map((item, idx) => (
-                <div key={idx} className="flex-1 flex flex-col items-center gap-3 group relative h-full justify-end">
-                    {/* Tooltip */}
-                    <div className="absolute top-0 -translate-y-full mb-2 bg-[#1d1d1f] text-white text-[10px] px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all scale-75 group-hover:scale-100 z-10 font-bold shadow-xl border border-white/10 pointer-events-none">
-                        {item.value.toLocaleString('tr-TR')}
-                    </div>
-                    {/* Bar */}
+                {/* ---------- Memnuniyet ---------- */}
+                {activeTab === 'satisfaction' && (
                     <div
-                        className="w-full rounded-2xl transition-all duration-700 ease-out relative overflow-hidden group-hover:shadow-[0_10px_30px_rgba(0,113,227,0.2)]"
-                        style={{ 
-                            height: `${(item.value / (Math.max(...data.map(d => d.value)) || 1)) * 90}%`,
-                            backgroundColor: color,
-                            opacity: 0.15 + (idx / data.length) * 0.85
-                        }}
+                        role="tabpanel"
+                        id={`${uid}-panel-satisfaction`}
+                        aria-labelledby={`${uid}-tab-satisfaction`}
+                        className="space-y-4"
                     >
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
+                        <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-4 items-start">
+                            {/* Veri girişi */}
+                            <Panel
+                                title="Günlük Memnuniyet Girişi"
+                                description="Aynı gün için tekrar kayıt, o günün verisini günceller"
+                                icon={Smile}
+                            >
+                                <form
+                                    onSubmit={(e) => { e.preventDefault(); handleSaveSatisfaction(); }}
+                                    className="space-y-4"
+                                >
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label htmlFor={`${uid}-sat-store`} className={labelClass}>Mağaza</label>
+                                            {canViewAllStores ? (
+                                                <select
+                                                    id={`${uid}-sat-store`}
+                                                    className={fieldClass}
+                                                    value={satForm.storeId}
+                                                    onChange={(e) => setSatForm({ ...satForm, storeId: e.target.value })}
+                                                >
+                                                    <option value="">Mağaza seçiniz…</option>
+                                                    {visibleServicePoints.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                                </select>
+                                            ) : (
+                                                <p className="w-full px-4 py-3 bg-[#f5f5f7] border border-gray-200 rounded-xl text-sm font-semibold text-[#1d1d1f] flex items-center gap-2">
+                                                    <Store size={14} className="text-gray-400" aria-hidden="true" />
+                                                    {servicePoints.find(s => String(s.id) === String(currentUser?.storeId))?.name || 'Mağazanız'}
+                                                </p>
+                                            )}
+                                        </div>
+                                        <div>
+                                            <label htmlFor={`${uid}-sat-date`} className={labelClass}>Tarih</label>
+                                            <input
+                                                id={`${uid}-sat-date`}
+                                                type="date"
+                                                max={todayKey}
+                                                className={fieldClass}
+                                                value={satForm.date}
+                                                onChange={(e) => setSatForm({ ...satForm, date: e.target.value })}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                        {[
+                                            { key: 'satisfied', label: 'Memnun', icon: Smile, tone: 'text-[#1e7e34] bg-[#e6f4ea]' },
+                                            { key: 'neutral', label: 'Nötr', icon: Meh, tone: 'text-[#b25e00] bg-[#fff4e5]' },
+                                            { key: 'dissatisfied', label: 'Memnun Değil', icon: Frown, tone: 'text-[#e30000] bg-[#e30000]/8' }
+                                        ].map(item => (
+                                            <div key={item.key} className="bg-[#f5f5f7] rounded-2xl p-3 border border-gray-200">
+                                                <label htmlFor={`${uid}-sat-${item.key}`} className="flex items-center gap-2 mb-2">
+                                                    <span aria-hidden="true" className={`w-7 h-7 rounded-lg flex items-center justify-center ${item.tone}`}>
+                                                        <item.icon size={15} />
+                                                    </span>
+                                                    <span className="text-[11px] font-bold uppercase tracking-wide text-gray-600">{item.label}</span>
+                                                </label>
+                                                <input
+                                                    id={`${uid}-sat-${item.key}`}
+                                                    type="number"
+                                                    min="0"
+                                                    inputMode="numeric"
+                                                    placeholder="0"
+                                                    className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-xl font-bold text-[#1d1d1f] tabular-nums outline-none transition-all focus:border-[#0071e3] focus-visible:ring-4 focus-visible:ring-[#0071e3]/20"
+                                                    value={satForm[item.key]}
+                                                    onChange={(e) => setSatForm({ ...satForm, [item.key]: e.target.value })}
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    <div className={`flex items-center justify-between gap-3 p-4 rounded-2xl border ${liveTheme.bg} ${liveTheme.border}`}>
+                                        <span className="flex items-center gap-2">
+                                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Hesaplanan Memnuniyet</span>
+                                            {liveRate !== null && (
+                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase border ${liveTheme.text} ${liveTheme.border}`}>
+                                                    {liveTheme.label}
+                                                </span>
+                                            )}
+                                        </span>
+                                        <span aria-live="polite" className={`text-2xl font-bold tabular-nums ${liveTheme.text}`}>
+                                            {liveRate !== null ? `%${liveRate}` : '—'}
+                                        </span>
+                                    </div>
+
+                                    <button
+                                        type="submit"
+                                        disabled={savingSat}
+                                        className="w-full h-11 rounded-xl bg-[#0071e3] text-white text-[13px] font-semibold hover:bg-[#0077ed] disabled:opacity-50 transition-all shadow-sm shadow-[#0071e3]/20 flex items-center justify-center gap-2 outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
+                                    >
+                                        <Save size={16} aria-hidden="true" /> {savingSat ? 'Kaydediliyor…' : 'Günlük Veriyi Kaydet'}
+                                    </button>
+                                    <p className="text-[11px] text-gray-500 text-center">Eşikler: %90 altı dikkat, %80 altı kritik.</p>
+                                </form>
+                            </Panel>
+
+                            {/* Dönem özeti */}
+                            <div className="space-y-4">
+                                <div className={`rounded-[24px] p-5 border shadow-sm ${overallTheme.bg} ${overallTheme.border}`}>
+                                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">
+                                        {canViewAllStores ? 'Genel Memnuniyet' : 'Mağaza Memnuniyeti'} · {rangeLabel}
+                                    </p>
+                                    <div className="flex items-baseline gap-3">
+                                        <span className={`text-4xl font-bold tabular-nums ${overallTheme.text}`}>
+                                            {satisfactionSummary.overallRate !== null ? `%${satisfactionSummary.overallRate}` : '—'}
+                                        </span>
+                                        <span className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase border ${overallTheme.text} ${overallTheme.border}`}>
+                                            {overallTheme.label}
+                                        </span>
+                                    </div>
+                                    <dl className="mt-4 grid grid-cols-3 gap-3 text-center">
+                                        <div className="bg-white/70 rounded-xl border border-gray-200 py-2">
+                                            <dd className="text-[17px] font-bold text-[#1e7e34] tabular-nums">{satisfactionSummary.totals.s}</dd>
+                                            <dt className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Memnun</dt>
+                                        </div>
+                                        <div className="bg-white/70 rounded-xl border border-gray-200 py-2">
+                                            <dd className="text-[17px] font-bold text-[#b25e00] tabular-nums">{satisfactionSummary.totals.n}</dd>
+                                            <dt className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Nötr</dt>
+                                        </div>
+                                        <div className="bg-white/70 rounded-xl border border-gray-200 py-2">
+                                            <dd className="text-[17px] font-bold text-[#e30000] tabular-nums">{satisfactionSummary.totals.d}</dd>
+                                            <dt className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Memnun Değil</dt>
+                                        </div>
+                                    </dl>
+                                </div>
+
+                                {satisfactionSummary.trend.length > 1 && (
+                                    <Panel title="Son Günlerin Seyri" description="Günlük memnuniyet oranı" icon={TrendingUp}>
+                                        <BarChart
+                                            data={satisfactionSummary.trend}
+                                            format={(v) => `%${v}`}
+                                            summary={`Günlük memnuniyet oranları: ${satisfactionSummary.trend.map(t => `${t.label} %${t.value}`).join(', ')}`}
+                                        />
+                                    </Panel>
+                                )}
+
+                                {canViewAllStores && satisfactionSummary.storeRates.length > 0 && (
+                                    <Panel title="Mağaza Bazlı Memnuniyet" description="Seçili aralıktaki oranlar" icon={Store}>
+                                        <ul className="list-none p-0 m-0 space-y-3">
+                                            {satisfactionSummary.storeRates.map(sr => {
+                                                const theme = getSatisfactionTheme(sr.rate);
+                                                return (
+                                                    <li key={sr.storeId} className="space-y-1.5">
+                                                        <div className="flex justify-between items-center gap-3">
+                                                            <span className="flex items-center gap-1.5 text-[12px] font-semibold text-[#1d1d1f] min-w-0">
+                                                                <MapPin size={12} className="text-gray-400 shrink-0" aria-hidden="true" />
+                                                                <span className="truncate">{sr.name}</span>
+                                                            </span>
+                                                            <span className={`text-[12px] font-bold tabular-nums shrink-0 ${theme.text}`}>
+                                                                {sr.rate !== null ? `%${sr.rate}` : '—'}
+                                                                <span className="text-gray-400 font-semibold"> · {sr.total} kişi</span>
+                                                            </span>
+                                                        </div>
+                                                        <div
+                                                            role="progressbar"
+                                                            aria-valuenow={sr.rate || 0}
+                                                            aria-valuemin={0}
+                                                            aria-valuemax={100}
+                                                            aria-label={`${sr.name} memnuniyet oranı`}
+                                                            className="h-2 bg-[#f5f5f7] border border-gray-200 rounded-full overflow-hidden"
+                                                        >
+                                                            <div className={`h-full rounded-full ${theme.bar}`} style={{ width: `${sr.rate || 0}%` }} />
+                                                        </div>
+                                                    </li>
+                                                );
+                                            })}
+                                        </ul>
+                                    </Panel>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Geçmiş kayıtlar */}
+                        <Panel
+                            title="Günlük Memnuniyet Geçmişi"
+                            description={`${scopedEntries.length} kayıt · ${rangeLabel}`}
+                            icon={CalendarRange}
+                            action={canViewAllStores ? (
+                                <div>
+                                    <label htmlFor={`${uid}-sat-filter`} className="sr-only">Mağazaya göre süz</label>
+                                    <select
+                                        id={`${uid}-sat-filter`}
+                                        value={satStoreFilter}
+                                        onChange={(e) => setSatStoreFilter(e.target.value)}
+                                        className="h-10 px-3 bg-white border border-gray-300 rounded-xl text-[13px] font-semibold text-[#1d1d1f] outline-none focus-visible:border-[#0071e3] focus-visible:ring-4 focus-visible:ring-[#0071e3]/15"
+                                    >
+                                        <option value="all">Tüm mağazalar</option>
+                                        {visibleServicePoints.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                    </select>
+                                </div>
+                            ) : null}
+                            className="overflow-hidden"
+                        >
+                            {scopedEntries.length === 0 ? (
+                                <div className="py-12 text-center">
+                                    <Smile className="mx-auto text-gray-300 mb-3" size={36} aria-hidden="true" />
+                                    <h4 className="text-[15px] font-semibold text-[#1d1d1f]">Bu aralıkta memnuniyet verisi yok</h4>
+                                    <p className="text-[13px] text-gray-500 mt-1">Yukarıdan günlük veriyi girerek başlayın.</p>
+                                </div>
+                            ) : (
+                                <div className="overflow-x-auto max-h-[420px] overflow-y-auto page-scroll -m-4 sm:-m-5">
+                                    <table className="w-full text-left border-collapse">
+                                        <caption className="sr-only">Mağaza ve güne göre memnuniyet kayıtları</caption>
+                                        <thead className="sticky top-0 z-10">
+                                            <tr className="bg-[#f5f5f7] border-b border-gray-200">
+                                                <th scope="col" className="px-5 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-widest">Tarih</th>
+                                                {canViewAllStores && <th scope="col" className="px-5 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-widest">Mağaza</th>}
+                                                <th scope="col" className="px-5 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-widest text-center">Memnun</th>
+                                                <th scope="col" className="px-5 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-widest text-center">Nötr</th>
+                                                <th scope="col" className="px-5 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-widest text-center">Memnun Değil</th>
+                                                <th scope="col" className="px-5 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-widest text-center">Toplam</th>
+                                                <th scope="col" className="px-5 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-widest text-right">Memnuniyet</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100">
+                                            {scopedEntries.map(entry => {
+                                                const total = (entry.satisfied || 0) + (entry.neutral || 0) + (entry.dissatisfied || 0);
+                                                const rate = calcRate(entry.satisfied, entry.neutral, entry.dissatisfied);
+                                                const theme = getSatisfactionTheme(rate);
+                                                return (
+                                                    <tr key={entry._id || `${entry.storeId}-${entry.date}`} className="hover:bg-[#f5f5f7]/60 transition-colors">
+                                                        <td className="px-5 py-3 text-[13px] font-semibold text-[#1d1d1f] whitespace-nowrap">
+                                                            {new Date(entry.date).toLocaleDateString('tr-TR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                        </td>
+                                                        {canViewAllStores && (
+                                                            <td className="px-5 py-3 text-[12px] font-medium text-gray-600">
+                                                                {servicePoints.find(s => String(s.id) === String(entry.storeId))?.name || `Mağaza ${entry.storeId}`}
+                                                            </td>
+                                                        )}
+                                                        <td className="px-5 py-3 text-center text-[13px] font-bold text-[#1e7e34] tabular-nums">{entry.satisfied || 0}</td>
+                                                        <td className="px-5 py-3 text-center text-[13px] font-bold text-[#b25e00] tabular-nums">{entry.neutral || 0}</td>
+                                                        <td className="px-5 py-3 text-center text-[13px] font-bold text-[#e30000] tabular-nums">{entry.dissatisfied || 0}</td>
+                                                        <td className="px-5 py-3 text-center text-[13px] font-bold text-[#1d1d1f] tabular-nums">{total}</td>
+                                                        <td className="px-5 py-3 text-right">
+                                                            <span className={`inline-block text-[12px] font-bold px-2.5 py-1 rounded-full border tabular-nums ${theme.bg} ${theme.text} ${theme.border}`}>
+                                                                {rate !== null ? `%${rate}` : '—'}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </Panel>
                     </div>
-                    {/* Label */}
-                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">
-                        {item.label}
-                    </span>
-                </div>
-            ))}
+                )}
+            </div>
         </div>
     );
 };
