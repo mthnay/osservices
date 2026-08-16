@@ -86,7 +86,8 @@ function App() {
       <GlobalDialogs />
       <TopNav activeTab={activeTab} setActiveTab={setActiveTab} />
 
-      <main className="flex-1 min-h-0 w-full pt-20 pb-9 px-6 flex flex-col transition-all duration-300 relative">
+      {/* pb: alt bar 36px + 20px nefes payı — kayan alan alt barla birleşik görünmesin */}
+      <main className="flex-1 min-h-0 w-full pt-20 pb-14 px-6 flex flex-col transition-all duration-300 relative">
         {activeTab === 'settings' && hasPermission(currentUser, 'manage_settings') ? (
           /* Sistem Ayarları tam genişlik: sol menü ekranın solunda, içerik kalan alanı doldurur */
           <Settings />
@@ -120,7 +121,7 @@ function App() {
       </main>
 
       {/* Unified Bottom Bar */}
-      <div className="fixed bottom-0 left-0 w-full h-9 bg-white/90 backdrop-blur-md border-t border-black/5 flex items-center justify-between px-6 z-50 shadow-[0_-4px_24px_-6px_rgba(0,0,0,0.04)]">
+      <div className="fixed bottom-0 left-0 w-full h-9 bg-white/95 backdrop-blur-md border-t border-black/10 flex items-center justify-between px-6 z-50 shadow-[0_-6px_20px_-6px_rgba(0,0,0,0.10)]">
         <div className="flex items-center gap-3">
           <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Aktif Mağaza:</span>
           
