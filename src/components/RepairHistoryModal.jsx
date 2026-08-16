@@ -16,6 +16,9 @@ import { hasPermission } from '../utils/permissions';
 import DeviceImage from './DeviceImage';
 import { getSafeRepairImageUrl } from '../utils/productImages';
 import { getArcOutcome, summarizeArcOutcome } from '../utils/arcOutcome';
+import {
+    QUOTE_APPROVED, QUOTE_REJECTED, QUOTE_DECISION_LABELS, QUOTE_CHANNEL_LABELS, summarizeQuote,
+} from '../utils/quoteFlow';
 import Collapse from './ui/Collapse';
 import useAnimatedClose from './ui/useAnimatedClose';
 
@@ -306,6 +309,18 @@ const RepairHistoryModal = ({ repair: initialRepair, onClose, onSaveDiagnosis })
         } catch { return 0; }
     };
 
+    /**
+     * Teklif kalemleri üç ayrı şekilde saklanmış olabilir:
+     * yapılandırılmış quote.items, portalın okuduğu quotationDetails.items
+     * ve eski kayıtlardaki düz quotationDetails dizisi.
+     */
+    const quoteLineItems = useMemo(() => {
+        if (repair.quote?.items?.length) return repair.quote.items;
+        if (Array.isArray(repair.quotationDetails)) return repair.quotationDetails;
+        if (Array.isArray(repair.quotationDetails?.items)) return repair.quotationDetails.items;
+        return [];
+    }, [repair.quote, repair.quotationDetails]);
+
     const combinedStream = useMemo(() => {
         const stream = [];
         (repair.history || []).forEach(h => stream.push({ ...h, streamType: 'history' }));
@@ -364,6 +379,20 @@ const RepairHistoryModal = ({ repair: initialRepair, onClose, onSaveDiagnosis })
             });
         }
 
+        // Teklif kararı ayrı bir akış girdisi olarak görünür
+        if (repair.quote?.decision) {
+            const q = repair.quote;
+            const lines = [summarizeQuote(q)];
+            if (q.note) lines.push(q.note);
+            stream.push({
+                status: 'Onarım Teklifi',
+                text: lines.filter(Boolean).join('\n'),
+                date: q.decidedAt || q.sentAt || defaultDate,
+                streamType: 'report',
+                user: q.decidedBy || q.sentBy || 'Teklif'
+            });
+        }
+
         // Onarım merkezi sonucu ayrı bir akış girdisi olarak görünür
         if (repair.arcOutcome?.code) {
             const arc = repair.arcOutcome;
@@ -388,7 +417,7 @@ const RepairHistoryModal = ({ repair: initialRepair, onClose, onSaveDiagnosis })
         }
 
         return stream.sort((a, b) => parseDate(a.date) - parseDate(b.date));
-    }, [repair.history, repair.internalNotes, repair.technicianNote, repair.tests, repair.diagnosisNotes, repair.repairClosingNote, repair.quoteAmount, repair.parts, repair.arcOutcome]);
+    }, [repair.history, repair.internalNotes, repair.technicianNote, repair.tests, repair.diagnosisNotes, repair.repairClosingNote, repair.quoteAmount, repair.parts, repair.arcOutcome, repair.quote]);
 
     // Helpers
     const getStatusIcon = (status) => {
@@ -778,7 +807,7 @@ const RepairHistoryModal = ({ repair: initialRepair, onClose, onSaveDiagnosis })
                             })()}
 
                             {/* TEKNİK RAPORLAR (Tanı / Teklif / Onarım Sonucu) */}
-                            {(repair.technicianNote || repair.tests || repair.diagnosisNotes || repair.quoteAmount || (Array.isArray(repair.quotationDetails) && repair.quotationDetails.length > 0) || repair.repairClosingNote) && (
+                            {(repair.technicianNote || repair.tests || repair.diagnosisNotes || repair.quoteAmount || quoteLineItems.length > 0 || repair.quote?.decision || repair.repairClosingNote) && (
                                 <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm">
                                     <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2 mb-6">
                                         <FileText size={16} className="text-[#0071e3]" /> Teknik Raporlar
@@ -803,7 +832,7 @@ const RepairHistoryModal = ({ repair: initialRepair, onClose, onSaveDiagnosis })
                                                 {repair.diagnosisNotes && <p className="text-sm text-gray-700 font-medium leading-relaxed whitespace-pre-wrap"><span className="text-[10px] font-bold text-gray-400 uppercase block mb-0.5">Tanı Notları</span>{repair.diagnosisNotes}</p>}
                                             </div>
                                         )}
-                                        {(repair.quoteAmount || (Array.isArray(repair.quotationDetails) && repair.quotationDetails.length > 0)) && (
+                                        {(repair.quoteAmount || quoteLineItems.length > 0 || repair.quote?.decision) && (
                                             <div className="rounded-xl border border-gray-100 bg-[#f5f5f7] p-5 border-l-[3px] border-l-emerald-400">
                                                 <div className="flex items-center justify-between mb-3">
                                                     <div className="flex items-center gap-2 text-emerald-600">
@@ -812,14 +841,51 @@ const RepairHistoryModal = ({ repair: initialRepair, onClose, onSaveDiagnosis })
                                                     </div>
                                                     {repair.quoteAmount && <span className="text-lg font-black text-[#1d1d1f]">{fmtMoney(repair.quoteAmount) || `${repair.quoteAmount} ₺`}</span>}
                                                 </div>
-                                                {Array.isArray(repair.quotationDetails) && repair.quotationDetails.length > 0 && (
+                                                {/* Kalemler: yapılandırılmış quote.items ya da eski quotationDetails şekilleri */}
+                                                {quoteLineItems.length > 0 && (
                                                     <div className="divide-y divide-gray-100 border-t border-gray-100">
-                                                        {repair.quotationDetails.map((q, i) => (
+                                                        {quoteLineItems.map((q, i) => (
                                                             <div key={i} className="flex items-center justify-between py-2 text-sm">
                                                                 <span className="text-gray-700 font-medium">{q.name || q.description || `Kalem ${i + 1}`}</span>
                                                                 <span className="text-gray-900 font-bold">{fmtMoney(q.price) || (q.price ? `${q.price} ₺` : '—')}</span>
                                                             </div>
                                                         ))}
+                                                    </div>
+                                                )}
+
+                                                {repair.quote?.note && (
+                                                    <p className="text-[12px] text-gray-600 leading-relaxed mt-3 pt-3 border-t border-gray-100">
+                                                        {repair.quote.note}
+                                                    </p>
+                                                )}
+
+                                                {repair.quote?.sentBy && (
+                                                    <p className="text-[11px] font-medium text-gray-500 mt-3">
+                                                        {repair.quote.sentBy} tarafından sunuldu
+                                                        {repair.quote.sentAt && ` · ${repair.quote.sentAt}`}
+                                                    </p>
+                                                )}
+
+                                                {/* Müşteri kararı: kim, ne zaman, hangi kanaldan, hangi gerekçeyle */}
+                                                {repair.quote?.decision && (
+                                                    <div className={`mt-3 pt-3 border-t border-gray-100 ${repair.quote.decision === QUOTE_REJECTED
+                                                        ? 'text-[#c30000]'
+                                                        : repair.quote.decision === QUOTE_APPROVED ? 'text-[#1e7e34]' : 'text-[#bf5b04]'}`}>
+                                                        <p className="text-[12px] font-bold">
+                                                            {QUOTE_DECISION_LABELS[repair.quote.decision] || repair.quote.decision}
+                                                        </p>
+                                                        {repair.quote.rejectionReason && (
+                                                            <p className="text-[12px] text-gray-700 mt-1">
+                                                                Gerekçe: {repair.quote.rejectionReason}
+                                                            </p>
+                                                        )}
+                                                        {(repair.quote.decidedBy || repair.quote.decidedAt) && (
+                                                            <p className="text-[11px] font-medium text-gray-500 mt-1">
+                                                                {repair.quote.decidedBy}
+                                                                {repair.quote.decidedAt && ` · ${repair.quote.decidedAt}`}
+                                                                {repair.quote.decisionChannel && ` · ${QUOTE_CHANNEL_LABELS[repair.quote.decisionChannel] || repair.quote.decisionChannel}`}
+                                                            </p>
+                                                        )}
                                                     </div>
                                                 )}
                                             </div>

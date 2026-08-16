@@ -4,6 +4,7 @@ import { Printer, CheckCircle } from 'lucide-react';
 import MyPhoneIcon from './LocalIcons';
 import { useAppContext } from '../context/AppContext';
 import { getArcOutcome } from '../utils/arcOutcome';
+import { QUOTE_DECISION_LABELS, QUOTE_REJECTED, formatQuoteAmount } from '../utils/quoteFlow';
 
 const DeliveryFormPrint = ({ repair, signature, onClose }) => {
     const componentRef = useRef();
@@ -34,6 +35,9 @@ const DeliveryFormPrint = ({ repair, signature, onClose }) => {
     // Bütün Birim Posta akışında Onarım Merkezi sonucu müşteriye bu formda bildirilir
     const arc = repair.arcOutcome?.code ? repair.arcOutcome : null;
     const arcMeta = arc ? getArcOutcome(arc.code) : null;
+
+    // Teklif verilip karara bağlandıysa müşteri formunda da yer alır
+    const quote = repair.quote?.decision ? repair.quote : null;
 
     return (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
@@ -134,6 +138,50 @@ const DeliveryFormPrint = ({ repair, signature, onClose }) => {
                                 )}
                             </div>
                         </div>
+
+                        {/* Onarım Teklifi ve Müşteri Kararı */}
+                        {quote?.decision && (
+                            <div className="border-[0.5px] border-gray-300 rounded overflow-hidden mb-2">
+                                <div className="bg-[#f5f5f7] border-b-[0.5px] border-gray-300 px-2 py-0.5 text-[8px] font-bold uppercase tracking-wider text-gray-700">
+                                    Onarım Teklifi ve Müşteri Kararı
+                                </div>
+                                <div className="p-2 text-[9.5px] space-y-1.5">
+                                    {quote.items?.length > 0 && (
+                                        <table className="w-full text-left border-collapse text-[9px]">
+                                            <thead>
+                                                <tr className="border-b border-gray-200 text-gray-400 text-[7px] uppercase tracking-wider font-bold">
+                                                    <th className="pb-0.5">KALEM</th>
+                                                    <th className="pb-0.5 text-right">TUTAR</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-100">
+                                                {quote.items.map((item, i) => (
+                                                    <tr key={i} className="text-gray-800">
+                                                        <td className="py-1 font-medium">{item.name}</td>
+                                                        <td className="py-1 text-right font-mono">{formatQuoteAmount(item.price)}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    )}
+
+                                    <div className="flex items-center justify-between border-t-[0.5px] border-gray-300 pt-1">
+                                        <span className="text-[8px] font-bold uppercase tracking-wider text-gray-500">Teklif Tutarı</span>
+                                        <span className="font-bold text-gray-900 text-[11px]">{formatQuoteAmount(quote.amount ?? repair.quoteAmount)}</span>
+                                    </div>
+
+                                    <div className={`p-1.5 rounded border text-[9px] ${quote.decision === QUOTE_REJECTED
+                                        ? 'bg-red-50 border-red-200 text-red-900'
+                                        : 'bg-green-50/50 border-green-200 text-gray-900'}`}>
+                                        <span className="font-bold">{QUOTE_DECISION_LABELS[quote.decision]}</span>
+                                        {quote.rejectionReason && <span> — {quote.rejectionReason}</span>}
+                                        {quote.decidedAt && (
+                                            <span className="block text-[8px] text-gray-500 mt-0.5">Karar tarihi: {quote.decidedAt}</span>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Onarım Merkezi Sonucu — müşteriye yönelik bildirim */}
                         {arc && (

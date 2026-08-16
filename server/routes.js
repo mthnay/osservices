@@ -317,11 +317,23 @@ router.post('/public/repairs/:id/quote', async (req, res) => {
             return res.status(400).json({ message: 'Geçersiz işlem.' });
         }
 
-        const newHistory = [...(repair.history || []), { status: newStatus, date: new Date().toLocaleString('tr-TR'), note }];
-        
-        const updatedRepair = await Repair.findOneAndUpdate(
-            { id: req.params.id }, 
-            { status: newStatus, history: newHistory }, 
+        const now = new Date().toLocaleString('tr-TR');
+        const newHistory = [...(repair.history || []), { status: newStatus, date: now, note }];
+
+        // Karar mağaza ekranıyla aynı yapıya yazılır; kayıt tek doğruluk kaynağı kalır
+        const existingQuote = repair.quote?.toObject?.() || repair.quote || {};
+        const quote = {
+            ...existingQuote,
+            decision: action === 'accept' ? 'approved' : 'rejected',
+            decidedAt: now,
+            decidedBy: repair.customer || 'Müşteri',
+            decisionChannel: 'portal',
+            rejectionReason: action === 'reject' ? 'Müşteri portal üzerinden reddetti' : '',
+        };
+
+        await Repair.findOneAndUpdate(
+            { id: req.params.id },
+            { status: newStatus, history: newHistory, quote },
             { new: true }
         );
         res.json({ success: true, status: newStatus });

@@ -24,7 +24,22 @@ const repairSchema = new mongoose.Schema({
     diagnosisNotes: { type: String },
     tests: { type: String },
     quoteAmount: { type: String },
+    // Müşteri portalı ve eski ekranlar bu şekli okur: { date, items: [{name, price}] }
     quotationDetails: { type: Object },
+    // Onarım teklifinin yapılandırılmış kaydı. Karar mağazadan ya da müşteri
+    // portalından gelebilir; iki kanal da buraya yazar.
+    quote: {
+        items: [{ name: String, price: Number }],
+        amount: Number,
+        note: String,
+        sentAt: String,
+        sentBy: String,
+        decision: String,        // pending | approved | rejected
+        decidedAt: String,
+        decidedBy: String,
+        decisionChannel: String, // store | portal
+        rejectionReason: String
+    },
     repairClosingNote: { type: String },
     steps: [{
         id: Number,

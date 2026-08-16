@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useId, useRef, useMemo } from 'react';
-import Swal from 'sweetalert2';
 import {
     Truck, CheckCircle, ExternalLink, Box, AlertCircle, Wrench, Clock, Plus, Trash2,
     FileText, DollarSign, X, Mail, Camera, Smartphone, ClipboardList, Check, Save
@@ -10,6 +9,12 @@ import {
     ARC_OUTCOMES, getArcOutcome, arcOutcomeStatus, validateArcOutcome,
     summarizeArcOutcome, emptyArcPart, deviceHasImei
 } from '../utils/arcOutcome';
+import {
+    QUOTE_PENDING, QUOTE_APPROVED, QUOTE_REJECTED, QUOTE_REJECTION_REASONS,
+    QUOTE_DECISION_LABELS, QUOTE_CHANNEL_LABELS, emptyQuoteItem, quoteTotal,
+    cleanQuoteItems, formatQuoteAmount, validateQuoteDraft, validateQuoteRejection,
+    resolveRejectionReason, quoteDecisionStatus, summarizeQuote, buildQuoteUpdates
+} from '../utils/quoteFlow';
 
 /* ------------------------------------------------------------------
    Cihaz Lojistik & Takip
@@ -90,6 +95,15 @@ const AppleLogisticsModal = ({ repairId, onClose }) => {
     const [showNotificationModal, setShowNotificationModal] = useState(false);
     const [saving, setSaving] = useState(false);
 
+    // Teklif taslağı ve red gerekçesi
+    const [quoteItems, setQuoteItems] = useState([]);
+    const [quoteNote, setQuoteNote] = useState('');
+    const [rejectionReason, setRejectionReason] = useState('');
+    const [rejectionDetail, setRejectionDetail] = useState('');
+    const [showRejectForm, setShowRejectForm] = useState(false);
+    // Karar verilmiş bir teklif revize edilirken form yeniden açılır
+    const [editingQuote, setEditingQuote] = useState(false);
+
     // ARC sonuç taslağı
     const [outcomeCode, setOutcomeCode] = useState('');
     const [newSerial, setNewSerial] = useState('');
@@ -114,6 +128,14 @@ const AppleLogisticsModal = ({ repairId, onClose }) => {
 
         setShipmentCode(repair.shipmentCode || '');
         setGsxNo(repair.appleRepairId || '');
+
+        const storedQuote = repair.quote || null;
+        setQuoteItems(storedQuote?.items?.length ? storedQuote.items : []);
+        setQuoteNote(storedQuote?.note || '');
+        setRejectionReason('');
+        setRejectionDetail('');
+        setShowRejectForm(false);
+        setEditingQuote(false);
 
         const saved = repair.arcOutcome || null;
         setOutcomeCode(saved?.code || '');
@@ -140,6 +162,22 @@ const AppleLogisticsModal = ({ repairId, onClose }) => {
     const canReceive = repair && [
         "Apple'a Gönderildi", 'İade Bekleniyor', 'Müşteri Onayı Bekliyor', 'Cihaz Hazır', 'İade Hazır'
     ].includes(repair.status);
+
+    const savedQuote = repair?.quote?.decision ? repair.quote : null;
+    const quoteFormOpen = !savedQuote || editingQuote;
+
+    // Bölüm numaraları akışa göre kayar; kaynak sırasıyla hesaplanır
+    const step = (() => {
+        let n = 0;
+        return {
+            info: ++n,
+            shipping: ++n,
+            quote: ++n,
+            outcome: canReceive ? ++n : null,
+            report: canReceive ? ++n : null,
+            photos: ++n,
+        };
+    })();
 
     const handleOutcomeChange = (code) => {
         setOutcomeCode(code);
@@ -261,41 +299,90 @@ const AppleLogisticsModal = ({ repairId, onClose }) => {
         }
     };
 
-    const handleQuoteReceived = async () => {
-        const { value: amount } = await Swal.fire({
-            title: 'Teklif Alındı',
-            input: 'number',
-            inputLabel: 'Müşteriye iletilecek teklif tutarı (TL)',
-            inputPlaceholder: '0.00',
-            showCancelButton: true,
-            confirmButtonColor: '#0071e3',
-            cancelButtonText: 'Vazgeç',
-            confirmButtonText: 'Kaydet'
-        });
+    const addQuoteItem = () => setQuoteItems(prev => [...prev, emptyQuoteItem()]);
+    const removeQuoteItem = (index) => setQuoteItems(prev => prev.filter((_, i) => i !== index));
+    const updateQuoteItem = (index, field, value) => {
+        setQuoteItems(prev => prev.map((item, i) => (i === index ? { ...item, [field]: value } : item)));
+        setErrors(prev => ({ ...prev, items: undefined, itemPrice: undefined }));
+    };
 
-        if (amount) {
+    /** Teklifi müşteriye sun: kalemler ve toplam kayda yazılır */
+    const handleSendQuote = async () => {
+        const nextErrors = validateQuoteDraft({ items: quoteItems });
+        if (Object.keys(nextErrors).length > 0) {
+            setErrors(nextErrors);
+            requestAnimationFrame(() => errorSummaryRef.current?.focus());
+            return;
+        }
+        setErrors({});
+
+        const items = cleanQuoteItems(quoteItems);
+        const quote = {
+            items,
+            amount: quoteTotal(items),
+            note: quoteNote.trim(),
+            decision: QUOTE_PENDING,
+            sentAt: new Date().toLocaleString('tr-TR'),
+            sentBy: currentUser?.name || 'Bilinmeyen Kullanıcı',
+        };
+
+        setSaving(true);
+        try {
             await updateRepair(repairId, {
-                status: 'Müşteri Onayı Bekliyor',
-                quoteAmount: amount,
-                historyNote: `Onarım merkezinden teklif geldi: ${amount} TL. Müşteri onayı bekleniyor.`
+                ...buildQuoteUpdates(quote),
+                status: quoteDecisionStatus(QUOTE_PENDING),
+                historyNote: `Onarım merkezinden teklif geldi: ${formatQuoteAmount(quote.amount)}. Müşteri onayı bekleniyor.`
             });
-            showToast('Kayıt "Onay Bekliyor" durumuna alındı.', 'info');
+            showToast('Teklif kaydedildi, kayıt onay bekliyor durumuna alındı.', 'info');
+        } finally {
+            setSaving(false);
         }
     };
 
-    const handleQuoteResolution = async (isApproved) => {
-        if (isApproved) {
+    /** Müşteri kararını kayda geçir. Redde gerekçe zorunludur. */
+    const handleQuoteDecision = async (decision) => {
+        const existing = repair.quote || {};
+
+        let reasonText = '';
+        if (decision === QUOTE_REJECTED) {
+            const nextErrors = validateQuoteRejection({ reason: rejectionReason, customReason: rejectionDetail });
+            if (Object.keys(nextErrors).length > 0) {
+                setErrors(nextErrors);
+                requestAnimationFrame(() => errorSummaryRef.current?.focus());
+                return;
+            }
+            reasonText = resolveRejectionReason(rejectionReason, rejectionDetail);
+        }
+        setErrors({});
+
+        const quote = {
+            ...existing,
+            items: existing.items || cleanQuoteItems(quoteItems),
+            amount: existing.amount ?? quoteTotal(quoteItems),
+            note: existing.note || quoteNote.trim(),
+            decision,
+            decidedAt: new Date().toLocaleString('tr-TR'),
+            decidedBy: currentUser?.name || 'Bilinmeyen Kullanıcı',
+            decisionChannel: 'store',
+            rejectionReason: decision === QUOTE_REJECTED ? reasonText : '',
+        };
+
+        setSaving(true);
+        try {
             await updateRepair(repairId, {
-                status: "Apple'a Gönderildi",
-                historyNote: 'Müşteri teklifi onayladı. Onarım merkezi sürecine devam ediliyor.'
+                ...buildQuoteUpdates(quote),
+                status: decision === QUOTE_APPROVED ? "Apple'a Gönderildi" : quoteDecisionStatus(decision),
+                historyNote: summarizeQuote(quote)
             });
-            showToast('Onay kaydedildi, süreç devam ediyor.', 'success');
-        } else {
-            await updateRepair(repairId, {
-                status: 'İade Bekleniyor',
-                historyNote: 'Müşteri teklifi reddetti. Onarım merkezinden iade istendi.'
-            });
-            showToast('Red kaydedildi, cihaz iade bekleniyor durumuna alındı.', 'info');
+            showToast(
+                decision === QUOTE_APPROVED
+                    ? 'Onay kaydedildi, onarım merkezi süreci devam ediyor.'
+                    : 'Red kaydedildi, cihaz iade sürecine alındı.',
+                decision === QUOTE_APPROVED ? 'success' : 'info'
+            );
+            setShowRejectForm(false);
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -389,7 +476,7 @@ const AppleLogisticsModal = ({ repairId, onClose }) => {
                     )}
 
                     {/* 1 · Kayıt künyesi */}
-                    <FieldGroup index="1" title="Kayıt Künyesi" hint="Kabulde alınan cihaz ve müşteri bilgileri." icon={FileText}>
+                    <FieldGroup index={step.info} title="Kayıt Künyesi" hint="Kabulde alınan cihaz ve müşteri bilgileri." icon={FileText}>
                         <dl className="grid grid-cols-2 md:grid-cols-4 gap-5">
                             <InfoRow label="Müşteri" value={repair.customer} />
                             <InfoRow label="Telefon" value={repair.customerPhone} mono />
@@ -409,7 +496,7 @@ const AppleLogisticsModal = ({ repairId, onClose }) => {
                     </FieldGroup>
 
                     {/* 2 · Gönderi ve takip */}
-                    <FieldGroup index="2" title="Gönderi ve Takip" hint="Kargo takip numarası ve merkezin onarım numarası." icon={Truck}>
+                    <FieldGroup index={step.shipping} title="Gönderi ve Takip" hint="Kargo takip numarası ve merkezin onarım numarası." icon={Truck}>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label htmlFor={fieldId('shipment')} className="block text-[12px] font-semibold text-[#1d1d1f] mb-2">
@@ -462,10 +549,289 @@ const AppleLogisticsModal = ({ repairId, onClose }) => {
                         </div>
                     </FieldGroup>
 
-                    {/* 3 · Onarım merkezi sonucu */}
+                    {/* Onarım teklifi — merkezden fiyat gelirse müşteri kararı burada işlenir */}
+                    <FieldGroup
+                        index={step.quote}
+                        title="Onarım Teklifi"
+                        hint="Onarım merkezinden fiyat geldiyse kalemleri girip müşteri kararını kaydedin."
+                        icon={DollarSign}
+                        action={
+                            savedQuote && (
+                                <span className={`shrink-0 text-[11px] font-bold rounded-full px-2.5 py-1 border ${savedQuote.decision === QUOTE_APPROVED
+                                    ? 'bg-[#e6f4ea] text-[#1e7e34] border-[#1e7e34]/20'
+                                    : savedQuote.decision === QUOTE_REJECTED
+                                        ? 'bg-[#fff5f5] text-[#c30000] border-[#c30000]/20'
+                                        : 'bg-[#ff9500]/8 text-[#bf5b04] border-[#ff9500]/25'}`}>
+                                    {QUOTE_DECISION_LABELS[savedQuote.decision]}
+                                </span>
+                            )
+                        }
+                    >
+                        {/* Kaydedilmiş teklifin künyesi */}
+                        {savedQuote && (
+                            <div className="rounded-xl border border-gray-200 bg-[#f5f5f7]/60 p-4">
+                                <div className="flex flex-wrap items-baseline justify-between gap-3">
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Teklif Tutarı</p>
+                                    <p className="text-[20px] font-semibold text-[#1d1d1f] leading-none">
+                                        {formatQuoteAmount(savedQuote.amount)}
+                                    </p>
+                                </div>
+
+                                {savedQuote.items?.length > 0 && (
+                                    <ul className="mt-3 divide-y divide-gray-200 border-t border-gray-200">
+                                        {savedQuote.items.map((item, i) => (
+                                            <li key={i} className="flex items-center justify-between gap-3 py-2">
+                                                <span className="text-[13px] font-medium text-gray-700">{item.name}</span>
+                                                <span className="text-[13px] font-semibold text-[#1d1d1f] font-mono">
+                                                    {formatQuoteAmount(item.price)}
+                                                </span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+
+                                {savedQuote.note && (
+                                    <p className="text-[12px] text-gray-600 leading-relaxed mt-3 pt-3 border-t border-gray-200">
+                                        {savedQuote.note}
+                                    </p>
+                                )}
+
+                                <p className="text-[11px] font-medium text-gray-500 mt-3">
+                                    {savedQuote.sentBy && `${savedQuote.sentBy} tarafından sunuldu`}
+                                    {savedQuote.sentAt && ` · ${savedQuote.sentAt}`}
+                                </p>
+
+                                {savedQuote.decision !== QUOTE_PENDING && (
+                                    <div className={`mt-3 pt-3 border-t border-gray-200 ${savedQuote.decision === QUOTE_REJECTED ? 'text-[#c30000]' : 'text-[#1e7e34]'}`}>
+                                        <p className="text-[12px] font-semibold">
+                                            {QUOTE_DECISION_LABELS[savedQuote.decision]}
+                                        </p>
+                                        {savedQuote.rejectionReason && (
+                                            <p className="text-[12px] text-gray-700 mt-1">Gerekçe: {savedQuote.rejectionReason}</p>
+                                        )}
+                                        <p className="text-[11px] font-medium text-gray-500 mt-1">
+                                            {savedQuote.decidedBy && `${savedQuote.decidedBy}`}
+                                            {savedQuote.decidedAt && ` · ${savedQuote.decidedAt}`}
+                                            {savedQuote.decisionChannel && ` · ${QUOTE_CHANNEL_LABELS[savedQuote.decisionChannel] || savedQuote.decisionChannel}`}
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Karar bekleyen teklif: onay / red */}
+                        {savedQuote?.decision === QUOTE_PENDING && (
+                            <div className="mt-4">
+                                {!showRejectForm ? (
+                                    <div className="flex flex-wrap gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => handleQuoteDecision(QUOTE_APPROVED)}
+                                            disabled={saving}
+                                            className={`${ghostButton} bg-[#e6f4ea] text-[#1e7e34] border border-[#1e7e34]/20 hover:bg-[#d7ecdd] disabled:opacity-50`}
+                                        >
+                                            <CheckCircle size={15} aria-hidden="true" /> Müşteri Onayladı
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowRejectForm(true)}
+                                            disabled={saving}
+                                            className={`${ghostButton} bg-[#fff5f5] text-[#c30000] border border-[#c30000]/20 hover:bg-[#ffe9e9] disabled:opacity-50`}
+                                        >
+                                            <X size={15} aria-hidden="true" /> Müşteri Reddetti
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="rounded-xl border border-[#c30000]/25 bg-[#fff5f5] p-4">
+                                        <fieldset>
+                                            <legend className="text-[12px] font-semibold text-[#1d1d1f] mb-3">
+                                                Red gerekçesi <span className="text-[#c30000]" aria-hidden="true">*</span>
+                                            </legend>
+                                            <div className="space-y-2">
+                                                {QUOTE_REJECTION_REASONS.map(reason => (
+                                                    <label key={reason} className="flex items-center gap-2.5 text-[12px] font-medium text-gray-700 cursor-pointer">
+                                                        <input
+                                                            type="radio"
+                                                            name={fieldId('rejectReason')}
+                                                            value={reason}
+                                                            checked={rejectionReason === reason}
+                                                            onChange={() => { setRejectionReason(reason); setErrors(prev => ({ ...prev, rejectionReason: undefined })); }}
+                                                            className="h-4 w-4 accent-[#c30000]"
+                                                        />
+                                                        <span>{reason}</span>
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        </fieldset>
+
+                                        <div className="mt-3">
+                                            <label htmlFor={fieldId('rejectDetail')} className="block text-[11px] font-semibold text-gray-600 mb-1">
+                                                Açıklama {rejectionReason === 'Diğer'
+                                                    ? <span className="text-[#c30000]" aria-hidden="true">*</span>
+                                                    : <span className="font-medium text-gray-400">— opsiyonel</span>}
+                                            </label>
+                                            <textarea
+                                                id={fieldId('rejectDetail')}
+                                                className={`${inputBase} p-3 min-h-[64px] resize-y`}
+                                                placeholder="Müşterinin belirttiği ek detay…"
+                                                value={rejectionDetail}
+                                                onChange={(e) => { setRejectionDetail(e.target.value); setErrors(prev => ({ ...prev, rejectionReasonDetail: undefined })); }}
+                                                aria-required={rejectionReason === 'Diğer' ? 'true' : undefined}
+                                            />
+                                        </div>
+
+                                        <div className="flex flex-wrap gap-2 mt-3">
+                                            <button
+                                                type="button"
+                                                onClick={() => handleQuoteDecision(QUOTE_REJECTED)}
+                                                disabled={saving}
+                                                className={`${ghostButton} bg-[#c30000] text-white hover:bg-[#a80000] disabled:opacity-50`}
+                                            >
+                                                <X size={15} aria-hidden="true" /> Reddi Kaydet
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => { setShowRejectForm(false); setErrors({}); }}
+                                                className={`${ghostButton} bg-white text-[#1d1d1f] border border-gray-200 hover:bg-[#f5f5f7]`}
+                                            >
+                                                Vazgeç
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Karar verilmiş teklif için revize seçeneği */}
+                        {savedQuote && savedQuote.decision !== QUOTE_PENDING && !editingQuote && (
+                            <button
+                                type="button"
+                                onClick={() => { setQuoteItems(savedQuote.items?.length ? savedQuote.items : [emptyQuoteItem()]); setEditingQuote(true); }}
+                                className={`${ghostButton} mt-4 bg-white text-[#0071e3] border border-[#0071e3]/30 hover:bg-[#0071e3]/5`}
+                            >
+                                <Plus size={15} aria-hidden="true" /> Yeni Teklif Sun
+                            </button>
+                        )}
+
+                        {/* Teklif girişi */}
+                        {quoteFormOpen && (
+                            <div className={savedQuote ? 'mt-4 pt-4 border-t border-gray-100' : ''}>
+                                <div className="flex items-center justify-between gap-3 mb-3">
+                                    <h4 className="text-[12px] font-semibold text-[#1d1d1f]">Teklif Kalemleri</h4>
+                                    <button
+                                        type="button"
+                                        onClick={addQuoteItem}
+                                        className={`${ghostButton} h-9 px-4 text-[12px] bg-white text-[#0071e3] border border-[#0071e3]/30 hover:bg-[#0071e3]/5`}
+                                    >
+                                        <Plus size={14} aria-hidden="true" /> Kalem Ekle
+                                    </button>
+                                </div>
+
+                                {quoteItems.length === 0 ? (
+                                    <p className="text-[12px] font-medium text-gray-500 text-center py-5 border border-dashed border-gray-300 rounded-xl">
+                                        Henüz kalem eklenmedi. Merkezden gelen fiyatı kalem kalem girin.
+                                    </p>
+                                ) : (
+                                    <ul className="space-y-2">
+                                        {quoteItems.map((item, index) => (
+                                            <li key={index} className="flex items-start gap-2">
+                                                <div className="flex-1 min-w-0">
+                                                    <label htmlFor={fieldId(`q-${index}-name`)} className="sr-only">
+                                                        {index + 1}. kalem açıklaması
+                                                    </label>
+                                                    <input
+                                                        id={fieldId(`q-${index}-name`)}
+                                                        type="text"
+                                                        className={`${inputBase} h-11 px-3 font-semibold`}
+                                                        placeholder="Örn: Ekran modülü değişimi"
+                                                        value={item.name || ''}
+                                                        onChange={(e) => updateQuoteItem(index, 'name', e.target.value)}
+                                                    />
+                                                </div>
+                                                <div className="w-36 shrink-0">
+                                                    <label htmlFor={fieldId(`q-${index}-price`)} className="sr-only">
+                                                        {index + 1}. kalem tutarı
+                                                    </label>
+                                                    <div className="relative">
+                                                        <span aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 text-[13px] font-semibold text-gray-400">₺</span>
+                                                        <input
+                                                            id={fieldId(`q-${index}-price`)}
+                                                            type="number"
+                                                            min="0"
+                                                            step="0.01"
+                                                            inputMode="decimal"
+                                                            className={`${inputBase} h-11 pl-7 pr-3 font-semibold`}
+                                                            placeholder="0,00"
+                                                            value={item.price ?? ''}
+                                                            onChange={(e) => updateQuoteItem(index, 'price', e.target.value)}
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removeQuoteItem(index)}
+                                                    className="w-11 h-11 shrink-0 rounded-lg border border-gray-200 bg-white text-gray-500 hover:text-[#c30000] hover:border-[#c30000]/30 hover:bg-[#fff5f5] flex items-center justify-center transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#c30000]/20"
+                                                >
+                                                    <Trash2 size={15} aria-hidden="true" />
+                                                    <span className="sr-only">{index + 1}. kalemi kaldır</span>
+                                                </button>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+
+                                {errors.items && <FieldError id={fieldId('items-error')}>{errors.items}</FieldError>}
+                                {errors.itemPrice && <FieldError id={fieldId('itemPrice-error')}>{errors.itemPrice}</FieldError>}
+
+                                {quoteItems.length > 0 && (
+                                    <div className="flex items-baseline justify-between gap-3 mt-3 pt-3 border-t border-gray-100">
+                                        <span className="text-[12px] font-semibold text-gray-600">Toplam</span>
+                                        <span className="text-[18px] font-semibold text-[#1d1d1f]" aria-live="polite">
+                                            {formatQuoteAmount(quoteTotal(quoteItems))}
+                                        </span>
+                                    </div>
+                                )}
+
+                                <div className="mt-4">
+                                    <label htmlFor={fieldId('quoteNote')} className="block text-[12px] font-semibold text-[#1d1d1f] mb-2">
+                                        Müşteriye açıklama <span className="font-medium text-gray-400">— opsiyonel</span>
+                                    </label>
+                                    <textarea
+                                        id={fieldId('quoteNote')}
+                                        className={`${inputBase} p-3 min-h-[64px] resize-y`}
+                                        placeholder="Teklifin kapsamı, süre bilgisi…"
+                                        value={quoteNote}
+                                        onChange={(e) => setQuoteNote(e.target.value)}
+                                    />
+                                </div>
+
+                                <div className="flex flex-wrap gap-2 mt-4">
+                                    <button
+                                        type="button"
+                                        onClick={handleSendQuote}
+                                        disabled={saving}
+                                        className={`${ghostButton} bg-[#0071e3] text-white hover:bg-[#0077ed] disabled:opacity-50`}
+                                    >
+                                        <DollarSign size={15} aria-hidden="true" /> Teklifi Müşteriye Sun
+                                    </button>
+                                    {editingQuote && (
+                                        <button
+                                            type="button"
+                                            onClick={() => { setEditingQuote(false); setErrors({}); }}
+                                            className={`${ghostButton} bg-white text-[#1d1d1f] border border-gray-200 hover:bg-[#f5f5f7]`}
+                                        >
+                                            Vazgeç
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </FieldGroup>
+
+                    {/* Onarım merkezi sonucu */}
                     {canReceive && (
                         <FieldGroup
-                            index="3"
+                            index={step.outcome}
                             title="Onarım Merkezinde Ne Yapıldı?"
                             hint="Cihaz merkezden döndüğünde yapılan işlemi doğrulayın. Seçime göre ek alanlar açılır."
                             icon={Wrench}
@@ -688,7 +1054,7 @@ const AppleLogisticsModal = ({ repairId, onClose }) => {
                     {/* 4 · Servis sonuç raporu */}
                     {canReceive && (
                         <FieldGroup
-                            index="4"
+                            index={step.report}
                             title="Servis Sonuç Raporu"
                             hint="Müşteriye teslim formunda görünür. Yapılan işlemi anlaşılır bir dille özetleyin."
                             icon={ClipboardList}
@@ -719,7 +1085,7 @@ const AppleLogisticsModal = ({ repairId, onClose }) => {
 
                     {/* 5 · Görsel arşiv */}
                     <FieldGroup
-                        index={canReceive ? '5' : '3'}
+                        index={step.photos}
                         title="Lojistik Görsel Arşivi"
                         hint="Gönderim öncesi ve merkezden dönüş fotoğrafları."
                         icon={Camera}
@@ -785,32 +1151,6 @@ const AppleLogisticsModal = ({ repairId, onClose }) => {
                         >
                             <Mail size={15} aria-hidden="true" /> Durum Bildir
                         </button>
-                        {repair.status === 'Müşteri Onayı Bekliyor' ? (
-                            <>
-                                <button
-                                    type="button"
-                                    onClick={() => handleQuoteResolution(true)}
-                                    className={`${ghostButton} bg-[#e6f4ea] text-[#1e7e34] border border-[#1e7e34]/20 hover:bg-[#d7ecdd]`}
-                                >
-                                    <CheckCircle size={15} aria-hidden="true" /> Teklif Onaylandı
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => handleQuoteResolution(false)}
-                                    className={`${ghostButton} bg-[#fff5f5] text-[#c30000] border border-[#c30000]/20 hover:bg-[#ffe9e9]`}
-                                >
-                                    <X size={15} aria-hidden="true" /> Teklif Reddedildi
-                                </button>
-                            </>
-                        ) : (
-                            <button
-                                type="button"
-                                onClick={handleQuoteReceived}
-                                className={`${ghostButton} bg-white text-[#b25e00] border border-[#ff9500]/30 hover:bg-[#ff9500]/8`}
-                            >
-                                <DollarSign size={15} aria-hidden="true" /> Teklif Geldi
-                            </button>
-                        )}
                     </div>
 
                     <div className="flex flex-wrap gap-2">
