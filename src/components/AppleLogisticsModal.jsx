@@ -147,12 +147,17 @@ const AppleLogisticsModal = ({ repairId, onClose }) => {
         setErrors({});
     }, [repair]);
 
+    // Odak yalnızca açılışta alınır; [onClose] bağımlılığı olsaydı üst bileşenin
+    // her render'ında odak forma geri çekilip yazılan veri kaybolurdu.
+    useEffect(() => { dialogRef.current?.focus(); }, []);
+
+    const closeRef = useRef(onClose);
+    closeRef.current = onClose;
     useEffect(() => {
-        dialogRef.current?.focus();
-        const onKeyDown = (e) => { if (e.key === 'Escape') onClose?.(); };
+        const onKeyDown = (e) => { if (e.key === 'Escape') closeRef.current?.(); };
         document.addEventListener('keydown', onKeyDown);
         return () => document.removeEventListener('keydown', onKeyDown);
-    }, [onClose]);
+    }, []);
 
     const errorList = Object.values(errors).filter(Boolean);
 

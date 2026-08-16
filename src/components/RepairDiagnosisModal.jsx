@@ -11,14 +11,19 @@ const RepairDiagnosisModal = ({ repair, onClose, onSave }) => {
     const uid = useId();
     const dialogRef = useRef(null);
 
+    // Odak yalnızca açılışta alınır; [onClose] bağımlılığı olsaydı üst bileşenin
+    // her render'ında odak diyaloğa geri çekilip form girişi kesilirdi.
+    useEffect(() => { dialogRef.current?.focus(); }, []);
+
+    const closeRef = useRef(onClose);
+    closeRef.current = onClose;
     useEffect(() => {
         const onKeyDown = (e) => {
-            if (e.key === 'Escape') onClose?.();
+            if (e.key === 'Escape') closeRef.current?.();
         };
         document.addEventListener('keydown', onKeyDown);
-        dialogRef.current?.focus();
         return () => document.removeEventListener('keydown', onKeyDown);
-    }, [onClose]);
+    }, []);
 
     if (!repair) return null;
 

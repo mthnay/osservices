@@ -108,12 +108,20 @@ const InventoryEntryModal = ({ mode = 'KGB', stores = [], defaultStoreId = '', o
         });
     }, [selectableStores]);
 
+    // Odak YALNIZCA açılışta alınır. Bu efekt [onClose] ile çalışsaydı, onClose
+    // üst bileşende satır içi tanımlandığı için her render'da kimliği değişir,
+    // efekt yeniden çalışır ve kullanıcı form doldururken odak forma geri
+    // çekilerek yazılanlar kaybolurdu.
+    useEffect(() => { dialogRef.current?.focus(); }, []);
+
+    // Esc dinleyicisi bir kez bağlanır; güncel onClose ref üzerinden okunur.
+    const closeRef = useRef(onClose);
+    closeRef.current = onClose;
     useEffect(() => {
-        dialogRef.current?.focus();
-        const onKeyDown = (e) => { if (e.key === 'Escape') onClose?.(); };
+        const onKeyDown = (e) => { if (e.key === 'Escape') closeRef.current?.(); };
         document.addEventListener('keydown', onKeyDown);
         return () => document.removeEventListener('keydown', onKeyDown);
-    }, [onClose]);
+    }, []);
 
     const setField = (key, value) => {
         setForm(prev => ({ ...prev, [key]: value }));
