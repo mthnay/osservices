@@ -3,6 +3,7 @@ import { useReactToPrint } from 'react-to-print';
 import { Printer, CheckCircle } from 'lucide-react';
 import MyPhoneIcon from './LocalIcons';
 import { useAppContext } from '../context/AppContext';
+import { getArcOutcome } from '../utils/arcOutcome';
 
 const DeliveryFormPrint = ({ repair, signature, onClose }) => {
     const componentRef = useRef();
@@ -29,6 +30,10 @@ const DeliveryFormPrint = ({ repair, signature, onClose }) => {
 
     const isReturned = repair.status?.includes('İade') || repair.repairClosingNote?.includes('İŞLEMSİZ İADE');
     const currentDate = new Date().toLocaleDateString('tr-TR');
+
+    // Bütün Birim Posta akışında Onarım Merkezi sonucu müşteriye bu formda bildirilir
+    const arc = repair.arcOutcome?.code ? repair.arcOutcome : null;
+    const arcMeta = arc ? getArcOutcome(arc.code) : null;
 
     return (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
@@ -130,6 +135,73 @@ const DeliveryFormPrint = ({ repair, signature, onClose }) => {
                             </div>
                         </div>
 
+                        {/* Onarım Merkezi Sonucu — müşteriye yönelik bildirim */}
+                        {arc && (
+                            <div className="border-[0.5px] border-gray-300 rounded overflow-hidden mb-2">
+                                <div className="bg-[#f5f5f7] border-b-[0.5px] border-gray-300 px-2 py-0.5 text-[8px] font-bold uppercase tracking-wider text-gray-700">
+                                    Apple Onarım Merkezi İşlem Sonucu
+                                </div>
+                                <div className="p-2 text-[9.5px] space-y-1.5">
+                                    <div>
+                                        <span className="block text-[6.5px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">YAPILAN İŞLEM</span>
+                                        <p className="font-semibold text-gray-900">{arc.label || arcMeta?.label}</p>
+                                        {arcMeta?.customerText && (
+                                            <p className="text-gray-700 leading-normal mt-0.5 text-[9px]">{arcMeta.customerText}</p>
+                                        )}
+                                    </div>
+
+                                    {/* Cihaz kimliği değiştiyse müşteri teslim aldığı cihazı formda görür */}
+                                    {arc.newSerial && (
+                                        <div>
+                                            <span className="block text-[6.5px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">TESLİM EDİLEN CİHAZ KİMLİĞİ</span>
+                                            <div className="grid grid-cols-3 gap-1.5 bg-[#fbfbfd] border-[0.5px] border-gray-200 rounded p-1.5">
+                                                <div>
+                                                    <span className="block text-[6.5px] font-bold text-gray-400 uppercase">Seri No</span>
+                                                    <span className="font-mono font-semibold text-gray-900 uppercase">{arc.newSerial}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="block text-[6.5px] font-bold text-gray-400 uppercase">IMEI 1</span>
+                                                    <span className="font-mono text-gray-900">{arc.newImei1 || '-'}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="block text-[6.5px] font-bold text-gray-400 uppercase">IMEI 2</span>
+                                                    <span className="font-mono text-gray-900">{arc.newImei2 || '-'}</span>
+                                                </div>
+                                            </div>
+                                            {arc.previousSerial && (
+                                                <p className="text-[8px] text-gray-500 mt-0.5">
+                                                    Kabulde teslim alınan cihazın seri numarası: <span className="font-mono">{arc.previousSerial}</span>
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {arc.replacedParts?.length > 0 && (
+                                        <div>
+                                            <span className="block text-[6.5px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">MERKEZDE DEĞİŞEN PARÇALAR</span>
+                                            <ul className="bg-[#fbfbfd] border-[0.5px] border-gray-200 rounded p-1.5 space-y-0.5">
+                                                {arc.replacedParts.map((p, i) => (
+                                                    <li key={i} className="flex items-center justify-between gap-2 text-[9px]">
+                                                        <span className="text-gray-800 font-medium">{p.description}</span>
+                                                        {p.partNumber && <span className="font-mono text-gray-500 uppercase">{p.partNumber}</span>}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    )}
+
+                                    {arc.report && (
+                                        <div>
+                                            <span className="block text-[6.5px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">SERVİS SONUÇ RAPORU</span>
+                                            <p className="p-1.5 bg-[#fbfbfd] rounded border-[0.5px] border-gray-200 text-gray-800 text-[9px] leading-normal whitespace-pre-wrap">
+                                                {arc.report}
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
                         {/* Yapılan Teknik İşlemler Paneli */}
                         <div className="border-[0.5px] border-gray-300 rounded overflow-hidden mb-2">
                             <div className="bg-[#f5f5f7] border-b-[0.5px] border-gray-300 px-2 py-0.5 text-[8px] font-bold uppercase tracking-wider text-gray-700">
@@ -186,8 +258,13 @@ const DeliveryFormPrint = ({ repair, signature, onClose }) => {
                                                 <th className="pb-0.5 w-6">#</th>
                                                 <th className="pb-0.5">PARÇA TANIMI</th>
                                                 <th className="pb-0.5">PARÇA NO (P/N)</th>
-                                                <th className="pb-0.5">YENİ SERİ NO</th>
-                                                <th className="pb-0.5">ESKİ SERİ NO</th>
+                                                {/* Bütün birim kayıtlarında seri numaraları cihaz bazlıdır */}
+                                                <th className="pb-0.5">
+                                                    {repair.parts.every(p => p.isWholeUnit) ? 'GELEN CİHAZ SERİ' : 'YENİ SERİ NO'}
+                                                </th>
+                                                <th className="pb-0.5">
+                                                    {repair.parts.every(p => p.isWholeUnit) ? 'ARIZALI CİHAZ SERİ' : 'ESKİ SERİ NO'}
+                                                </th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-100">
@@ -196,8 +273,12 @@ const DeliveryFormPrint = ({ repair, signature, onClose }) => {
                                                     <td className="py-1 font-bold">{index + 1}</td>
                                                     <td className="py-1 uppercase font-semibold">{part.description}</td>
                                                     <td className="py-1 font-mono text-[8px] text-gray-500">{part.partNumber || 'N/A'}</td>
-                                                    <td className="py-1 font-mono text-[8px] text-blue-600 font-semibold">{part.kgbSerial || '-'}</td>
-                                                    <td className="py-1 font-mono text-[8px] text-gray-400">{part.kbbSerial || '-'}</td>
+                                                    <td className="py-1 font-mono text-[8px] text-blue-600 font-semibold">
+                                                        {(part.isWholeUnit ? part.replacementDeviceSerial : part.kgbSerial) || '-'}
+                                                    </td>
+                                                    <td className="py-1 font-mono text-[8px] text-gray-400">
+                                                        {(part.isWholeUnit ? part.faultyDeviceSerial : part.kbbSerial) || '-'}
+                                                    </td>
                                                 </tr>
                                             ))}
                                         </tbody>

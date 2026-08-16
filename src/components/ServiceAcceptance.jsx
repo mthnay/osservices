@@ -41,6 +41,7 @@ import { hasPermission, ROLES, getAccessibleStoreIds } from '../utils/permission
 import MyPhoneIcon from './LocalIcons';
 import { getProductImage } from '../utils/productImages';
 import PickerModal from './ui/PickerModal';
+import InlineSelect from './ui/InlineSelect';
 import { PROVINCES, districtsOf } from '../utils/turkeyRegions';
 import {
     findCustomerMatches, describeMatch, blocksCreate, isForceable, isValidTc, customerKeyOf,
@@ -99,8 +100,6 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
     const [showStoreSelect, setShowStoreSelect] = useState(false);
     // Popup seçiciler: ürün grubu, il, ilçe
     const [showProductPicker, setShowProductPicker] = useState(false);
-    const [showCityPicker, setShowCityPicker] = useState(false);
-    const [showDistrictPicker, setShowDistrictPicker] = useState(false);
     const storeSelectRef = useRef(null);
 
     // Click outside to close suggestions and store select
@@ -706,38 +705,32 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                                         />
                                     </div>
 
-                                    {/* İl */}
-                                    <div className="space-y-2">
-                                        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 ml-1">İl</p>
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowCityPicker(true)}
-                                            aria-haspopup="dialog"
-                                            className="w-full px-5 py-4 rounded-md bg-gray-50 border border-gray-200 flex items-center justify-between gap-3 text-left hover:bg-white hover:border-gray-300 transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
-                                        >
-                                            <span className={`text-sm font-bold truncate ${formData.customerCity ? 'text-gray-900' : 'text-gray-400'}`}>
-                                                {formData.customerCity || 'İl seçiniz'}
-                                            </span>
-                                            <MapPin size={18} className="text-gray-400 shrink-0" aria-hidden="true" />
-                                        </button>
-                                    </div>
+                                    {/* İl — alanın altında açılan aranabilir liste */}
+                                    <InlineSelect
+                                        id="sa-city"
+                                        label="İl"
+                                        icon={MapPin}
+                                        value={formData.customerCity}
+                                        options={PROVINCES}
+                                        placeholder="İl seçiniz"
+                                        searchPlaceholder="İl ara…"
+                                        emptyText="Eşleşen il bulunamadı."
+                                        onSelect={(city) => setFormData(prev => ({ ...prev, customerCity: city, customerDistrict: '' }))}
+                                    />
 
-                                    {/* İlçe */}
-                                    <div className="space-y-2">
-                                        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 ml-1">İlçe</p>
-                                        <button
-                                            type="button"
-                                            onClick={() => formData.customerCity && setShowDistrictPicker(true)}
-                                            disabled={!formData.customerCity}
-                                            aria-haspopup="dialog"
-                                            className="w-full px-5 py-4 rounded-md bg-gray-50 border border-gray-200 flex items-center justify-between gap-3 text-left hover:bg-white hover:border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
-                                        >
-                                            <span className={`text-sm font-bold truncate ${formData.customerDistrict ? 'text-gray-900' : 'text-gray-400'}`}>
-                                                {formData.customerDistrict || (formData.customerCity ? 'İlçe seçiniz' : 'Önce il seçiniz')}
-                                            </span>
-                                            <ChevronDown size={18} className="text-gray-400 shrink-0" aria-hidden="true" />
-                                        </button>
-                                    </div>
+                                    {/* İlçe — il seçilene kadar kapalı */}
+                                    <InlineSelect
+                                        id="sa-district"
+                                        label="İlçe"
+                                        value={formData.customerDistrict}
+                                        options={districtsOf(formData.customerCity)}
+                                        disabled={!formData.customerCity}
+                                        disabledText="Önce il seçiniz"
+                                        placeholder="İlçe seçiniz"
+                                        searchPlaceholder="İlçe ara…"
+                                        emptyText="Eşleşen ilçe bulunamadı."
+                                        onSelect={(district) => setFormData(prev => ({ ...prev, customerDistrict: district }))}
+                                    />
 
                                     {/* Açık adres */}
                                     <div className="md:col-span-2 space-y-2">
@@ -1184,32 +1177,6 @@ const ServiceAcceptance = ({ setActiveTab, initialData, clearInitialData }) => {
                     options={PRODUCT_GROUPS.map(g => ({ value: g.id, label: g.label }))}
                     onSelect={(val) => applyProductGroup(val)}
                     onClose={() => setShowProductPicker(false)}
-                />
-            )}
-
-            {/* İl seçimi */}
-            {showCityPicker && (
-                <PickerModal
-                    title="İl Seçiniz"
-                    description="Türkiye'deki 81 il arasından arayarak seçebilirsiniz."
-                    placeholder="İl ara…"
-                    value={formData.customerCity}
-                    options={PROVINCES}
-                    onSelect={(city) => setFormData(prev => ({ ...prev, customerCity: city, customerDistrict: '' }))}
-                    onClose={() => setShowCityPicker(false)}
-                />
-            )}
-
-            {/* İlçe seçimi */}
-            {showDistrictPicker && (
-                <PickerModal
-                    title="İlçe Seçiniz"
-                    description={`${formData.customerCity} ilinin ilçeleri`}
-                    placeholder="İlçe ara…"
-                    value={formData.customerDistrict}
-                    options={districtsOf(formData.customerCity)}
-                    onSelect={(district) => setFormData(prev => ({ ...prev, customerDistrict: district }))}
-                    onClose={() => setShowDistrictPicker(false)}
                 />
             )}
 

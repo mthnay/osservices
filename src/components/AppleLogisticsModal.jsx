@@ -1,102 +1,264 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useId, useRef, useMemo } from 'react';
 import Swal from 'sweetalert2';
 import {
-    Truck, Package, ArrowRight, CheckCircle,
-    Calendar, MapPin, ExternalLink, Box, AlertCircle, Wrench, Clock, Plus, Trash2, FileText, Pencil, DollarSign, X,
-    MessageCircle, MoreHorizontal, Mail, Map, Download, Camera, Printer, Settings, BarChart
+    Truck, CheckCircle, ExternalLink, Box, AlertCircle, Wrench, Clock, Plus, Trash2,
+    FileText, DollarSign, X, Mail, Camera, Smartphone, ClipboardList, Check, Save
 } from 'lucide-react';
-import MyPhoneIcon from './LocalIcons';
 import CustomerNotificationModal from './CustomerNotificationModal';
 import { useAppContext } from '../context/AppContext';
+import {
+    ARC_OUTCOMES, getArcOutcome, arcOutcomeStatus, validateArcOutcome,
+    summarizeArcOutcome, emptyArcPart, deviceHasImei
+} from '../utils/arcOutcome';
+
+/* ------------------------------------------------------------------
+   Cihaz Lojistik & Takip
+   Bütün Birim Posta akışındaki kayıtların servis ekranı. Cihaz Apple
+   Onarım Merkezi'ne gönderilir, döndüğünde merkezde ne yapıldığı
+   yapılandırılmış bir sonuç koduyla kayda geçer.
+
+   GSX form dili: numaralı bölümler, açık etiketler, hata özeti ve
+   klavye/ekran okuyucu ile tam kullanılabilirlik.
+------------------------------------------------------------------ */
+
+const inputBase = 'w-full bg-white border border-gray-300 rounded-xl text-sm text-[#1d1d1f] placeholder:text-gray-400 outline-none transition-all focus-visible:border-[#0071e3] focus-visible:ring-4 focus-visible:ring-[#0071e3]/15';
+const ghostButton = 'inline-flex items-center justify-center gap-2 h-11 px-5 rounded-xl text-[13px] font-semibold transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25';
+
+// Sonucun görsel tonu — bilgi / başarı / uyarı / iade
+const TONES = {
+    info: { border: 'border-[#0071e3]/25', bg: 'bg-[#0071e3]/5', text: 'text-[#0071e3]' },
+    success: { border: 'border-[#1e7e34]/25', bg: 'bg-[#e6f4ea]', text: 'text-[#1e7e34]' },
+    warning: { border: 'border-[#ff9500]/30', bg: 'bg-[#ff9500]/8', text: 'text-[#bf5b04]' },
+    danger: { border: 'border-[#c30000]/25', bg: 'bg-[#fff5f5]', text: 'text-[#c30000]' },
+};
+
+/** Numaralı bölüm başlığı (GSX form dili) */
+const FieldGroup = ({ index, title, hint, icon: Icon, required, children, action }) => (
+    <section className="bg-white rounded-2xl border border-gray-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+        <header className="flex items-start justify-between gap-4 px-5 py-4 border-b border-gray-100">
+            <div className="flex items-start gap-3 min-w-0">
+                <span
+                    aria-hidden="true"
+                    className="mt-0.5 w-6 h-6 shrink-0 rounded-full bg-[#f5f5f7] text-[#1d1d1f] text-[11px] font-bold flex items-center justify-center border border-gray-200"
+                >
+                    {index}
+                </span>
+                <div className="min-w-0">
+                    <h3 className="text-[13px] font-semibold text-[#1d1d1f] flex items-center gap-2">
+                        {Icon && <Icon size={14} className="text-[#0071e3] shrink-0" aria-hidden="true" />}
+                        {title}
+                        {required && <span className="text-[#c30000] font-bold" aria-hidden="true">*</span>}
+                        {required && <span className="sr-only">(zorunlu alan)</span>}
+                    </h3>
+                    {hint && <p className="text-[11px] text-gray-500 mt-0.5 leading-snug">{hint}</p>}
+                </div>
+            </div>
+            {action}
+        </header>
+        <div className="p-5">{children}</div>
+    </section>
+);
+
+const FieldError = ({ id, children }) => (
+    <p id={id} className="mt-2 flex items-start gap-1.5 text-[11px] font-semibold text-[#c30000]">
+        <AlertCircle size={13} className="shrink-0 mt-px" aria-hidden="true" />
+        {children}
+    </p>
+);
+
+/** Salt okunur künye satırı */
+const InfoRow = ({ label, value, mono }) => (
+    <div>
+        <dt className="text-[10px] font-bold uppercase tracking-widest text-gray-500">{label}</dt>
+        <dd className={`text-[13px] font-semibold text-[#1d1d1f] mt-0.5 break-words ${mono ? 'font-mono' : ''}`}>
+            {value || '—'}
+        </dd>
+    </div>
+);
 
 const AppleLogisticsModal = ({ repairId, onClose }) => {
-    const { updateRepair, repairs, showToast } = useAppContext();
-    const [repair, setRepair] = useState(null);
+    const { updateRepair, repairs, showToast, uploadMedia, currentUser } = useAppContext();
+    const uid = useId();
+    const fieldId = (name) => `${uid}-${name}`;
+
+    const repair = useMemo(() => repairs.find(r => r.id === repairId) || null, [repairs, repairId]);
+
     const [shipmentCode, setShipmentCode] = useState('');
     const [gsxNo, setGsxNo] = useState('');
-    const [isEditing, setIsEditing] = useState(false);
-    const [arcResult, setArcResult] = useState('');
-    const [arcParts, setArcParts] = useState([]);
-    // eslint-disable-next-line no-unused-vars
-    const [activeTimeline, setActiveTimeline] = useState(2); // Mock: 2. adımda (Apple Merkezi'nde)
-    const [showNotificationModal, setShowNotificationModal] = useState(false);
+    const [errors, setErrors] = useState({});
     const [uploading, setUploading] = useState(false);
-    const fileInputRef = React.useRef(null);
-    const { uploadMedia } = useAppContext();
+    const [showNotificationModal, setShowNotificationModal] = useState(false);
+    const [saving, setSaving] = useState(false);
+
+    // ARC sonuç taslağı
+    const [outcomeCode, setOutcomeCode] = useState('');
+    const [newSerial, setNewSerial] = useState('');
+    const [newImei1, setNewImei1] = useState('');
+    const [newImei2, setNewImei2] = useState('');
+    const [replacedParts, setReplacedParts] = useState([]);
+    const [report, setReport] = useState('');
+
+    const fileInputRef = useRef(null);
+    const errorSummaryRef = useRef(null);
+    const dialogRef = useRef(null);
+    const hydratedFor = useRef(null);
+
+    const outcome = getArcOutcome(outcomeCode);
+    const requireImei = deviceHasImei(repair);
+
+    // Kayıt değişince yerel taslağı bir kez doldur; sonraki global
+    // güncellemeler kullanıcının yazdıklarını ezmemeli
+    useEffect(() => {
+        if (!repair || hydratedFor.current === repair.id) return;
+        hydratedFor.current = repair.id;
+
+        setShipmentCode(repair.shipmentCode || '');
+        setGsxNo(repair.appleRepairId || '');
+
+        const saved = repair.arcOutcome || null;
+        setOutcomeCode(saved?.code || '');
+        setNewSerial(saved?.newSerial || '');
+        setNewImei1(saved?.newImei1 || '');
+        setNewImei2(saved?.newImei2 || '');
+        setReplacedParts(saved?.replacedParts?.length ? saved.replacedParts : []);
+        setReport(saved?.report || '');
+        setErrors({});
+    }, [repair]);
 
     useEffect(() => {
-        const found = repairs.find(r => r.id === repairId);
-        if (found) {
-            setRepair(found);
-            
-            // Sadece ilk açılışta veya ID değiştiğinde yerel state'i senkronize et
-            // Bu sayede global repairs güncellendiğinde (örneğin timer) kullanıcının yazdıkları silinmez
-            if (!repair || repair.id !== found.id) {
-                setShipmentCode(found.shipmentCode || '');
-                setGsxNo(found.appleRepairId || '');
-                setArcResult(found.diagnosisNotes?.startsWith('ARC SONUCU:') ? found.diagnosisNotes.replace('ARC SONUCU: ', '') : '');
-                setArcParts(found.parts || []);
-            }
-        }
-    }, [repairId, repairs, repair]);
+        dialogRef.current?.focus();
+        const onKeyDown = (e) => { if (e.key === 'Escape') onClose?.(); };
+        document.addEventListener('keydown', onKeyDown);
+        return () => document.removeEventListener('keydown', onKeyDown);
+    }, [onClose]);
 
-    const handleStartTracking = () => {
-        if (!shipmentCode) {
-            alert('Lütfen UPS Takip Numarasını giriniz.');
+    const errorList = Object.values(errors).filter(Boolean);
+
+    const draft = { code: outcomeCode, newSerial, newImei1, newImei2, replacedParts, report };
+
+    /** Cihaz merkezden döndüğünde açılan bölüm */
+    const canReceive = repair && [
+        "Apple'a Gönderildi", 'İade Bekleniyor', 'Müşteri Onayı Bekliyor', 'Cihaz Hazır', 'İade Hazır'
+    ].includes(repair.status);
+
+    const handleOutcomeChange = (code) => {
+        setOutcomeCode(code);
+        const next = getArcOutcome(code);
+        // Sonuç değişince önceki sonuca ait alanlar geçersiz olur
+        if (!next?.requiresIdentity) {
+            setNewSerial(''); setNewImei1(''); setNewImei2('');
+        }
+        if (!next?.requiresParts) {
+            setReplacedParts([]);
+        } else if (replacedParts.length === 0) {
+            setReplacedParts([emptyArcPart()]);
+        }
+        setErrors({});
+    };
+
+    const addPart = () => setReplacedParts(prev => [...prev, emptyArcPart()]);
+    const removePart = (index) => setReplacedParts(prev => prev.filter((_, i) => i !== index));
+    const updatePart = (index, field, value) => {
+        setReplacedParts(prev => prev.map((p, i) => (i === index ? { ...p, [field]: value } : p)));
+        setErrors(prev => ({ ...prev, replacedParts: undefined }));
+    };
+
+    const handleStartTracking = async () => {
+        if (!shipmentCode.trim()) {
+            setErrors({ shipmentCode: 'Gönderi takip numarası zorunludur.' });
+            requestAnimationFrame(() => errorSummaryRef.current?.focus());
             return;
         }
-
-        // Durumu güncelle ve takip numarasını kaydet
-        updateRepair(repairId, {
+        setErrors({});
+        await updateRepair(repairId, {
             status: "Apple'a Gönderildi",
-            shipmentCode: shipmentCode,
-            historyNote: `UPS Takip No girildi: ${shipmentCode}. Cihaz Apple Onarım Merkezi'ne gönderildi.`
+            shipmentCode: shipmentCode.trim(),
+            appleRepairId: gsxNo.trim(),
+            historyNote: `Kargo takip no girildi: ${shipmentCode.trim()}. Cihaz Apple Onarım Merkezi'ne gönderildi.`
         });
-
-        alert('Takip numarası kaydedildi ve cihaz durumu güncellendi.');
+        showToast('Takip numarası kaydedildi, cihaz gönderildi olarak işaretlendi.', 'success');
     };
 
-    const handleReceiveFromARC = () => {
-        if (!arcResult) {
-            alert('Lütfen Apple Merkezi onarım sonucunu (pencerenin alt kısmındaki alan) giriniz.');
-            // Opsiyonel: Textarea'ya scroll yapabiliriz
-            const el = document.querySelector('textarea');
-            if (el) el.focus();
+    const handleSaveDraft = async () => {
+        setSaving(true);
+        try {
+            await updateRepair(repairId, {
+                shipmentCode: shipmentCode.trim(),
+                appleRepairId: gsxNo.trim(),
+                // Taslakta durum değişmez; yalnızca girilenler saklanır
+                arcOutcome: outcomeCode ? { ...draft, status: 'draft' } : undefined,
+                historyNote: 'Lojistik bilgileri güncellendi (taslak).'
+            });
+            showToast('İlerleme kaydedildi.', 'success');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    /** Cihazı merkezden teslim al: sonuç kodu ve raporu kalıcı yazar */
+    const handleReceiveFromARC = async () => {
+        const nextErrors = validateArcOutcome(draft, { requireImei });
+        if (Object.keys(nextErrors).length > 0) {
+            setErrors(nextErrors);
+            requestAnimationFrame(() => errorSummaryRef.current?.focus());
             return;
         }
+        setErrors({});
 
-        const isReturn = repair.status === 'İade Bekleniyor' || repair.repairType === 'direct-return';
+        const cleanParts = (replacedParts || [])
+            .filter(p => String(p.description || '').trim())
+            .map(p => ({
+                partNumber: String(p.partNumber || '').trim().toUpperCase(),
+                description: String(p.description || '').trim(),
+                kbbSerial: String(p.kbbSerial || '').trim().toUpperCase(),
+                kgbSerial: String(p.kgbSerial || '').trim().toUpperCase(),
+            }));
 
-        updateRepair(repairId, {
-            status: isReturn ? 'İade Hazır' : 'Cihaz Hazır',
-            diagnosisNotes: `ARC SONUCU: ${arcResult}`,
-            parts: arcParts,
-            appleRepairId: gsxNo,
-            historyNote: `Cihaz Apple Onarım Merkezi'nden geldi. Sonuç: ${arcResult}. Değişen Parça Sayısı: ${arcParts.length}`
-        });
+        const arcOutcome = {
+            code: outcomeCode,
+            label: outcome.label,
+            newSerial: outcome.requiresIdentity ? newSerial.trim().toUpperCase() : '',
+            newImei1: outcome.requiresIdentity ? newImei1.trim() : '',
+            newImei2: outcome.requiresIdentity ? newImei2.trim() : '',
+            replacedParts: outcome.requiresParts ? cleanParts : [],
+            report: report.trim(),
+            // Cihaz kimliği değiştiyse kabuldeki bilgiler kayıtta saklanır
+            previousSerial: outcome.requiresIdentity ? (repair.serial || '') : '',
+            previousImei1: outcome.requiresIdentity ? (repair.imei1 || '') : '',
+            previousImei2: outcome.requiresIdentity ? (repair.imei2 || '') : '',
+            recordedAt: new Date().toISOString(),
+            recordedBy: currentUser?.name || 'Bilinmeyen Kullanıcı',
+            status: 'final',
+        };
 
-        alert(`Cihaz başarıyla teslim alındı ve "${isReturn ? 'İade Hazır' : 'Hazır'}" durumuna çekildi.`);
-        onClose();
-    };
+        const updates = {
+            status: arcOutcomeStatus(outcomeCode),
+            appleRepairId: gsxNo.trim(),
+            shipmentCode: shipmentCode.trim(),
+            arcOutcome,
+            repairClosingNote: report.trim(),
+            historyNote: `Cihaz Apple Onarım Merkezi'nden teslim alındı. ${summarizeArcOutcome(arcOutcome)}`
+        };
 
-    const handleSaveGSX = () => {
-        updateRepair(repairId, {
-            appleRepairId: gsxNo,
-            historyNote: `Apple Onarım No (GSX) güncellendi: ${gsxNo}`
-        });
-        setIsEditing(false);
-        alert('Onarım numarası güncellendi.');
-    };
+        // Birim/anakart değiştiyse kaydın cihaz kimliği güncellenir
+        if (outcome.requiresIdentity) {
+            updates.serial = arcOutcome.newSerial;
+            if (arcOutcome.newImei1) updates.imei1 = arcOutcome.newImei1;
+            if (arcOutcome.newImei2) updates.imei2 = arcOutcome.newImei2;
+        }
 
-    const handleSaveDraft = () => {
-        updateRepair(repairId, {
-            shipmentCode: shipmentCode,
-            appleRepairId: gsxNo,
-            diagnosisNotes: arcResult ? `ARC GÜNCEL DURUM: ${arcResult}` : repair.diagnosisNotes,
-            parts: arcParts,
-            historyNote: 'Apple servis süreci güncellendi (Taslak).'
-        });
-        alert('İlerleme kaydedildi.');
+        // Merkezde değişen parçalar arcOutcome.replacedParts içinde durur.
+        // repair.parts'a yazılmaz; orası teşhiste girilen bütün birim kaydını
+        // (arızalı cihaz seri no dahil) tutar ve ezilmemelidir.
+
+        setSaving(true);
+        try {
+            await updateRepair(repairId, updates);
+            showToast(`Sonuç kaydedildi. Kayıt "${updates.status}" durumuna alındı.`, 'success');
+            onClose();
+        } finally {
+            setSaving(false);
+        }
     };
 
     const handleQuoteReceived = async () => {
@@ -106,54 +268,36 @@ const AppleLogisticsModal = ({ repairId, onClose }) => {
             inputLabel: 'Müşteriye iletilecek teklif tutarı (TL)',
             inputPlaceholder: '0.00',
             showCancelButton: true,
-            confirmButtonColor: '#9333ea',
+            confirmButtonColor: '#0071e3',
             cancelButtonText: 'Vazgeç',
             confirmButtonText: 'Kaydet'
         });
 
         if (amount) {
-            updateRepair(repairId, {
+            await updateRepair(repairId, {
                 status: 'Müşteri Onayı Bekliyor',
                 quoteAmount: amount,
-                historyNote: `Apple ARC'den teklif geldi: ${amount} TL. Müşteri onayı bekleniyor.`
+                historyNote: `Onarım merkezinden teklif geldi: ${amount} TL. Müşteri onayı bekleniyor.`
             });
-            showToast('Kayıt "Onay Bekliyor" durumuna çekildi.', 'info');
+            showToast('Kayıt "Onay Bekliyor" durumuna alındı.', 'info');
         }
     };
 
-    const handleQuoteResolution = (isApproved) => {
+    const handleQuoteResolution = async (isApproved) => {
         if (isApproved) {
-            updateRepair(repairId, {
+            await updateRepair(repairId, {
                 status: "Apple'a Gönderildi",
-                historyNote: 'Müşteri teklifi onayladı. Onarım süreci Apple ARC kanalında devam ediyor.'
+                historyNote: 'Müşteri teklifi onayladı. Onarım merkezi sürecine devam ediliyor.'
             });
-            showToast('Onay kaydedildi. Süreç devam ediyor.', 'success');
+            showToast('Onay kaydedildi, süreç devam ediyor.', 'success');
         } else {
-            updateRepair(repairId, {
+            await updateRepair(repairId, {
                 status: 'İade Bekleniyor',
-                historyNote: 'Müşteri teklifi reddetti. Apple ARC\'den iade istendi.'
+                historyNote: 'Müşteri teklifi reddetti. Onarım merkezinden iade istendi.'
             });
-            showToast('Red kaydedildi. Cihaz Apple merkezinden iade bekleniyor durumuna alındı.', 'info');
+            showToast('Red kaydedildi, cihaz iade bekleniyor durumuna alındı.', 'info');
         }
     };
-
-    const addArcPart = () => {
-        setArcParts([...arcParts, { partNumber: '', description: '', kbbSerial: '', kgbSerial: '' }]);
-    };
-
-    const removeArcPart = (index) => {
-        setArcParts(arcParts.filter((_, i) => i !== index));
-    };
-
-    const updateArcPart = (index, field, value) => {
-        setArcParts(prev => {
-            const newParts = [...prev];
-            newParts[index] = { ...newParts[index], [field]: value };
-            return newParts;
-        });
-    };
-
-    const handleAddPhoto = () => fileInputRef.current?.click();
 
     const handleFileChange = async (e) => {
         const file = e.target.files[0];
@@ -162,416 +306,537 @@ const AppleLogisticsModal = ({ repairId, onClose }) => {
         setUploading(true);
         try {
             const data = await uploadMedia(file);
-            if (data && data.url) {
-                // Determine if it's "before shipping" or "after receiving"
+            if (data?.url) {
                 const isAfter = repair.status.includes('Hazır') || repair.status.includes('Teslim');
                 const field = isAfter ? 'afterImages' : 'beforeImages';
-                const currentList = repair[field] || [];
-                
-                await updateRepair(repairId, {
-                    [field]: [...currentList, data.url]
-                });
-                showToast('Lojistik fotoğrafı kaydedildi.', 'success');
+                await updateRepair(repairId, { [field]: [...(repair[field] || []), data.url] });
+                showToast('Lojistik görseli kaydedildi.', 'success');
             }
         } catch (error) {
             console.error(error);
-            showToast('Yükleme hatası.', 'error');
+            showToast('Görsel yüklenemedi.', 'error');
         } finally {
             setUploading(false);
             e.target.value = null;
         }
     };
 
-    const removePhoto = async (index, category) => {
-        const newList = [...(repair[category] || [])];
-        newList.splice(index, 1);
-        await updateRepair(repairId, { [category]: newList });
+    const removePhoto = async (index, field) => {
+        const next = [...(repair[field] || [])];
+        next.splice(index, 1);
+        await updateRepair(repairId, { [field]: next });
     };
 
     if (!repair) return null;
 
+    const photos = [
+        ...(repair.beforeImages || []).map((url, idx) => ({ url, idx, field: 'beforeImages', label: 'Gönderim öncesi' })),
+        ...(repair.afterImages || []).map((url, idx) => ({ url, idx, field: 'afterImages', label: 'Merkezden dönüş' })),
+    ];
+
     return (
-        <div className="modal-overlay">
-            <div className="modal-content w-full max-w-4xl flex flex-col max-h-[90vh]">
-                {/* Header */}
-                <div className="bg-gray-50/50 px-8 py-6 border-b border-gray-100 flex items-center justify-between flex-shrink-0 backdrop-blur-lg">
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-white rounded-md flex items-center justify-center text-apple-blue shadow-lg shadow-blue-100 ring-2 ring-white">
-                            <Truck size={24} className="fill-current" />
-                        </div>
-                        <div>
-                            <h3 className="font-semibold text-gray-900 text-xl tracking-tight">Lojistik ve ARC Süreç Yönetimi</h3>
-                            <p className="text-sm font-medium text-gray-400 mt-1 flex items-center gap-2">
-                                <span>Kayıt:</span>
-                                <span className="text-gray-900 font-bold bg-white px-2 py-0.5 rounded border border-gray-200">#{repair.id}</span>
-                                <span className="text-gray-400">|</span>
-                                <span>Cihaz:</span>
-                                <span className="text-gray-900 font-bold bg-white px-2 py-0.5 rounded border border-gray-200">{repair.device}</span>
+        <div className="fixed inset-0 z-[120] bg-[#1d1d1f]/50 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6">
+            <div
+                ref={dialogRef}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby={fieldId('title')}
+                tabIndex={-1}
+                className="bg-[#f5f5f7] w-full max-w-4xl rounded-[24px] shadow-2xl overflow-hidden flex flex-col max-h-[92vh] outline-none"
+            >
+                {/* Başlık */}
+                <header className="bg-white px-6 sm:px-7 py-5 border-b border-gray-200 flex items-center justify-between gap-4 shrink-0">
+                    <div className="flex items-center gap-3.5 min-w-0">
+                        <span aria-hidden="true" className="w-11 h-11 rounded-xl bg-[#0071e3] text-white flex items-center justify-center shrink-0">
+                            <Truck size={20} />
+                        </span>
+                        <div className="min-w-0">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-[#0071e3]">Bütün Birim Posta</p>
+                            <h2 id={fieldId('title')} className="text-[17px] font-semibold text-[#1d1d1f] truncate">
+                                Cihaz Lojistik &amp; Takip
+                            </h2>
+                            <p className="text-[12px] font-medium text-gray-500 truncate">
+                                <span className="font-mono">#{repair.id}</span> · {repair.device} · {repair.customer}
                             </p>
                         </div>
                     </div>
-                    <button onClick={onClose} className="w-10 h-10 flex items-center justify-center bg-white rounded-full hover:bg-gray-100 border border-gray-200 transition-all shadow-sm">
-                        <X size={20} className="text-gray-400" />
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        aria-label="Pencereyi kapat"
+                        className="h-10 w-10 shrink-0 rounded-xl border border-gray-200 bg-white text-gray-400 hover:text-[#1d1d1f] hover:bg-[#f5f5f7] flex items-center justify-center transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#0071e3]/25"
+                    >
+                        <X size={18} aria-hidden="true" />
                     </button>
-                </div>
+                </header>
 
-                <div className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar">
-                    {/* Üst Bilgi Kartları */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="bg-white p-5 rounded-md border border-gray-200 shadow-sm">
-                            <div className="flex items-center gap-2 mb-3">
-                                <Truck size={16} className="text-blue-500" />
-                                <span className="text-xs font-bold uppercase text-gray-500 tracking-wide">Gönderi Kodu (UPS)</span>
-                            </div>
-                            <div className="space-y-3">
-                                <input
-                                    type="text"
-                                    className="w-full bg-gray-50 border border-gray-200 rounded-md px-3 py-2 text-sm font-mono font-bold outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all"
-                                    placeholder="UPS Takip No"
-                                    value={shipmentCode}
-                                    onChange={(e) => setShipmentCode(e.target.value)}
-                                />
-                                <div className="flex gap-2">
-                                    <button
-                                        onClick={handleStartTracking}
-                                        className="flex-1 bg-blue-600 text-white py-2 rounded-md text-xs font-bold hover:bg-blue-700 transition-all shadow-sm active:scale-95"
-                                    >
-                                        Takibi Başlat
-                                    </button>
-                                    <button className="w-9 h-9 flex items-center justify-center bg-white text-blue-600 border border-blue-200 rounded-md hover:bg-blue-50 transition-all">
-                                        <ExternalLink size={16} />
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="bg-white p-5 rounded-md border border-gray-200 shadow-sm flex flex-col justify-between">
-                            <div>
-                                <div className="flex items-center gap-2 mb-3">
-                                    <Wrench size={16} className="text-purple-500" />
-                                    <span className="text-xs font-bold uppercase text-gray-500 tracking-wide">GSX Onarım No</span>
-                                </div>
-                                <div className="flex items-center gap-4">
-                                    {isEditing ? (
-                                        <div className="flex-1 flex gap-2">
-                                            <input
-                                                type="text"
-                                                className="flex-1 bg-gray-50 border border-gray-200 rounded-md px-3 py-2 text-sm font-mono font-bold outline-none focus:ring-2 focus:ring-purple-100 focus:border-purple-400 transition-all"
-                                                value={gsxNo}
-                                                onChange={(e) => setGsxNo(e.target.value)}
-                                                autoFocus
-                                            />
-                                            <button onClick={handleSaveGSX} className="bg-purple-600 text-white px-3 rounded-md text-xs font-bold">Kaydet</button>
-                                        </div>
-                                    ) : (
-                                        <div className="flex items-center gap-3 group cursor-pointer" onClick={() => setIsEditing(true)}>
-                                            <span className="text-xl font-mono font-bold text-gray-900 tracking-tight leading-none">
-                                                {gsxNo || 'Girilmedi'}
-                                            </span>
-                                            <div className="w-6 h-6 rounded-md bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-400 opacity-0 group-hover:opacity-100 transition-all">
-                                                <Pencil size={12} />
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                            {!isEditing && gsxNo && (
-                                <div className="mt-4 flex items-center gap-2 bg-purple-50 px-2 py-1 rounded-md border border-purple-100 w-fit">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />
-                                    <span className="text-[10px] font-bold text-purple-700 uppercase tracking-tight">{repair.status}</span>
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="bg-white p-5 rounded-md border border-gray-200 shadow-sm">
-                            <div className="flex items-center gap-2 mb-3">
-                                <Calendar size={16} className="text-emerald-500" />
-                                <span className="text-xs font-bold uppercase text-gray-500 tracking-wide">Tahmini Teslim</span>
-                            </div>
-                            <div className="space-y-3">
-                                <h3 className="text-xl font-bold text-gray-900 tracking-tight leading-none">30 Ocak 2024</h3>
-                                <div className="space-y-1.5">
-                                    <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
-                                        <div className="bg-emerald-500 h-full w-[60%] rounded-full transition-all duration-1000" />
-                                    </div>
-                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest text-right">Lojistik Aşaması: %60</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Kayıt ve Cihaz Detayları Paneli */}
-                    <div className="bg-white border border-gray-200 rounded-md shadow-sm">
-                        <div className="bg-gray-50/50 px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <FileText size={16} className="text-gray-500" />
-                                <h3 className="font-bold text-gray-900 uppercase text-xs tracking-wide">Kayıt Detayları</h3>
-                            </div>
-                            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">
-                                Son Güncelleme: {repair.updatedAt || 'Yeni'}
-                            </div>
-                        </div>
-                        <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <div className="space-y-6">
-                                <div>
-                                    <span className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Müşteri Profili</span>
-                                    <div className="flex items-start gap-3 bg-gray-50 p-3 rounded-md border border-gray-200">
-                                        <div className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center text-apple-blue font-bold text-lg shrink-0">
-                                            {repair.customer?.charAt(0)}
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-bold text-gray-900">{repair.customer}</p>
-                                            <p className="text-xs font-medium text-gray-500 flex items-center gap-1.5 mt-0.5">
-                                                <MyPhoneIcon size={12} className="text-gray-400" /> {repair.customerPhone}
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div>
-                                    <span className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Cihaz Bilgisi</span>
-                                    <div className="bg-gray-50 p-3 rounded-md border border-gray-200">
-                                        <p className="text-sm font-bold text-gray-900 mb-1">{repair.device}</p>
-                                        <p className="text-xs font-mono text-gray-600 bg-white px-2 py-0.5 rounded border border-gray-200 inline-block">
-                                            SN: {repair.serial || repair.serialNumber || 'Bilinmiyor'}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="space-y-6">
-                                <div>
-                                    <span className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Arıza Açıklaması</span>
-                                    <div className="bg-gray-50 p-4 rounded-md border border-gray-200 border-l-4 border-l-orange-400">
-                                        <p className="text-sm text-gray-700 leading-relaxed italic">
-                                            "{repair.issue || repair.issueDescription || 'Belirtilmedi'}"
-                                        </p>
-                                    </div>
-                                </div>
-                                <div>
-                                    <span className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Teknik Tanı & Notlar</span>
-                                    <div className="bg-gray-50 p-4 rounded-md border border-gray-200 border-l-4 border-l-blue-400">
-                                        <p className="text-sm text-gray-700 leading-relaxed font-medium">
-                                            {repair.diagnosisNotes || 'Henüz bir teknik not girilmemiş.'}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Apple Merkezi Dönüş Bölümü */}
-                    {(repair.status === "Apple'a Gönderildi" || repair.status === "İade Bekleniyor" || repair.status === "Müşteri Onayı Bekliyor" || repair.status === "Cihaz Hazır" || repair.status === "İade Hazır") && (
-                        <div className="p-6 bg-white rounded-md border border-gray-200 shadow-sm">
-                            <div className="flex items-center gap-2 mb-4">
-                                <CheckCircle size={16} className="text-green-500" />
-                                <h4 className="text-xs font-bold text-gray-900 uppercase tracking-wide">ARC Kargo Kabul & Sonuç Girişi</h4>
-                            </div>
-                            
-                            <div className="mb-6">
-                                <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Onarım Merkezi Geri Bildirimi</label>
-                                <textarea
-                                    className="w-full p-4 rounded-md border border-gray-200 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none text-sm font-medium min-h-[100px] transition-all"
-                                    placeholder="Apple Onarım Merkezi'nden iletilen onarım sonucunu veya yapılan işlemleri buraya yazınız..."
-                                    value={arcResult}
-                                    onChange={e => setArcResult(e.target.value)}
-                                ></textarea>
-                            </div>
-
-                            <div className="mb-2">
-                                <div className="flex items-center justify-between mb-3">
-                                    <div className="flex items-center gap-2">
-                                        <Box size={14} className="text-gray-400" />
-                                        <h5 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">ARC'de Değişen Parçalar</h5>
-                                    </div>
-                                    <button
-                                        onClick={addArcPart}
-                                        className="text-[10px] bg-white text-gray-700 px-3 py-1.5 rounded-md font-bold border border-gray-200 hover:bg-gray-50 flex items-center gap-1.5 transition-all"
-                                    >
-                                        <Plus size={14} /> Parça Ekle
-                                    </button>
-                                </div>
-                                
-                                {arcParts.length === 0 ? (
-                                    <div className="text-center py-6 bg-gray-50 border border-dashed border-gray-200 rounded-md text-gray-400 text-[10px] font-bold uppercase tracking-widest">
-                                        Henüz parça eklenmedi
-                                    </div>
-                                ) : (
-                                    <div className="space-y-3">
-                                        {arcParts.map((part, index) => (
-                                            <div key={index} className="bg-white p-4 rounded-md border border-gray-200 relative group">
-                                                <button
-                                                    onClick={() => removeArcPart(index)}
-                                                    className="absolute top-3 right-3 text-red-400 hover:text-red-600 transition-colors"
-                                                >
-                                                    <Trash2 size={16} />
-                                                </button>
-                                                
-                                                <div className="grid grid-cols-2 gap-4 pr-8 mb-3">
-                                                    <div className="space-y-1">
-                                                        <p className="text-[10px] font-bold text-gray-400 uppercase">Parça No</p>
-                                                        <input
-                                                            type="text"
-                                                            className="w-full p-2 bg-gray-50 border border-gray-200 rounded-md text-xs font-mono font-bold outline-none focus:border-blue-300 focus:bg-white"
-                                                            value={part.partNumber}
-                                                            onChange={e => updateArcPart(index, 'partNumber', e.target.value)}
-                                                        />
-                                                    </div>
-                                                    <div className="space-y-1">
-                                                        <p className="text-[10px] font-bold text-gray-400 uppercase">Tanım</p>
-                                                        <input
-                                                            type="text"
-                                                            className="w-full p-2 bg-gray-50 border border-gray-200 rounded-md text-xs font-bold outline-none focus:border-blue-300 focus:bg-white"
-                                                            value={part.description || part.name || part.itemName || ''}
-                                                            onChange={e => updateArcPart(index, 'description', e.target.value)}
-                                                        />
-                                                    </div>
-                                                </div>
-                                                
-                                                <div className="grid grid-cols-2 gap-4">
-                                                    <div className="space-y-1">
-                                                        <p className="text-[10px] font-bold text-gray-400 uppercase">KBB (Arızalı)</p>
-                                                        <input
-                                                            type="text"
-                                                            className="w-full p-2 bg-gray-50 border border-gray-200 rounded-md text-xs font-mono font-bold outline-none focus:border-blue-300 focus:bg-white"
-                                                            value={part.kbbSerial || ''}
-                                                            onChange={e => updateArcPart(index, 'kbbSerial', e.target.value)}
-                                                        />
-                                                    </div>
-                                                    <div className="space-y-1">
-                                                        <p className="text-[10px] font-bold text-gray-400 uppercase">KGB (Yeni)</p>
-                                                        <input
-                                                            type="text"
-                                                            className="w-full p-2 bg-gray-50 border border-gray-200 rounded-md text-xs font-mono font-bold outline-none focus:border-blue-300 focus:bg-white"
-                                                            value={part.kgbSerial || ''}
-                                                            onChange={e => updateArcPart(index, 'kgbSerial', e.target.value)}
-                                                        />
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
+                <div className="flex-1 overflow-y-auto custom-scrollbar p-5 sm:p-6 space-y-5">
+                    {errorList.length > 0 && (
+                        <div
+                            ref={errorSummaryRef}
+                            tabIndex={-1}
+                            role="alert"
+                            className="rounded-2xl border border-[#c30000]/25 bg-[#fff5f5] px-5 py-4 outline-none focus-visible:ring-4 focus-visible:ring-[#c30000]/20"
+                        >
+                            <p className="flex items-center gap-2 text-[13px] font-semibold text-[#c30000]">
+                                <AlertCircle size={15} aria-hidden="true" />
+                                Devam etmek için {errorList.length} alanı düzeltin
+                            </p>
+                            <ul className="mt-2 ml-6 list-disc space-y-1 text-[12px] font-medium text-[#8a0000]">
+                                {errorList.map((msg, i) => <li key={i}>{msg}</li>)}
+                            </ul>
                         </div>
                     )}
 
-                    {/* Lojistik Görsel Belgeleme */}
-                    <div className="p-6 bg-white rounded-md border border-gray-200 shadow-sm">
-                        <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-2">
-                                <Camera size={16} className="text-gray-500" />
-                                <h4 className="text-xs font-bold text-gray-900 uppercase tracking-wide">Lojistik Görsel Arşivi</h4>
-                            </div>
-                            <button 
-                                onClick={handleAddPhoto}
-                                disabled={uploading}
-                                className="bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wide flex items-center gap-1.5 transition-all disabled:opacity-50"
-                            >
-                                {uploading ? <Clock size={14} className="animate-spin" /> : <Plus size={14} />}
-                                Görsel Ekle
-                            </button>
+                    {/* 1 · Kayıt künyesi */}
+                    <FieldGroup index="1" title="Kayıt Künyesi" hint="Kabulde alınan cihaz ve müşteri bilgileri." icon={FileText}>
+                        <dl className="grid grid-cols-2 md:grid-cols-4 gap-5">
+                            <InfoRow label="Müşteri" value={repair.customer} />
+                            <InfoRow label="Telefon" value={repair.customerPhone} mono />
+                            <InfoRow label="Cihaz" value={repair.device} />
+                            <InfoRow label="Seri No" value={repair.serial || repair.serialNumber} mono />
+                            {repair.imei1 && <InfoRow label="IMEI 1" value={repair.imei1} mono />}
+                            {repair.imei2 && <InfoRow label="IMEI 2" value={repair.imei2} mono />}
+                            <InfoRow label="Garanti" value={repair.warrantyStatus} />
+                            <InfoRow label="Durum" value={repair.status} />
+                        </dl>
+                        <div className="mt-5 pt-4 border-t border-gray-100">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Müşteri Şikâyeti</p>
+                            <p className="text-[13px] text-gray-700 leading-relaxed mt-1">
+                                {repair.issue || 'Belirtilmedi'}
+                            </p>
                         </div>
+                    </FieldGroup>
 
-                        <input type="file" ref={fileInputRef} className="hidden" accept="image/*" capture="environment" onChange={handleFileChange} />
-
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            {/* Gönderim Fotoğrafları */}
-                            {repair.beforeImages?.map((url, idx) => (
-                                <div key={`before-${idx}`} className="relative group aspect-video rounded-md overflow-hidden border border-gray-200 bg-gray-50">
-                                    <img src={url} className="w-full h-full object-cover" alt="Pre-shipment" />
-                                    <div className="absolute inset-x-0 bottom-0 bg-black/50 p-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <p className="text-[8px] text-white font-semibold uppercase tracking-tight text-center">Kargo Gönderme</p>
-                                    </div>
-                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                                        <button onClick={() => window.open(url, '_blank')} className="p-1.5 bg-white/20 backdrop-blur-sm rounded-md text-white hover:bg-white/40"><ExternalLink size={12} /></button>
-                                        <button onClick={() => removePhoto(idx, 'beforeImages')} className="p-1.5 bg-red-500/80 rounded-md text-white hover:bg-red-500"><Trash2 size={12} /></button>
-                                    </div>
-                                </div>
-                            ))}
-                            {/* Dönüş Fotoğrafları */}
-                            {repair.afterImages?.map((url, idx) => (
-                                <div key={`after-${idx}`} className="relative group aspect-video rounded-md overflow-hidden border border-gray-200 bg-gray-50">
-                                    <img src={url} className="w-full h-full object-cover" alt="Post-arrival" />
-                                    <div className="absolute inset-x-0 bottom-0 bg-black/50 p-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <p className="text-[8px] text-white font-semibold uppercase tracking-tight text-center">Apple'dan Gelen</p>
-                                    </div>
-                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                                        <button onClick={() => window.open(url, '_blank')} className="p-1.5 bg-white/20 backdrop-blur-sm rounded-md text-white hover:bg-white/40"><ExternalLink size={12} /></button>
-                                        <button onClick={() => removePhoto(idx, 'afterImages')} className="p-1.5 bg-red-500/80 rounded-md text-white hover:bg-red-500"><Trash2 size={12} /></button>
-                                    </div>
-                                </div>
-                            ))}
-                            {(!repair.beforeImages?.length && !repair.afterImages?.length) && (
-                                <div className="col-span-full py-8 text-center bg-gray-50 rounded-md border border-dashed border-gray-200">
-                                    <Camera size={24} className="mx-auto text-gray-300 mb-2" />
-                                    <p className="text-[11px] font-medium text-gray-400">Henüz lojistik görseli eklenmemiş.</p>
-                                </div>
+                    {/* 2 · Gönderi ve takip */}
+                    <FieldGroup index="2" title="Gönderi ve Takip" hint="Kargo takip numarası ve merkezin onarım numarası." icon={Truck}>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label htmlFor={fieldId('shipment')} className="block text-[12px] font-semibold text-[#1d1d1f] mb-2">
+                                    Kargo takip numarası
+                                </label>
+                                <input
+                                    id={fieldId('shipment')}
+                                    type="text"
+                                    className={`${inputBase} h-12 px-4 font-mono font-semibold uppercase`}
+                                    placeholder="Takip no"
+                                    value={shipmentCode}
+                                    onChange={(e) => { setShipmentCode(e.target.value.toUpperCase()); setErrors(prev => ({ ...prev, shipmentCode: undefined })); }}
+                                    aria-invalid={errors.shipmentCode ? 'true' : undefined}
+                                    aria-describedby={errors.shipmentCode ? fieldId('shipment-error') : undefined}
+                                />
+                                {errors.shipmentCode && <FieldError id={fieldId('shipment-error')}>{errors.shipmentCode}</FieldError>}
+                            </div>
+                            <div>
+                                <label htmlFor={fieldId('gsx')} className="block text-[12px] font-semibold text-[#1d1d1f] mb-2">
+                                    Onarım merkezi numarası (GSX)
+                                </label>
+                                <input
+                                    id={fieldId('gsx')}
+                                    type="text"
+                                    className={`${inputBase} h-12 px-4 font-mono font-semibold uppercase`}
+                                    placeholder="Onarım no"
+                                    value={gsxNo}
+                                    onChange={(e) => setGsxNo(e.target.value.toUpperCase())}
+                                />
+                            </div>
+                        </div>
+                        <div className="mt-4 flex flex-wrap gap-2">
+                            <button
+                                type="button"
+                                onClick={handleStartTracking}
+                                className={`${ghostButton} bg-[#0071e3] text-white hover:bg-[#0077ed]`}
+                            >
+                                <Truck size={15} aria-hidden="true" /> Takibi Başlat
+                            </button>
+                            {shipmentCode && (
+                                <a
+                                    href={`https://www.ups.com/track?tracknum=${encodeURIComponent(shipmentCode)}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className={`${ghostButton} bg-white text-[#0071e3] border border-[#0071e3]/30 hover:bg-[#0071e3]/5`}
+                                >
+                                    <ExternalLink size={15} aria-hidden="true" /> Kargo Durumu
+                                </a>
                             )}
                         </div>
-                    </div>
+                    </FieldGroup>
+
+                    {/* 3 · Onarım merkezi sonucu */}
+                    {canReceive && (
+                        <FieldGroup
+                            index="3"
+                            title="Onarım Merkezinde Ne Yapıldı?"
+                            hint="Cihaz merkezden döndüğünde yapılan işlemi doğrulayın. Seçime göre ek alanlar açılır."
+                            icon={Wrench}
+                            required
+                        >
+                            <div
+                                role="radiogroup"
+                                aria-label="Onarım merkezinde yapılan işlem"
+                                aria-describedby={errors.code ? fieldId('code-error') : undefined}
+                                className="grid grid-cols-1 md:grid-cols-2 gap-3"
+                            >
+                                {ARC_OUTCOMES.map(opt => {
+                                    const selected = outcomeCode === opt.code;
+                                    const tone = TONES[opt.tone] || TONES.info;
+                                    return (
+                                        <label
+                                            key={opt.code}
+                                            className={`relative flex items-start gap-3 p-4 rounded-xl border cursor-pointer transition-all has-[:focus-visible]:ring-4 has-[:focus-visible]:ring-[#0071e3]/25 ${selected
+                                                ? `${tone.border} ${tone.bg}`
+                                                : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50/60'}`}
+                                        >
+                                            <input
+                                                type="radio"
+                                                name={fieldId('outcome')}
+                                                value={opt.code}
+                                                checked={selected}
+                                                onChange={() => handleOutcomeChange(opt.code)}
+                                                className="sr-only"
+                                            />
+                                            <span
+                                                aria-hidden="true"
+                                                className={`mt-0.5 w-[18px] h-[18px] shrink-0 rounded-full border-[1.5px] flex items-center justify-center transition-all ${selected ? 'border-[#0071e3] bg-[#0071e3]' : 'border-gray-300 bg-white'}`}
+                                            >
+                                                {selected && <Check size={11} strokeWidth={3.5} className="text-white" />}
+                                            </span>
+                                            <span className="min-w-0">
+                                                <span className={`block text-[13px] font-semibold ${selected ? tone.text : 'text-[#1d1d1f]'}`}>
+                                                    {opt.label}
+                                                </span>
+                                                <span className="block text-[11px] text-gray-500 mt-0.5 leading-snug">{opt.hint}</span>
+                                            </span>
+                                        </label>
+                                    );
+                                })}
+                            </div>
+                            {errors.code && <FieldError id={fieldId('code-error')}>{errors.code}</FieldError>}
+
+                            {/* Cihaz kimliği — birim ya da anakart değiştiyse */}
+                            {outcome?.requiresIdentity && (
+                                <div className="mt-5 rounded-xl border border-[#0071e3]/20 bg-[#0071e3]/5 p-4">
+                                    <h4 className="text-[12px] font-semibold text-[#1d1d1f] flex items-center gap-2">
+                                        <Smartphone size={14} className="text-[#0071e3]" aria-hidden="true" />
+                                        Yeni Cihaz Kimliği
+                                    </h4>
+                                    <p className="text-[11px] text-gray-600 mt-1 leading-snug">
+                                        Kaydın cihaz kimliği bu bilgilerle güncellenir. Kabuldeki eski bilgiler
+                                        {' '}(<span className="font-mono">{repair.serial || '—'}</span>) kayıt geçmişinde saklanır.
+                                    </p>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                                        <div className="md:col-span-2">
+                                            <label htmlFor={fieldId('newSerial')} className="block text-[12px] font-semibold text-[#1d1d1f] mb-2">
+                                                {outcome.identityLabel} <span className="text-[#c30000]" aria-hidden="true">*</span>
+                                            </label>
+                                            <input
+                                                id={fieldId('newSerial')}
+                                                type="text"
+                                                className={`${inputBase} h-12 px-4 font-mono font-semibold uppercase`}
+                                                placeholder="Seri numarası"
+                                                value={newSerial}
+                                                onChange={(e) => { setNewSerial(e.target.value.toUpperCase()); setErrors(prev => ({ ...prev, newSerial: undefined })); }}
+                                                aria-required="true"
+                                                aria-invalid={errors.newSerial ? 'true' : undefined}
+                                                aria-describedby={errors.newSerial ? fieldId('newSerial-error') : undefined}
+                                            />
+                                            {errors.newSerial && <FieldError id={fieldId('newSerial-error')}>{errors.newSerial}</FieldError>}
+                                        </div>
+
+                                        <div>
+                                            <label htmlFor={fieldId('newImei1')} className="block text-[12px] font-semibold text-[#1d1d1f] mb-2">
+                                                IMEI 1 {requireImei && <span className="text-[#c30000]" aria-hidden="true">*</span>}
+                                            </label>
+                                            <input
+                                                id={fieldId('newImei1')}
+                                                type="text"
+                                                inputMode="numeric"
+                                                className={`${inputBase} h-12 px-4 font-mono font-semibold`}
+                                                placeholder={requireImei ? 'IMEI 1' : 'Cihazda IMEI yoksa boş bırakın'}
+                                                value={newImei1}
+                                                onChange={(e) => { setNewImei1(e.target.value.replace(/\D/g, '')); setErrors(prev => ({ ...prev, newImei1: undefined })); }}
+                                                aria-required={requireImei ? 'true' : undefined}
+                                                aria-invalid={errors.newImei1 ? 'true' : undefined}
+                                                aria-describedby={errors.newImei1 ? fieldId('newImei1-error') : undefined}
+                                            />
+                                            {errors.newImei1 && <FieldError id={fieldId('newImei1-error')}>{errors.newImei1}</FieldError>}
+                                        </div>
+
+                                        <div>
+                                            <label htmlFor={fieldId('newImei2')} className="block text-[12px] font-semibold text-[#1d1d1f] mb-2">
+                                                IMEI 2 {requireImei && <span className="text-[#c30000]" aria-hidden="true">*</span>}
+                                            </label>
+                                            <input
+                                                id={fieldId('newImei2')}
+                                                type="text"
+                                                inputMode="numeric"
+                                                className={`${inputBase} h-12 px-4 font-mono font-semibold`}
+                                                placeholder={requireImei ? 'IMEI 2' : 'Cihazda IMEI yoksa boş bırakın'}
+                                                value={newImei2}
+                                                onChange={(e) => { setNewImei2(e.target.value.replace(/\D/g, '')); setErrors(prev => ({ ...prev, newImei2: undefined })); }}
+                                                aria-required={requireImei ? 'true' : undefined}
+                                                aria-invalid={errors.newImei2 ? 'true' : undefined}
+                                                aria-describedby={errors.newImei2 ? fieldId('newImei2-error') : undefined}
+                                            />
+                                            {errors.newImei2 && <FieldError id={fieldId('newImei2-error')}>{errors.newImei2}</FieldError>}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Değişen parçalar — onarılıp iade edildiyse */}
+                            {outcome?.requiresParts && (
+                                <div className="mt-5 rounded-xl border border-gray-200 bg-[#f5f5f7]/50 p-4">
+                                    <div className="flex items-center justify-between gap-3 mb-3">
+                                        <h4 className="text-[12px] font-semibold text-[#1d1d1f] flex items-center gap-2">
+                                            <Box size={14} className="text-[#0071e3]" aria-hidden="true" />
+                                            Merkezde Değişen Parçalar <span className="text-[#c30000]" aria-hidden="true">*</span>
+                                        </h4>
+                                        <button
+                                            type="button"
+                                            onClick={addPart}
+                                            className={`${ghostButton} h-9 px-4 text-[12px] bg-white text-[#0071e3] border border-[#0071e3]/30 hover:bg-[#0071e3]/5`}
+                                        >
+                                            <Plus size={14} aria-hidden="true" /> Parça Ekle
+                                        </button>
+                                    </div>
+
+                                    {replacedParts.length === 0 ? (
+                                        <p className="text-[12px] font-medium text-gray-500 text-center py-5 border border-dashed border-gray-300 rounded-xl bg-white">
+                                            Henüz parça eklenmedi.
+                                        </p>
+                                    ) : (
+                                        <ul className="space-y-3">
+                                            {replacedParts.map((part, index) => (
+                                                <li key={index}>
+                                                    <fieldset className="rounded-xl border border-gray-200 bg-white p-4">
+                                                        <legend className="sr-only">{index + 1}. değişen parça</legend>
+                                                        <div className="flex items-start justify-between gap-3">
+                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 flex-1 min-w-0">
+                                                                <div>
+                                                                    <label htmlFor={fieldId(`p-${index}-desc`)} className="block text-[11px] font-semibold text-gray-600 mb-1">
+                                                                        Parça tanımı <span className="text-[#c30000]" aria-hidden="true">*</span>
+                                                                    </label>
+                                                                    <input
+                                                                        id={fieldId(`p-${index}-desc`)}
+                                                                        type="text"
+                                                                        className={`${inputBase} h-10 px-3 font-semibold`}
+                                                                        placeholder="Örn: Ekran modülü"
+                                                                        value={part.description || ''}
+                                                                        onChange={(e) => updatePart(index, 'description', e.target.value)}
+                                                                    />
+                                                                </div>
+                                                                <div>
+                                                                    <label htmlFor={fieldId(`p-${index}-pn`)} className="block text-[11px] font-semibold text-gray-600 mb-1">
+                                                                        Parça no <span className="font-medium text-gray-400">— opsiyonel</span>
+                                                                    </label>
+                                                                    <input
+                                                                        id={fieldId(`p-${index}-pn`)}
+                                                                        type="text"
+                                                                        className={`${inputBase} h-10 px-3 font-mono text-[12px] uppercase`}
+                                                                        placeholder="P/N"
+                                                                        value={part.partNumber || ''}
+                                                                        onChange={(e) => updatePart(index, 'partNumber', e.target.value)}
+                                                                    />
+                                                                </div>
+                                                                <div>
+                                                                    <label htmlFor={fieldId(`p-${index}-kbb`)} className="block text-[11px] font-semibold text-[#b25e00] mb-1">
+                                                                        Sökülen parça seri <span className="font-medium text-gray-400">— opsiyonel</span>
+                                                                    </label>
+                                                                    <input
+                                                                        id={fieldId(`p-${index}-kbb`)}
+                                                                        type="text"
+                                                                        className={`${inputBase} h-10 px-3 font-mono text-[12px] uppercase`}
+                                                                        value={part.kbbSerial || ''}
+                                                                        onChange={(e) => updatePart(index, 'kbbSerial', e.target.value)}
+                                                                    />
+                                                                </div>
+                                                                <div>
+                                                                    <label htmlFor={fieldId(`p-${index}-kgb`)} className="block text-[11px] font-semibold text-[#1e7e34] mb-1">
+                                                                        Takılan parça seri <span className="font-medium text-gray-400">— opsiyonel</span>
+                                                                    </label>
+                                                                    <input
+                                                                        id={fieldId(`p-${index}-kgb`)}
+                                                                        type="text"
+                                                                        className={`${inputBase} h-10 px-3 font-mono text-[12px] uppercase`}
+                                                                        value={part.kgbSerial || ''}
+                                                                        onChange={(e) => updatePart(index, 'kgbSerial', e.target.value)}
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => removePart(index)}
+                                                                className="w-9 h-9 shrink-0 rounded-lg border border-gray-200 bg-white text-gray-500 hover:text-[#c30000] hover:border-[#c30000]/30 hover:bg-[#fff5f5] flex items-center justify-center transition-all outline-none focus-visible:ring-4 focus-visible:ring-[#c30000]/20"
+                                                            >
+                                                                <Trash2 size={15} aria-hidden="true" />
+                                                                <span className="sr-only">{index + 1}. parçayı kaldır</span>
+                                                            </button>
+                                                        </div>
+                                                    </fieldset>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                    {errors.replacedParts && <FieldError id={fieldId('parts-error')}>{errors.replacedParts}</FieldError>}
+                                </div>
+                            )}
+                        </FieldGroup>
+                    )}
+
+                    {/* 4 · Servis sonuç raporu */}
+                    {canReceive && (
+                        <FieldGroup
+                            index="4"
+                            title="Servis Sonuç Raporu"
+                            hint="Müşteriye teslim formunda görünür. Yapılan işlemi anlaşılır bir dille özetleyin."
+                            icon={ClipboardList}
+                            required
+                        >
+                            <label htmlFor={fieldId('report')} className="sr-only">Servis sonuç raporu</label>
+                            <textarea
+                                id={fieldId('report')}
+                                className={`${inputBase} p-4 min-h-[112px] leading-relaxed resize-y`}
+                                placeholder="Onarım merkezinden gelen sonucu ve cihazın teslim durumunu yazın…"
+                                value={report}
+                                onChange={(e) => { setReport(e.target.value); setErrors(prev => ({ ...prev, report: undefined })); }}
+                                aria-required="true"
+                                aria-invalid={errors.report ? 'true' : undefined}
+                                aria-describedby={errors.report ? fieldId('report-error') : fieldId('report-hint')}
+                            />
+                            {errors.report
+                                ? <FieldError id={fieldId('report-error')}>{errors.report}</FieldError>
+                                : (
+                                    <p id={fieldId('report-hint')} className="mt-2 text-[11px] text-gray-500 leading-snug">
+                                        {outcome
+                                            ? `Müşteri formunda ayrıca şu açıklama yer alacak: “${outcome.customerText}”`
+                                            : 'Sonuç seçtiğinizde müşteriye gösterilecek açıklama burada önizlenir.'}
+                                    </p>
+                                )}
+                        </FieldGroup>
+                    )}
+
+                    {/* 5 · Görsel arşiv */}
+                    <FieldGroup
+                        index={canReceive ? '5' : '3'}
+                        title="Lojistik Görsel Arşivi"
+                        hint="Gönderim öncesi ve merkezden dönüş fotoğrafları."
+                        icon={Camera}
+                        action={
+                            <button
+                                type="button"
+                                onClick={() => fileInputRef.current?.click()}
+                                disabled={uploading}
+                                className={`${ghostButton} h-9 px-4 text-[12px] shrink-0 bg-white text-[#0071e3] border border-[#0071e3]/30 hover:bg-[#0071e3]/5 disabled:opacity-50`}
+                            >
+                                {uploading ? <Clock size={14} className="animate-spin" aria-hidden="true" /> : <Plus size={14} aria-hidden="true" />}
+                                Görsel Ekle
+                            </button>
+                        }
+                    >
+                        <input type="file" ref={fileInputRef} className="hidden" accept="image/*" capture="environment" onChange={handleFileChange} />
+                        {photos.length === 0 ? (
+                            <div className="rounded-xl border border-dashed border-gray-300 bg-[#f5f5f7]/60 px-5 py-6 text-center">
+                                <Camera size={22} className="mx-auto text-gray-400 mb-2" aria-hidden="true" />
+                                <p className="text-[12px] font-medium text-gray-500">Henüz lojistik görseli eklenmedi.</p>
+                            </div>
+                        ) : (
+                            <ul className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                {photos.map((photo) => (
+                                    <li key={`${photo.field}-${photo.idx}`} className="relative group rounded-xl overflow-hidden border border-gray-200 bg-[#f5f5f7]">
+                                        <img src={photo.url} alt={`${photo.label} görseli`} className="w-full aspect-video object-cover" />
+                                        <span className="absolute inset-x-0 bottom-0 bg-[#1d1d1f]/70 text-white text-[9px] font-semibold text-center py-0.5">
+                                            {photo.label}
+                                        </span>
+                                        <div className="absolute inset-0 bg-[#1d1d1f]/40 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                            <a
+                                                href={photo.url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="p-2 bg-white/25 backdrop-blur-sm rounded-lg text-white hover:bg-white/40 outline-none focus-visible:ring-4 focus-visible:ring-white/40"
+                                            >
+                                                <ExternalLink size={13} aria-hidden="true" />
+                                                <span className="sr-only">Görseli aç</span>
+                                            </a>
+                                            <button
+                                                type="button"
+                                                onClick={() => removePhoto(photo.idx, photo.field)}
+                                                className="p-2 bg-[#c30000]/85 rounded-lg text-white hover:bg-[#c30000] outline-none focus-visible:ring-4 focus-visible:ring-[#c30000]/40"
+                                            >
+                                                <Trash2 size={13} aria-hidden="true" />
+                                                <span className="sr-only">Görseli sil</span>
+                                            </button>
+                                        </div>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                    </FieldGroup>
                 </div>
 
-                {/* Footer Actions */}
-                <div className="bg-gray-50/50 px-8 py-5 border-t border-gray-100 flex items-center justify-between flex-shrink-0 backdrop-blur-lg z-10">
-                    <div>
+                {/* Alt bar */}
+                <footer className="bg-white px-5 sm:px-6 py-4 border-t border-gray-200 flex flex-wrap items-center justify-between gap-3 shrink-0">
+                    <div className="flex flex-wrap gap-2">
                         <button
+                            type="button"
                             onClick={() => setShowNotificationModal(true)}
-                            className="flex items-center gap-2 px-4 py-2 bg-white text-apple-blue border border-gray-200 hover:border-blue-200 rounded-md text-xs font-bold transition-all shadow-sm"
+                            className={`${ghostButton} bg-white text-[#1d1d1f] border border-gray-200 hover:bg-[#f5f5f7]`}
                         >
-                            <Mail size={16} /> Durum Bildir
+                            <Mail size={15} aria-hidden="true" /> Durum Bildir
                         </button>
-                    </div>
-                    <div className="flex gap-2">
                         {repair.status === 'Müşteri Onayı Bekliyor' ? (
                             <>
                                 <button
+                                    type="button"
                                     onClick={() => handleQuoteResolution(true)}
-                                    className="px-4 py-2 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-md text-xs font-bold hover:bg-emerald-100 transition-colors flex items-center gap-2"
+                                    className={`${ghostButton} bg-[#e6f4ea] text-[#1e7e34] border border-[#1e7e34]/20 hover:bg-[#d7ecdd]`}
                                 >
-                                    <CheckCircle size={14} /> Onaylandı (Devam)
+                                    <CheckCircle size={15} aria-hidden="true" /> Teklif Onaylandı
                                 </button>
                                 <button
+                                    type="button"
                                     onClick={() => handleQuoteResolution(false)}
-                                    className="px-4 py-2 bg-red-50 text-red-600 border border-red-200 rounded-md text-xs font-bold hover:bg-red-100 transition-colors flex items-center gap-2"
+                                    className={`${ghostButton} bg-[#fff5f5] text-[#c30000] border border-[#c30000]/20 hover:bg-[#ffe9e9]`}
                                 >
-                                    <X size={14} /> Reddedildi (İade)
+                                    <X size={15} aria-hidden="true" /> Teklif Reddedildi
                                 </button>
                             </>
                         ) : (
                             <button
+                                type="button"
                                 onClick={handleQuoteReceived}
-                                className="px-4 py-2 bg-orange-50 text-orange-600 border border-orange-200 rounded-md text-xs font-bold hover:bg-orange-100 transition-colors flex items-center gap-2"
+                                className={`${ghostButton} bg-white text-[#b25e00] border border-[#ff9500]/30 hover:bg-[#ff9500]/8`}
                             >
-                                <DollarSign size={14} /> Teklif Geldi
-                            </button>
-                        )}
-                        <button
-                            onClick={handleSaveDraft}
-                            className="px-4 py-2 bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 rounded-md text-xs font-bold transition-colors"
-                        >
-                            Taslak Kaydet
-                        </button>
-                        <button
-                            onClick={() => setIsEditing(!isEditing)}
-                            className={`px-4 py-2 border rounded-md text-xs font-bold transition-colors ${isEditing ? 'bg-blue-50 text-blue-600 border-blue-200' : 'bg-white hover:bg-gray-50 text-gray-700 border-gray-200'}`}
-                        >
-                            {isEditing ? 'Düzenlemeyi Kapat' : 'Kayıt Düzenle'}
-                        </button>
-                        
-                        {(repair.status === "Apple'a Gönderildi" || repair.status === "İade Bekleniyor" || repair.status === "Müşteri Onayı Bekliyor" || repair.status === "Cihaz Hazır" || repair.status === "İade Hazır") && (
-                            <button
-                                onClick={handleReceiveFromARC}
-                                className="px-5 py-2 bg-gray-900 hover:bg-black text-white rounded-md text-xs font-bold transition-colors shadow-sm flex items-center gap-2"
-                            >
-                                <CheckCircle size={14} />
-                                Mağazaya Al
+                                <DollarSign size={15} aria-hidden="true" /> Teklif Geldi
                             </button>
                         )}
                     </div>
-                </div>
+
+                    <div className="flex flex-wrap gap-2">
+                        <button
+                            type="button"
+                            onClick={handleSaveDraft}
+                            disabled={saving}
+                            className={`${ghostButton} bg-white text-[#1d1d1f] border border-gray-200 hover:bg-[#f5f5f7] disabled:opacity-50`}
+                        >
+                            <Save size={15} aria-hidden="true" /> Taslak Kaydet
+                        </button>
+                        {canReceive && (
+                            <button
+                                type="button"
+                                onClick={handleReceiveFromARC}
+                                disabled={saving}
+                                className={`${ghostButton} bg-[#0071e3] text-white hover:bg-[#0077ed] disabled:opacity-50`}
+                            >
+                                <CheckCircle size={15} aria-hidden="true" />
+                                {saving ? 'Kaydediliyor…' : 'Sonucu Kaydet ve Teslim Al'}
+                            </button>
+                        )}
+                    </div>
+                </footer>
             </div>
 
-            {/* Notification Modal */}
             {showNotificationModal && (
                 <CustomerNotificationModal
                     repair={repair}

@@ -15,6 +15,7 @@ import RepairDiagnosisPanel from './RepairDiagnosisPanel';
 import { hasPermission } from '../utils/permissions';
 import DeviceImage from './DeviceImage';
 import { getSafeRepairImageUrl } from '../utils/productImages';
+import { getArcOutcome, summarizeArcOutcome } from '../utils/arcOutcome';
 import Collapse from './ui/Collapse';
 import useAnimatedClose from './ui/useAnimatedClose';
 
@@ -363,8 +364,31 @@ const RepairHistoryModal = ({ repair: initialRepair, onClose, onSaveDiagnosis })
             });
         }
 
+        // Onarım merkezi sonucu ayrı bir akış girdisi olarak görünür
+        if (repair.arcOutcome?.code) {
+            const arc = repair.arcOutcome;
+            const lines = [summarizeArcOutcome(arc)];
+            if (arc.newSerial) {
+                lines.push(`>> Cihaz kimliği: ${arc.previousSerial || '—'} → ${arc.newSerial}`);
+            }
+            if (arc.replacedParts?.length) {
+                lines.push(`>> Değişen parçalar: ${arc.replacedParts.map(p => p.description).filter(Boolean).join(', ')}`);
+            }
+            if (arc.report) lines.push(arc.report);
+
+            stream.push({
+                status: 'Onarım Merkezi Sonucu',
+                text: lines.filter(Boolean).join('\n'),
+                date: arc.recordedAt
+                    ? new Date(arc.recordedAt).toLocaleString('tr-TR')
+                    : (repair.history?.find(h => h.status?.includes('Hazır'))?.date || defaultDate),
+                streamType: 'report',
+                user: arc.recordedBy || 'Onarım Merkezi'
+            });
+        }
+
         return stream.sort((a, b) => parseDate(a.date) - parseDate(b.date));
-    }, [repair.history, repair.internalNotes, repair.technicianNote, repair.tests, repair.diagnosisNotes, repair.repairClosingNote, repair.quoteAmount, repair.parts]);
+    }, [repair.history, repair.internalNotes, repair.technicianNote, repair.tests, repair.diagnosisNotes, repair.repairClosingNote, repair.quoteAmount, repair.parts, repair.arcOutcome]);
 
     // Helpers
     const getStatusIcon = (status) => {
@@ -661,6 +685,97 @@ const RepairHistoryModal = ({ repair: initialRepair, onClose, onSaveDiagnosis })
                                     </div>
                                 )}
                             </div>
+
+                            {/* ONARIM MERKEZİ SONUCU (Bütün Birim Posta) */}
+                            {repair.arcOutcome?.code && (() => {
+                                const arc = repair.arcOutcome;
+                                const meta = getArcOutcome(arc.code);
+                                const identityChanged = Boolean(arc.newSerial);
+                                return (
+                                    <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm">
+                                        <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2 mb-6">
+                                            <Truck size={16} className="text-[#0071e3]" /> Onarım Merkezi Sonucu
+                                        </h4>
+
+                                        <div className="rounded-xl border border-[#0071e3]/20 bg-[#0071e3]/5 p-5">
+                                            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Merkezde Yapılan İşlem</p>
+                                            <p className="text-[15px] font-semibold text-[#1d1d1f] mt-1">{arc.label || meta?.label || arc.code}</p>
+                                            <p className="text-[11px] font-medium text-gray-500 mt-2">
+                                                {arc.recordedBy ? `${arc.recordedBy} tarafından kaydedildi` : 'Kaydedildi'}
+                                                {arc.recordedAt && ` · ${new Date(arc.recordedAt).toLocaleString('tr-TR')}`}
+                                                {arc.status === 'draft' && ' · Taslak'}
+                                            </p>
+                                        </div>
+
+                                        {identityChanged && (
+                                            <div className="mt-4 rounded-xl border border-gray-100 bg-[#f5f5f7] p-5">
+                                                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-3">
+                                                    Cihaz Kimliği Değişikliği
+                                                </p>
+                                                <div className="overflow-x-auto custom-scrollbar">
+                                                    <table className="w-full text-left border-collapse min-w-[420px]">
+                                                        <thead>
+                                                            <tr className="text-[9px] font-bold uppercase tracking-wider text-gray-400">
+                                                                <th className="py-2 pr-4">Alan</th>
+                                                                <th className="py-2 pr-4">Kabulde Alınan</th>
+                                                                <th className="py-2">Teslim Edilen</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody className="divide-y divide-gray-200">
+                                                            {[
+                                                                { label: 'Seri No', before: arc.previousSerial, after: arc.newSerial },
+                                                                { label: 'IMEI 1', before: arc.previousImei1, after: arc.newImei1 },
+                                                                { label: 'IMEI 2', before: arc.previousImei2, after: arc.newImei2 },
+                                                            ].filter(row => row.before || row.after).map(row => (
+                                                                <tr key={row.label}>
+                                                                    <td className="py-2 pr-4 text-[11px] font-bold text-gray-500 uppercase">{row.label}</td>
+                                                                    <td className="py-2 pr-4 text-[12px] font-mono text-gray-500 line-through">{row.before || '—'}</td>
+                                                                    <td className="py-2 text-[12px] font-mono font-bold text-[#1d1d1f]">{row.after || '—'}</td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {arc.replacedParts?.length > 0 && (
+                                            <div className="mt-4 rounded-xl border border-gray-100 bg-[#f5f5f7] p-5">
+                                                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-3">
+                                                    Merkezde Değişen Parçalar ({arc.replacedParts.length})
+                                                </p>
+                                                <ul className="space-y-2">
+                                                    {arc.replacedParts.map((p, i) => (
+                                                        <li key={i} className="bg-white rounded-lg border border-gray-200 px-4 py-3">
+                                                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                                                <span className="text-[13px] font-semibold text-[#1d1d1f]">{p.description || '—'}</span>
+                                                                {p.partNumber && (
+                                                                    <span className="text-[10px] font-mono font-bold text-gray-600 bg-[#f5f5f7] border border-gray-200 px-2 py-0.5 rounded uppercase">
+                                                                        {p.partNumber}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            {(p.kbbSerial || p.kgbSerial) && (
+                                                                <div className="flex flex-wrap gap-4 mt-2 text-[11px] font-mono text-gray-500">
+                                                                    {p.kbbSerial && <span>Sökülen: <span className="uppercase">{p.kbbSerial}</span></span>}
+                                                                    {p.kgbSerial && <span>Takılan: <span className="uppercase">{p.kgbSerial}</span></span>}
+                                                                </div>
+                                                            )}
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
+
+                                        {arc.report && (
+                                            <div className="mt-4 rounded-xl border border-gray-100 bg-[#f5f5f7] p-5 border-l-[3px] border-l-[#0071e3]">
+                                                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-2">Servis Sonuç Raporu</p>
+                                                <p className="text-sm text-gray-700 font-medium leading-relaxed whitespace-pre-wrap">{arc.report}</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })()}
 
                             {/* TEKNİK RAPORLAR (Tanı / Teklif / Onarım Sonucu) */}
                             {(repair.technicianNote || repair.tests || repair.diagnosisNotes || repair.quoteAmount || (Array.isArray(repair.quotationDetails) && repair.quotationDetails.length > 0) || repair.repairClosingNote) && (

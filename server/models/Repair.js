@@ -47,6 +47,30 @@ const repairSchema = new mongoose.Schema({
         price: Number,
         status: { type: String, default: 'Pending' } // Pending, Ordered, Received, Installed
     }],
+    // Bütün Birim Posta: Onarım Merkezi'nden (ARC) dönen sonucun kaydı.
+    // Kod, ek alanları belirler; rapor her sonuçta zorunludur.
+    arcOutcome: {
+        code: String,   // unit-replaced | board-system-replaced | repaired | ntf | abuse | ber
+        label: String,
+        newSerial: String,
+        newImei1: String,
+        newImei2: String,
+        previousSerial: String,
+        previousImei1: String,
+        previousImei2: String,
+        replacedParts: [{
+            partNumber: String,
+            description: String,
+            kbbSerial: String,
+            kgbSerial: String
+        }],
+        report: String,
+        recordedAt: String,
+        recordedBy: String,
+        status: String  // draft | final
+    },
+    shipmentCode: { type: String },
+    appleRepairId: { type: String },
     beforeImages: [String],
     afterImages: [String],
     mediaFiles: [{
