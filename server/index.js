@@ -24,7 +24,7 @@ const app = express();
 const PORT = process.env.PORT || 5001;
 
 // --- database connection ---
-// CRM verisi merkez PostgreSQL sunucusunda (şema: DATABASE_SCHEMA, varsayılan mobile_asp)
+// CRM verisi merkez PostgreSQL sunucusunda (şema: DATABASE_SCHEMA, varsayılan osservicesdb)
 const DATABASE_URL = process.env.DATABASE_URL;
 if (!DATABASE_URL) {
     console.error('CRITICAL ERROR: DATABASE_URL is not defined in .env file!');
@@ -33,7 +33,7 @@ if (!DATABASE_URL) {
 
 connectDb(DATABASE_URL)
     .then(async () => {
-        console.log(`SUCCESS: Connected to PostgreSQL (schema: ${process.env.DATABASE_SCHEMA || 'mobile_asp'})`);
+        console.log(`SUCCESS: Connected to PostgreSQL (schema: ${process.env.DATABASE_SCHEMA || 'osservicesdb'})`);
         await seedData();
     })
     .catch(err => {

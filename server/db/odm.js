@@ -17,7 +17,7 @@ import pg from 'pg';
 const { Pool } = pg;
 
 let pool = null;
-let SCHEMA = 'mobile_asp';
+let SCHEMA = 'osservicesdb';
 const registry = new Map(); // modelAdı -> Model
 
 // ---------------------------------------------------------------- ObjectId
@@ -1010,7 +1010,7 @@ const buildPoolConfig = (url) => {
 
 export const connect = async (url, { schema } = {}) => {
     if (!url) throw new Error('DATABASE_URL tanımlı değil.');
-    const name = schema || process.env.DATABASE_SCHEMA || 'mobile_asp';
+    const name = schema || process.env.DATABASE_SCHEMA || 'osservicesdb';
     if (!/^[a-z_][a-z0-9_]*$/.test(name)) throw new Error(`Geçersiz şema adı: ${name}`);
     SCHEMA = name;
     if (pool) await pool.end().catch(() => {});
