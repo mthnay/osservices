@@ -36,7 +36,7 @@ if ! command -v node &> /dev/null; then
     exit 1
 fi
 
-echo -e "${GREEN}✅ Sistem MongoDB Atlas (Bulut) modunda hazırlanıyor...${NC}"
+echo -e "${GREEN}✅ Sistem merkez PostgreSQL veritabanına bağlanacak şekilde hazırlanıyor...${NC}"
 
 # Bağımlılık kontrolü
 if [ ! -d "node_modules" ]; then

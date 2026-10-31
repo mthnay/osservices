@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+import mongoose from './db/odm.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -21,13 +21,13 @@ const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.join(__dirname, '.env') });
 
 const DATA_DIR = path.join(process.cwd(), 'local-data');
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/mobile-asp';
+const DATABASE_URL = process.env.DATABASE_URL;
 
 async function migrate() {
     console.log('--- Database Migration Started ---');
     
     try {
-        await mongoose.connect(MONGODB_URI);
+        await mongoose.connect(DATABASE_URL);
         console.log('Connected to MongoDB');
 
         const modelsMap = {

@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+import mongoose from './db/odm.js';
 import dotenv from 'dotenv';
 import Repair from './models/Repair.js';
 import Inventory from './models/Inventory.js';
@@ -8,12 +8,12 @@ import Media from './models/Media.js';
 
 dotenv.config();
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/mobile-asp';
+const DATABASE_URL = process.env.DATABASE_URL;
 
 const cleanup = async () => {
     try {
         console.log('Connecting to MongoDB for cleanup...');
-        await mongoose.connect(MONGODB_URI);
+        await mongoose.connect(DATABASE_URL);
         console.log('Connected.');
 
         console.log('Cleaning up data...');

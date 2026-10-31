@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+import mongoose from '../db/odm.js';
 
 const roleSchema = new mongoose.Schema({
     name: { type: String, required: true, unique: true },

@@ -1,14 +1,14 @@
-import mongoose from 'mongoose';
+import mongoose from './db/odm.js';
 import dotenv from 'dotenv';
 import Technician from './models/Technician.js';
 
 dotenv.config();
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/mobile-asp';
+const DATABASE_URL = process.env.DATABASE_URL;
 
 const deleteTechnicians = async () => {
     try {
-        await mongoose.connect(MONGODB_URI);
+        await mongoose.connect(DATABASE_URL);
         const result = await Technician.deleteMany({});
         console.log(`- Technicians deleted: ${result.deletedCount}`);
         process.exit(0);

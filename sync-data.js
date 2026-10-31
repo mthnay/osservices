@@ -1,14 +1,14 @@
 
-import mongoose from 'mongoose';
+import mongoose from './server/db/odm.js';
 import dotenv from 'dotenv';
 import ServicePoint from './server/models/ServicePoint.js';
 import User from './server/models/User.js';
 
-dotenv.config();
+dotenv.config({ path: './server/.env' });
 
 async function sync() {
     try {
-        const uri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/mobile-asp';
+        const uri = process.env.DATABASE_URL;
         console.log('Connecting to:', uri);
         await mongoose.connect(uri);
 

@@ -18,33 +18,33 @@ import helmet from 'helmet';
 
 import mongoSanitize from 'express-mongo-sanitize';
 
-import mongoose from 'mongoose';
+import { connect as connectDb } from './db/odm.js';
 
 const app = express();
 const PORT = process.env.PORT || 5001;
 
 // --- database connection ---
-const MONGODB_URI = process.env.MONGODB_URI;
-if (!MONGODB_URI) {
-    console.error('CRITICAL ERROR: MONGODB_URI is not defined in .env file!');
+// CRM verisi merkez PostgreSQL sunucusunda (şema: DATABASE_SCHEMA, varsayılan mobile_asp)
+const DATABASE_URL = process.env.DATABASE_URL;
+if (!DATABASE_URL) {
+    console.error('CRITICAL ERROR: DATABASE_URL is not defined in .env file!');
     process.exit(1);
 }
 
-mongoose.connect(MONGODB_URI)
+connectDb(DATABASE_URL)
     .then(async () => {
-        console.log('SUCCESS: Connected to MongoDB Atlas');
-        try { mongoose.connection.db.collection('inventories').dropIndex('id_1').catch(()=>null); } catch (e) {}
+        console.log(`SUCCESS: Connected to PostgreSQL (schema: ${process.env.DATABASE_SCHEMA || 'mobile_asp'})`);
         await seedData();
     })
     .catch(err => {
-        console.error('CRITICAL: MongoDB connection error:', err);
+        console.error('CRITICAL: PostgreSQL connection error:', err);
         console.error('ERROR CODE:', err.code);
         console.error('ERROR MESSAGE:', err.message);
-        
-        if (err.message.includes('ETIMEDOUT') || err.message.includes('ECONNREFUSED')) {
-            console.log('TIP: This might be an IP Whitelist issue. Ensure 0.0.0.0/0 is allowed in MongoDB Atlas Network Access.');
+
+        if (['ETIMEDOUT', 'ECONNREFUSED', 'EHOSTUNREACH'].some(code => err.message.includes(code) || err.code === code)) {
+            console.log('TIP: Sunucuya ulaşılamıyor. Sunucu güvenlik duvarında 5432 portunun bu uygulamanın çıkış IP\'lerine açık olduğundan emin olun.');
         }
-        
+
         console.log('WARNING: System is starting without database connection. Some features may not work.');
     });
 
