@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import mongoose from 'mongoose';
+import mongoose from '../db/odm.js';
 import User from '../models/User.js';
 import Role from '../models/Role.js';
 

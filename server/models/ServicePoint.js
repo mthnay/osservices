@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+import mongoose from '../db/odm.js';
 
 const servicePointSchema = new mongoose.Schema({
     id: { type: Number, unique: true },

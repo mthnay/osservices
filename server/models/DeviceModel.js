@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+import mongoose from '../db/odm.js';
 
 const deviceModelSchema = new mongoose.Schema({
     name: { type: String, required: true },

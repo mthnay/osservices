@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+import mongoose from '../db/odm.js';
 
 const notificationSchema = new mongoose.Schema({
     repairId: { type: String, required: true },

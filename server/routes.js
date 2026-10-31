@@ -1,5 +1,5 @@
 import express from 'express';
-import mongoose from 'mongoose';
+import mongoose from './db/odm.js';
 
 import Repair from './models/Repair.js';
 import User from './models/User.js';

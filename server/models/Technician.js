@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+import mongoose from '../db/odm.js';
 
 const technicianSchema = new mongoose.Schema({
     id: { type: String, unique: true },

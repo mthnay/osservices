@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+import mongoose from '../db/odm.js';
 
 const systemSettingSchema = new mongoose.Schema({
     key: { type: String, unique: true, required: true },
